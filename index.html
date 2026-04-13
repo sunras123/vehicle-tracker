@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asanga Mobility — Dealership Management System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; }
@@ -228,6 +229,13 @@
   </div>
   <img src="byd-logo.jpg" alt="BYD Logo" style="height:80px;width:auto;object-fit:contain;">
 </header>
+
+<!-- LOADING OVERLAY -->
+<div id="app-loader" style="position:fixed;inset:0;background:rgba(26,26,46,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:white;">
+  <div style="font-size:3rem;margin-bottom:16px;animation:spin 1s linear infinite">&#9696;</div>
+  <div style="font-size:1.1rem;font-weight:600;letter-spacing:1px;">Loading data…</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
 <nav class="tabs">
   <button class="tab-btn active" onclick="showTab('summary')"><span class="icon">&#128200;</span> Summary</button>
@@ -974,19 +982,155 @@
 
 <script>
 // ============================================================
-// DATA STORE
+// SUPABASE
 // ============================================================
-const DB = {
-  load(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } },
-  save(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
-};
+const SUPABASE_URL = 'https://gyvearthdjxqioyeifsv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5dmVhcnRoZGp4cWlveWVpZnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMzgxMjMsImV4cCI6MjA5MTYxNDEyM30.InKn3An6rOqWxE1cZ6t20vJ2GdCh8JKMOwhd1m7wRaA';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ---- Field converters (camelCase JS <-> snake_case DB) ----
+function purchaseToDB(p) {
+  const r = {...p}; r.total_cost = p.totalCost; delete r.totalCost; return r;
+}
+function purchaseFromDB(r) {
+  const p = {...r}; p.totalCost = r.total_cost; delete p.total_cost; return p;
+}
+function saleToDB(s) {
+  const r = {...s};
+  r.vehicle_id = s.vehicleId;     delete r.vehicleId;
+  r.sale_price = s.salePrice;     delete r.salePrice;
+  r.net_price  = s.netPrice;      delete r.netPrice;
+  r.amount_paid = s.amountPaid;   delete r.amountPaid;
+  r.pending_amount = s.pendingAmount; delete r.pendingAmount;
+  r.ca_number  = s.caNumber;      delete r.caNumber;
+  r.ca_date    = s.caDate;        delete r.caDate;
+  return r;
+}
+function saleFromDB(r) {
+  const s = {...r};
+  s.vehicleId      = r.vehicle_id;      delete s.vehicle_id;
+  s.salePrice      = r.sale_price;      delete s.sale_price;
+  s.netPrice       = r.net_price;       delete s.net_price;
+  s.amountPaid     = r.amount_paid;     delete s.amount_paid;
+  s.pendingAmount  = r.pending_amount;  delete s.pending_amount;
+  s.caNumber       = r.ca_number;       delete s.ca_number;
+  s.caDate         = r.ca_date;         delete s.ca_date;
+  return s;
+}
+function bookingToDB(b) {
+  const r = {...b};
+  r.vehicle_id  = b.vehicleId;    delete r.vehicleId;
+  r.agreed_price = b.agreedPrice; delete r.agreedPrice;
+  r.sale_price  = b.salePrice;    delete r.salePrice;
+  return r;
+}
+function bookingFromDB(r) {
+  const b = {...r};
+  b.vehicleId   = r.vehicle_id;   delete b.vehicle_id;
+  b.agreedPrice = r.agreed_price; delete b.agreed_price;
+  b.salePrice   = r.sale_price;   delete b.sale_price;
+  return b;
+}
+
+// ---- Loader overlay ----
+function showLoader(show) {
+  const el = document.getElementById('app-loader');
+  if (el) el.style.display = show ? 'flex' : 'none';
+}
+
+// ---- Load all data from Supabase ----
+async function loadAll() {
+  showLoader(true);
+  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }] =
+    await Promise.all([
+      sb.from('purchases').select('*'),
+      sb.from('sales').select('*'),
+      sb.from('bookings').select('*'),
+      sb.from('cat_models').select('*'),
+      sb.from('cat_colours').select('*')
+    ]);
+
+  // First-run migration: if Supabase is empty, seed from localStorage
+  if (!pur || pur.length === 0) {
+    const lsPur = JSON.parse(localStorage.getItem('vt_purchases') || '[]');
+    const lsSal = JSON.parse(localStorage.getItem('vt_sales') || '[]');
+    const lsBok = JSON.parse(localStorage.getItem('vt_bookings') || '[]');
+    const lsMod = JSON.parse(localStorage.getItem('vt_cat_models') || '[]');
+    const lsCol = JSON.parse(localStorage.getItem('vt_cat_colours') || '[]');
+    if (lsPur.length || lsMod.length) {
+      await Promise.all([
+        lsPur.length ? sb.from('purchases').upsert(lsPur.map(purchaseToDB), {onConflict:'id'}) : Promise.resolve(),
+        lsSal.length ? sb.from('sales').upsert(lsSal.map(saleToDB), {onConflict:'id'}) : Promise.resolve(),
+        lsBok.length ? sb.from('bookings').upsert(lsBok.map(bookingToDB), {onConflict:'id'}) : Promise.resolve(),
+        lsMod.length ? sb.from('cat_models').upsert(lsMod, {onConflict:'id'}) : Promise.resolve(),
+        lsCol.length ? sb.from('cat_colours').upsert(lsCol, {onConflict:'id'}) : Promise.resolve(),
+      ]);
+      const [{ data: pur2 }, { data: sal2 }, { data: bok2 }, { data: mod2 }, { data: col2 }] =
+        await Promise.all([
+          sb.from('purchases').select('*'), sb.from('sales').select('*'),
+          sb.from('bookings').select('*'), sb.from('cat_models').select('*'),
+          sb.from('cat_colours').select('*')
+        ]);
+      purchases = (pur2||[]).map(purchaseFromDB); sales = (sal2||[]).map(saleFromDB);
+      bookings  = (bok2||[]).map(bookingFromDB);  catModels = mod2||[]; catColours = col2||[];
+      showLoader(false); refreshAll();
+      showToast('Local data migrated to Supabase ✓', 'success');
+      return;
+    }
+  }
+
+  purchases = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
+  bookings  = (bok||[]).map(bookingFromDB);  catModels = mod||[]; catColours = col||[];
+  showLoader(false);
+  refreshAll();
+}
+
+// ---- Save (upsert) to Supabase — fire and forget ----
+function save() {
+  if (purchases.length)  sb.from('purchases').upsert(purchases.map(purchaseToDB), {onConflict:'id'});
+  if (sales.length)      sb.from('sales').upsert(sales.map(saleToDB), {onConflict:'id'});
+  if (bookings.length)   sb.from('bookings').upsert(bookings.map(bookingToDB), {onConflict:'id'});
+  if (catModels.length)  sb.from('cat_models').upsert(catModels, {onConflict:'id'});
+  if (catColours.length) sb.from('cat_colours').upsert(catColours, {onConflict:'id'});
+}
+
+// ---- Delete helper ----
+function sbDelete(table, id) { sb.from(table).delete().eq('id', id); }
+
+// ---- Real-time subscriptions ----
+function setupRealtime() {
+  sb.channel('db-changes')
+    .on('postgres_changes', {event:'*', schema:'public', table:'purchases'}, async () => {
+      const { data } = await sb.from('purchases').select('*');
+      purchases = (data||[]).map(purchaseFromDB);
+      renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderSummary(); renderFinancials();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'sales'}, async () => {
+      const { data } = await sb.from('sales').select('*');
+      sales = (data||[]).map(saleFromDB);
+      renderSalesTable(); renderSummary(); renderFinancials();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'bookings'}, async () => {
+      const { data } = await sb.from('bookings').select('*');
+      bookings = (data||[]).map(bookingFromDB);
+      renderBookingsTable(); renderSummary(); renderFinancials();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'cat_models'}, async () => {
+      const { data } = await sb.from('cat_models').select('*');
+      catModels = data||[]; renderCatalogue(); updateVehicleSelects();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'cat_colours'}, async () => {
+      const { data } = await sb.from('cat_colours').select('*');
+      catColours = data||[]; renderCatalogue();
+    })
+    .subscribe();
+}
 
 // ============================================================
-// SEED DATA FROM PO1.xlsx (runs once if no data exists)
+// LEGACY SEED (runs once if no data exists — kept for reference)
 // ============================================================
 (function seedPO1() {
-  if (localStorage.getItem('vt_seed_version') === 'PO1') return; // already seeded
-  localStorage.setItem('vt_seed_version', 'PO1');
+  if (localStorage.getItem('vt_seed_version') === 'PO1') return;
   const catModels = [{"id":"seed1000","name":"Sealion 6","variant":""},{"id":"seed1001","name":"Denza D9","variant":"2WD"},{"id":"seed1002","name":"Atto 3","variant":"Extended"},{"id":"seed1003","name":"Atto 3","variant":"Standard"},{"id":"seed1004","name":"M6","variant":"Extended"},{"id":"seed1005","name":"Seal","variant":"2WD"},{"id":"seed1006","name":"Seal","variant":"AWD"},{"id":"seed1007","name":"M6","variant":"Standard"},{"id":"seed1008","name":"Dolphin","variant":""}];
   const catColours = [{"id":"seed2000","name":"Arctic White","hex":"#f0f0f0"},{"id":"seed2001","name":"Cosmos Black","hex":"#1a1a1a"},{"id":"seed2002","name":"Stone Grey","hex":"#8e8e8e"},{"id":"seed2003","name":"Surf Blue","hex":"#4a90d9"},{"id":"seed2004","name":"Boulder Grey","hex":"#6e6e6e"},{"id":"seed2005","name":"Skiing White","hex":"#ffffff"},{"id":"seed2006","name":"Crystal White","hex":"#f8f8ff"},{"id":"seed2007","name":"Delan Black","hex":"#222222"},{"id":"seed2008","name":"Atlantis Grey","hex":"#9eaab5"},{"id":"seed2009","name":"Quartz Blue","hex":"#6baed6"},{"id":"seed2010","name":"Whale Sea Blue","hex":"#2c6fad"},{"id":"seed2011","name":"Coral Pink","hex":"#f4a0a0"}];
   const purchases = [{"id":"seed0000","date":"2025-01-01","make":"BYD","model":"Sealion 6","variant":"","year":"2025","colour":"Arctic White","cost":2377505.7,"addcost":0,"totalCost":2377505.7,"pi":"PO1","notes":"","status":"available"},{"id":"seed0001","date":"2025-01-01","make":"BYD","model":"Denza D9","variant":"2WD","year":"2025","colour":"Cosmos Black","cost":5414604.98,"addcost":0,"totalCost":5414604.98,"pi":"PO1","notes":"","status":"available"},{"id":"seed0002","date":"2025-01-01","make":"BYD","model":"Sealion 6","variant":"","year":"2025","colour":"Stone Grey","cost":3001941.58,"addcost":0,"totalCost":3001941.58,"pi":"PO1","notes":"","status":"available"},{"id":"seed0003","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Surf Blue","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0004","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2298501.45,"addcost":0,"totalCost":2298501.45,"pi":"PO1","notes":"","status":"available"},{"id":"seed0005","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0006","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Skiing White","cost":2143535.4,"addcost":0,"totalCost":2143535.4,"pi":"PO1","notes":"","status":"available"},{"id":"seed0007","date":"2025-01-01","make":"BYD","model":"M6","variant":"Extended","year":"2025","colour":"Crystal White","cost":2481241.5,"addcost":0,"totalCost":2481241.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0008","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Skiing White","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0009","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Surf Blue","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0010","date":"2025-01-01","make":"BYD","model":"Sealion 6","variant":"","year":"2025","colour":"Delan Black","cost":3001050.0,"addcost":0,"totalCost":3001050.0,"pi":"PO1","notes":"","status":"available"},{"id":"seed0011","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Boulder Grey","cost":2143535.4,"addcost":0,"totalCost":2143535.4,"pi":"PO1","notes":"","status":"available"},{"id":"seed0012","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Skiing White","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0013","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Skiing White","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0014","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Skiing White","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0015","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Cosmos Black","cost":2143535.4,"addcost":0,"totalCost":2143535.4,"pi":"PO1","notes":"","status":"available"},{"id":"seed0016","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Cosmos Black","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0017","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Skiing White","cost":2143535.4,"addcost":0,"totalCost":2143535.4,"pi":"PO1","notes":"","status":"available"},{"id":"seed0018","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Skiing White","cost":2143535.4,"addcost":0,"totalCost":2143535.4,"pi":"PO1","notes":"","status":"available"},{"id":"seed0019","date":"2025-01-01","make":"BYD","model":"Seal","variant":"2WD","year":"2025","colour":"Atlantis Grey","cost":2817038.25,"addcost":0,"totalCost":2817038.25,"pi":"PO1","notes":"","status":"available"},{"id":"seed0020","date":"2025-01-01","make":"BYD","model":"Seal","variant":"AWD","year":"2025","colour":"Atlantis Grey","cost":3273876.0,"addcost":0,"totalCost":3273876.0,"pi":"PO1","notes":"","status":"available"},{"id":"seed0021","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0022","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Boulder Grey","cost":2143535.4,"addcost":0,"totalCost":2143535.4,"pi":"PO1","notes":"","status":"available"},{"id":"seed0023","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Skiing White","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0024","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Cosmos Black","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0025","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Skiing White","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0026","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0027","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0028","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Cosmos Black","cost":1842099.41,"addcost":0,"totalCost":1842099.41,"pi":"PO1","notes":"","status":"available"},{"id":"seed0029","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2340588.6,"addcost":0,"totalCost":2340588.6,"pi":"PO1","notes":"","status":"available"},{"id":"seed0030","date":"2025-01-01","make":"BYD","model":"Seal","variant":"AWD","year":"2025","colour":"Atlantis Grey","cost":3273876.0,"addcost":0,"totalCost":3273876.0,"pi":"PO1","notes":"","status":"available"},{"id":"seed0031","date":"2025-01-01","make":"BYD","model":"M6","variant":"Extended","year":"2025","colour":"Quartz Blue","cost":2525858.1,"addcost":0,"totalCost":2525858.1,"pi":"PO1","notes":"","status":"available"},{"id":"seed0032","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Boulder Grey","cost":2382675.75,"addcost":0,"totalCost":2382675.75,"pi":"PO1","notes":"","status":"available"},{"id":"seed0033","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Extended","year":"2025","colour":"Surf Blue","cost":2382675.75,"addcost":0,"totalCost":2382675.75,"pi":"PO1","notes":"","status":"available"},{"id":"seed0034","date":"2025-01-01","make":"BYD","model":"M6","variant":"Standard","year":"2025","colour":"Crystal White","cost":2239415.1,"addcost":0,"totalCost":2239415.1,"pi":"PO1","notes":"","status":"available"},{"id":"seed0035","date":"2025-01-01","make":"BYD","model":"M6","variant":"Extended","year":"2025","colour":"Crystal White","cost":2525857.43,"addcost":0,"totalCost":2525857.43,"pi":"PO1","notes":"","status":"available"},{"id":"seed0036","date":"2025-01-01","make":"BYD","model":"Atto 3","variant":"Standard","year":"2025","colour":"Cosmos Black","cost":2182079.25,"addcost":0,"totalCost":2182079.25,"pi":"PO1","notes":"","status":"available"},{"id":"seed0037","date":"2025-01-01","make":"BYD","model":"Denza D9","variant":"2WD","year":"2025","colour":"Whale Sea Blue","cost":5414604.98,"addcost":0,"totalCost":5414604.98,"pi":"PO1","notes":"","status":"available"},{"id":"seed0038","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Atlantis Grey","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0039","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Atlantis Grey","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0040","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Atlantis Grey","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0041","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Atlantis Grey","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0042","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Coral Pink","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0043","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Skiing White","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"},{"id":"seed0044","date":"2025-01-01","make":"BYD","model":"Dolphin","variant":"","year":"2025","colour":"Skiing White","cost":1862230.5,"addcost":0,"totalCost":1862230.5,"pi":"PO1","notes":"","status":"available"}];
@@ -997,19 +1141,11 @@ const DB = {
   localStorage.setItem('vt_bookings', '[]');
 })();
 
-let purchases = DB.load('vt_purchases');
-let sales     = DB.load('vt_sales');
-let bookings  = DB.load('vt_bookings');
-let catModels  = DB.load('vt_cat_models');   // [{id, name, variant}]
-let catColours = DB.load('vt_cat_colours');  // [{id, name, hex}]
-
-function save() {
-  DB.save('vt_purchases',   purchases);
-  DB.save('vt_sales',       sales);
-  DB.save('vt_bookings',    bookings);
-  DB.save('vt_cat_models',  catModels);
-  DB.save('vt_cat_colours', catColours);
-}
+let purchases  = [];
+let sales      = [];
+let bookings   = [];
+let catModels  = [];
+let catColours = [];
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
@@ -1108,6 +1244,7 @@ function deleteCatModel(id) {
     showToast('Cannot delete — model is used in purchase records.', 'error'); return;
   }
   if (!confirm(`Delete model "${m.name}"?`)) return;
+  sbDelete('cat_models', id);
   catModels = catModels.filter(x => x.id !== id);
   save();
   showToast('Model deleted.');
@@ -1140,6 +1277,7 @@ function deleteCatColour(id) {
     showToast('Cannot delete — colour is used in purchase records.', 'error'); return;
   }
   if (!confirm(`Delete colour "${c.name}"?`)) return;
+  sbDelete('cat_colours', id);
   catColours = catColours.filter(x => x.id !== id);
   save();
   showToast('Colour deleted.');
@@ -1306,6 +1444,7 @@ function deletePurchase(id) {
   const p = getPurchase(id);
   if (p && p.status !== 'available') { showToast('Cannot delete a booked or sold vehicle.', 'error'); return; }
   if (!confirm('Delete this purchase record?')) return;
+  sbDelete('purchases', id);
   purchases = purchases.filter(p => p.id !== id);
   save();
   showToast('Purchase deleted.');
@@ -1390,6 +1529,7 @@ function addSale() {
   const amountPaid  = parseNum('s_amountpaid');
   const pendingAmt  = Math.max(0, netPrice - amountPaid);
 
+  bookings.filter(b => b.vehicleId === vehicleId).forEach(b => sbDelete('bookings', b.id));
   bookings = bookings.filter(b => b.vehicleId !== vehicleId);
   veh.status = 'sold';
   const payment = document.getElementById('s_payment').value;
@@ -1432,6 +1572,7 @@ function deleteSale(id) {
   if (s) {
     const veh = getPurchase(s.vehicleId);
     if (veh) veh.status = 'available';
+    sbDelete('sales', id);
     sales = sales.filter(x => x.id !== id);
     save();
     showToast('Sale deleted. Vehicle returned to stock.');
@@ -1556,6 +1697,7 @@ function cancelBooking(id) {
   if (b) {
     const veh = getPurchase(b.vehicleId);
     if (veh && veh.status === 'booked') veh.status = 'available';
+    sbDelete('bookings', id);
     bookings = bookings.filter(x => x.id !== id);
     save();
     showToast('Booking cancelled.');
@@ -2000,7 +2142,8 @@ document.getElementById('headerDate').textContent =
   if (el) el.value = today();
 });
 
-refreshAll();
+loadAll();
+setupRealtime();
 
 // ============================================================
 // MODAL HELPERS
