@@ -1099,31 +1099,48 @@ function sbDelete(table, id) { sb.from(table).delete().eq('id', id); }
 
 // ---- Real-time subscriptions ----
 function setupRealtime() {
-  sb.channel('db-changes')
+  const onStatus = (label) => (status, err) => {
+    if (status === 'SUBSCRIBED') console.log(`[realtime] ${label} subscribed`);
+    if (err) console.error(`[realtime] ${label} error`, err);
+  };
+
+  sb.channel('rt-purchases')
     .on('postgres_changes', {event:'*', schema:'public', table:'purchases'}, async () => {
       const { data } = await sb.from('purchases').select('*');
       purchases = (data||[]).map(purchaseFromDB);
       renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderSummary(); renderFinancials();
     })
+    .subscribe(onStatus('purchases'));
+
+  sb.channel('rt-sales')
     .on('postgres_changes', {event:'*', schema:'public', table:'sales'}, async () => {
       const { data } = await sb.from('sales').select('*');
       sales = (data||[]).map(saleFromDB);
       renderSalesTable(); renderSummary(); renderFinancials();
     })
+    .subscribe(onStatus('sales'));
+
+  sb.channel('rt-bookings')
     .on('postgres_changes', {event:'*', schema:'public', table:'bookings'}, async () => {
       const { data } = await sb.from('bookings').select('*');
       bookings = (data||[]).map(bookingFromDB);
       renderBookingsTable(); renderSummary(); renderFinancials();
     })
+    .subscribe(onStatus('bookings'));
+
+  sb.channel('rt-cat-models')
     .on('postgres_changes', {event:'*', schema:'public', table:'cat_models'}, async () => {
       const { data } = await sb.from('cat_models').select('*');
       catModels = data||[]; renderCatalogue(); updateVehicleSelects();
     })
+    .subscribe(onStatus('cat_models'));
+
+  sb.channel('rt-cat-colours')
     .on('postgres_changes', {event:'*', schema:'public', table:'cat_colours'}, async () => {
       const { data } = await sb.from('cat_colours').select('*');
       catColours = data||[]; renderCatalogue();
     })
-    .subscribe();
+    .subscribe(onStatus('cat_colours'));
 }
 
 // ============================================================
