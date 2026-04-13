@@ -240,6 +240,7 @@
 <nav class="tabs">
   <button class="tab-btn active" onclick="showTab('summary')"><span class="icon">&#128200;</span> Summary</button>
   <button class="tab-btn" onclick="showTab('catalogue')"><span class="icon">&#9881;</span> Models &amp; Colours</button>
+  <button class="tab-btn" onclick="showTab('purchaseplan')"><span class="icon">&#128196;</span> Purchase Plan</button>
   <button class="tab-btn" onclick="showTab('purchases')"><span class="icon">&#128666;</span> Purchases</button>
   <button class="tab-btn" onclick="showTab('sales')"><span class="icon">&#128176;</span> Sales</button>
   <button class="tab-btn" onclick="showTab('bookings')"><span class="icon">&#128197;</span> Bookings</button>
@@ -327,6 +328,75 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- PURCHASE PLAN TAB -->
+<div id="tab-purchaseplan" class="tab-content">
+  <div class="panel">
+    <h3>&#128196; Add Purchase Plan</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="pp_date">
+      </div>
+      <div class="form-group">
+        <label>Vehicle Model</label>
+        <select id="pp_model"><option value="">-- Select Model --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Colour</label>
+        <select id="pp_colour"><option value="">-- Select Colour --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" id="pp_qty" placeholder="1" min="1" value="1">
+      </div>
+      <div class="form-group">
+        <label>LC Status</label>
+        <select id="pp_lcstatus">
+          <option value="opened">Opened</option>
+          <option value="pending">Pending</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="pp_notes" placeholder="Any notes">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addPurchasePlan()">&#10133; Add to Plan</button>
+      <button class="btn" onclick="clearPurchasePlanForm()" style="background:#f0f2f5;color:#555;">Clear</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>&#128196; Purchase Plan Records</h3>
+    <div class="toolbar">
+      <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour...">
+      <select id="ppLcFilter" onchange="renderPurchasePlanTable()">
+        <option value="">All LC Status</option>
+        <option value="opened">Opened</option>
+        <option value="pending">Pending</option>
+        <option value="closed">Closed</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th>
+            <th>Qty</th><th>LC Status</th><th>Notes</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="ppTableBody"></tbody>
+      </table>
+    </div>
+    <div id="ppEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#128196;</div>
+      <div>No purchase plans added yet.</div>
+    </div>
   </div>
 </div>
 
@@ -1041,13 +1111,14 @@ function showLoader(show) {
 // ---- Load all data from Supabase ----
 async function loadAll() {
   showLoader(true);
-  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }] =
+  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }, { data: ppl }] =
     await Promise.all([
       sb.from('purchases').select('*'),
       sb.from('sales').select('*'),
       sb.from('bookings').select('*'),
       sb.from('cat_models').select('*'),
-      sb.from('cat_colours').select('*')
+      sb.from('cat_colours').select('*'),
+      sb.from('purchase_plans').select('*')
     ]);
 
   // First-run migration: if Supabase is empty, seed from localStorage
@@ -1079,8 +1150,9 @@ async function loadAll() {
     }
   }
 
-  purchases = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
-  bookings  = (bok||[]).map(bookingFromDB);  catModels = mod||[]; catColours = col||[];
+  purchases     = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
+  bookings      = (bok||[]).map(bookingFromDB);  catModels = mod||[]; catColours = col||[];
+  purchasePlans = ppl||[];
   showLoader(false);
   refreshAll();
 }
@@ -1089,11 +1161,12 @@ async function loadAll() {
 async function save() {
   const run = (p) => p.then(({ error }) => { if (error) { console.error('[save]', error); showToast('⚠️ Save failed: ' + error.message, 'error'); } });
   const tasks = [];
-  if (purchases.length)  tasks.push(run(sb.from('purchases').upsert(purchases.map(purchaseToDB), {onConflict:'id'})));
-  if (sales.length)      tasks.push(run(sb.from('sales').upsert(sales.map(saleToDB), {onConflict:'id'})));
-  if (bookings.length)   tasks.push(run(sb.from('bookings').upsert(bookings.map(bookingToDB), {onConflict:'id'})));
-  if (catModels.length)  tasks.push(run(sb.from('cat_models').upsert(catModels, {onConflict:'id'})));
-  if (catColours.length) tasks.push(run(sb.from('cat_colours').upsert(catColours, {onConflict:'id'})));
+  if (purchases.length)     tasks.push(run(sb.from('purchases').upsert(purchases.map(purchaseToDB), {onConflict:'id'})));
+  if (sales.length)         tasks.push(run(sb.from('sales').upsert(sales.map(saleToDB), {onConflict:'id'})));
+  if (bookings.length)      tasks.push(run(sb.from('bookings').upsert(bookings.map(bookingToDB), {onConflict:'id'})));
+  if (catModels.length)     tasks.push(run(sb.from('cat_models').upsert(catModels, {onConflict:'id'})));
+  if (catColours.length)    tasks.push(run(sb.from('cat_colours').upsert(catColours, {onConflict:'id'})));
+  if (purchasePlans.length) tasks.push(run(sb.from('purchase_plans').upsert(purchasePlans, {onConflict:'id'})));
   await Promise.all(tasks);
 }
 
@@ -1147,6 +1220,13 @@ function setupRealtime() {
       catColours = data||[]; renderCatalogue();
     })
     .subscribe(onStatus('cat_colours'));
+
+  sb.channel('rt-purchase-plans')
+    .on('postgres_changes', {event:'*', schema:'public', table:'purchase_plans'}, async () => {
+      const { data } = await sb.from('purchase_plans').select('*');
+      purchasePlans = data||[]; renderPurchasePlanTable();
+    })
+    .subscribe(onStatus('purchase_plans'));
 }
 
 // ============================================================
@@ -1164,11 +1244,12 @@ function setupRealtime() {
   localStorage.setItem('vt_bookings', '[]');
 })();
 
-let purchases  = [];
-let sales      = [];
-let bookings   = [];
-let catModels  = [];
-let catColours = [];
+let purchases     = [];
+let sales         = [];
+let bookings      = [];
+let catModels     = [];
+let catColours    = [];
+let purchasePlans = [];
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
@@ -1232,7 +1313,7 @@ function getVehicleLabel(p) {
 // ============================================================
 // TABS
 // ============================================================
-const TAB_NAMES = ['summary','catalogue','purchases','sales','bookings','stock','financials','reports'];
+const TAB_NAMES = ['summary','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports'];
 
 function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -1351,6 +1432,132 @@ function renderCatalogue() {
 // ============================================================
 // POPULATE PURCHASE DROPDOWNS FROM CATALOGUE
 // ============================================================
+// ============================================================
+// PURCHASE PLAN
+// ============================================================
+function updatePurchasePlanDropdowns() {
+  const pm = document.getElementById('pp_model');
+  const pc = document.getElementById('pp_colour');
+  if (!pm || !pc) return;
+  const curModel  = pm.value;
+  const curColour = pc.value;
+  pm.innerHTML = '<option value="">-- Select Model --</option>' +
+    catModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}${m.variant?' — '+m.variant:''}</option>`).join('');
+  pc.innerHTML = '<option value="">-- Select Colour --</option>' +
+    catColours.map(c => `<option value="${c.name}" ${c.name===curColour?'selected':''}>${c.name}</option>`).join('');
+}
+
+function addPurchasePlan() {
+  const model  = document.getElementById('pp_model').value;
+  const colour = document.getElementById('pp_colour').value;
+  if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+  const catM    = catModels.find(m => m.name === model);
+  const lcstatus = document.getElementById('pp_lcstatus').value;
+  const entry = {
+    id:       genId(),
+    date:     document.getElementById('pp_date').value || today(),
+    model,
+    variant:  catM ? catM.variant : '',
+    colour,
+    qty:      parseInt(document.getElementById('pp_qty').value) || 1,
+    lcstatus,
+    notes:    document.getElementById('pp_notes').value.trim()
+  };
+  purchasePlans.push(entry);
+  save();
+  if (lcstatus === 'closed') convertPlanToPurchases(entry);
+  showToast(`Purchase plan added: ${model} (${colour})`);
+  clearPurchasePlanForm();
+  renderPurchasePlanTable();
+}
+
+function clearPurchasePlanForm() {
+  ['pp_model','pp_colour','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('pp_date').value = today();
+  document.getElementById('pp_qty').value  = '1';
+  document.getElementById('pp_lcstatus').value = 'opened';
+}
+
+function updatePlanLcStatus(id, newStatus) {
+  const entry = purchasePlans.find(p => p.id === id);
+  if (!entry) return;
+  entry.lcstatus = newStatus;
+  save();
+  if (newStatus === 'closed') {
+    convertPlanToPurchases(entry);
+    showToast(`LC closed — ${entry.qty} × ${entry.model} moved to Purchases.`, 'success');
+  }
+  renderPurchasePlanTable();
+}
+
+function convertPlanToPurchases(entry) {
+  for (let i = 0; i < (entry.qty || 1); i++) {
+    purchases.push({
+      id:        genId(),
+      date:      today(),
+      make:      'BYD',
+      model:     entry.model,
+      variant:   entry.variant || '',
+      year:      new Date().getFullYear().toString(),
+      colour:    entry.colour,
+      cost: 0, exrate: 0, shipping: 0, transport: 0, customs: 0,
+      excise: 0, gst: 0, dv: 0, permit: 0, loading: 0,
+      service: 0, driver: 0, fuel: 0, insurance: 0, addcost: 0,
+      totalCost: 0,
+      pi: '', po: '', notes: `From purchase plan (LC closed)`,
+      status: 'available'
+    });
+  }
+  save();
+  updateVehicleSelects();
+  renderPurchasesTable();
+  showToast(`${entry.qty} × ${entry.model} (${entry.colour}) added to Purchases — fill in cost details.`, 'success');
+}
+
+function deletePurchasePlan(id) {
+  if (!confirm('Delete this purchase plan entry?')) return;
+  sbDelete('purchase_plans', id);
+  purchasePlans = purchasePlans.filter(p => p.id !== id);
+  save();
+  renderPurchasePlanTable();
+  showToast('Purchase plan entry deleted.');
+}
+
+function renderPurchasePlanTable() {
+  updatePurchasePlanDropdowns();
+  const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
+  const lcf    = document.getElementById('ppLcFilter')?.value || '';
+  const data   = purchasePlans
+    .filter(p => [p.model, p.colour, p.variant].join(' ').toLowerCase().includes(search) && (!lcf || p.lcstatus === lcf))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const tbody = document.getElementById('ppTableBody');
+  const empty = document.getElementById('ppEmpty');
+  if (!tbody) return;
+  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  const lcBadge = { opened: '#2980b9', pending: '#e67e22', closed: '#27ae60' };
+  tbody.innerHTML = data.map((p, i) => `<tr>
+    <td>${i+1}</td>
+    <td>${p.date}</td>
+    <td><strong>${p.model}</strong></td>
+    <td>${p.variant || '-'}</td>
+    <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
+    <td style="text-align:center">${p.qty || 1}</td>
+    <td>
+      <select onchange="updatePlanLcStatus('${p.id}', this.value)"
+        style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
+        <option value="opened"  ${p.lcstatus==='opened' ?'selected':''}>Opened</option>
+        <option value="pending" ${p.lcstatus==='pending'?'selected':''}>Pending</option>
+        <option value="closed"  ${p.lcstatus==='closed' ?'selected':''}>Closed</option>
+      </select>
+    </td>
+    <td>${p.notes || '-'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
 function updatePurchaseDropdowns() {
   const pm = document.getElementById('p_model');
   const pc = document.getElementById('p_colour');
@@ -2143,6 +2350,7 @@ function renderSummary() {
 function refreshAll() {
   renderCatalogue();
   updateVehicleSelects();
+  renderPurchasePlanTable();
   renderPurchasesTable();
   renderSalesTable();
   renderBookingsTable();
@@ -2160,7 +2368,7 @@ function refreshAll() {
 document.getElementById('headerDate').textContent =
   new Date().toLocaleDateString('en', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
 
-['p_date','s_date','b_date'].forEach(id => {
+['p_date','s_date','b_date','pp_date'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.value = today();
 });
