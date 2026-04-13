@@ -593,6 +593,14 @@
           <option value="Loan">Loan</option>
         </select>
       </div>
+      <div class="form-group" id="s_journal_group" style="display:none">
+        <label>Journal Number</label>
+        <input type="text" id="s_journal_number" placeholder="Journal number">
+      </div>
+      <div class="form-group" id="s_cheque_group" style="display:none">
+        <label>Cheque Number</label>
+        <input type="text" id="s_cheque_number" placeholder="Cheque number">
+      </div>
       <div class="form-group" id="s_ca_group" style="display:none">
         <label>CA Number</label>
         <input type="text" id="s_ca_number" placeholder="CA number">
@@ -637,7 +645,7 @@
           <tr>
             <th>#</th><th>Date</th><th>Vehicle</th><th>Colour</th>
             <th>Buyer</th><th>CID No.</th><th>Phone</th><th>Address</th><th>Invoice No.</th><th>List Price</th><th>Discount</th>
-            <th>Sale Price</th><th>Paid</th><th>Balance Payable</th><th>Cost</th><th>Profit</th><th>Payment</th><th>CA No.</th><th>Salesperson</th><th>Action</th>
+            <th>Sale Price</th><th>Paid</th><th>Balance Payable</th><th>Cost</th><th>Profit</th><th>Payment</th><th>Ref. No.</th><th>CA No.</th><th>Salesperson</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="salesTableBody"></tbody>
@@ -1008,6 +1016,8 @@
           <option value="Loan">Loan</option>
         </select>
       </div>
+      <div class="form-group" id="es_journal_group" style="display:none"><label>Journal Number</label><input type="text" id="es_journal_number" placeholder="Journal number"></div>
+      <div class="form-group" id="es_cheque_group" style="display:none"><label>Cheque Number</label><input type="text" id="es_cheque_number" placeholder="Cheque number"></div>
       <div class="form-group" id="es_ca_group" style="display:none"><label>CA Number</label><input type="text" id="es_ca_number" placeholder="CA number"></div>
       <div class="form-group" id="es_ca_date_group" style="display:none"><label>CA Advance Date</label><input type="date" id="es_ca_date"></div>
       <div class="form-group"><label>Invoice Number</label><input type="text" id="es_pi" placeholder="Invoice number"></div>
@@ -1072,8 +1082,10 @@ function saleToDB(s) {
   r.net_price  = s.netPrice;      delete r.netPrice;
   r.amount_paid = s.amountPaid;   delete r.amountPaid;
   r.pending_amount = s.pendingAmount; delete r.pendingAmount;
-  r.ca_number  = s.caNumber;      delete r.caNumber;
-  r.ca_date    = s.caDate;        delete r.caDate;
+  r.journal_number = s.journalNumber; delete r.journalNumber;
+  r.cheque_number  = s.chequeNumber;  delete r.chequeNumber;
+  r.ca_number  = s.caNumber;          delete r.caNumber;
+  r.ca_date    = s.caDate;            delete r.caDate;
   return r;
 }
 function saleFromDB(r) {
@@ -1083,6 +1095,8 @@ function saleFromDB(r) {
   s.netPrice       = r.net_price;       delete s.net_price;
   s.amountPaid     = r.amount_paid;     delete s.amount_paid;
   s.pendingAmount  = r.pending_amount;  delete s.pending_amount;
+  s.journalNumber  = r.journal_number;  delete s.journal_number;
+  s.chequeNumber   = r.cheque_number;   delete s.cheque_number;
   s.caNumber       = r.ca_number;       delete s.ca_number;
   s.caDate         = r.ca_date;         delete s.ca_date;
   return s;
@@ -1734,14 +1748,18 @@ function calcSalePending() {
   el.style.color = pending > 0 ? '#e74c3c' : '#27ae60';
 }
 function toggleSaleLoanFields() {
-  const isLoan = document.getElementById('s_payment').value === 'Loan';
-  document.getElementById('s_ca_group').style.display = isLoan ? '' : 'none';
-  document.getElementById('s_ca_date_group').style.display = isLoan ? '' : 'none';
+  const v = document.getElementById('s_payment').value;
+  document.getElementById('s_journal_group').style.display  = v === 'Cash'   ? '' : 'none';
+  document.getElementById('s_cheque_group').style.display   = v === 'Cheque' ? '' : 'none';
+  document.getElementById('s_ca_group').style.display       = v === 'Loan'   ? '' : 'none';
+  document.getElementById('s_ca_date_group').style.display  = v === 'Loan'   ? '' : 'none';
 }
 function toggleEditSaleLoanFields() {
-  const isLoan = document.getElementById('es_payment').value === 'Loan';
-  document.getElementById('es_ca_group').style.display = isLoan ? '' : 'none';
-  document.getElementById('es_ca_date_group').style.display = isLoan ? '' : 'none';
+  const v = document.getElementById('es_payment').value;
+  document.getElementById('es_journal_group').style.display = v === 'Cash'   ? '' : 'none';
+  document.getElementById('es_cheque_group').style.display  = v === 'Cheque' ? '' : 'none';
+  document.getElementById('es_ca_group').style.display      = v === 'Loan'   ? '' : 'none';
+  document.getElementById('es_ca_date_group').style.display = v === 'Loan'   ? '' : 'none';
 }
 
 function addSale() {
@@ -1771,6 +1789,8 @@ function addSale() {
     salePrice: price, discount, netPrice,
     amountPaid, pendingAmount: pendingAmt,
     payment,
+    journalNumber: payment === 'Cash'   ? document.getElementById('s_journal_number').value.trim() : '',
+    chequeNumber:  payment === 'Cheque' ? document.getElementById('s_cheque_number').value.trim() : '',
     caNumber: payment === 'Loan' ? document.getElementById('s_ca_number').value.trim() : '',
     caDate:   payment === 'Loan' ? document.getElementById('s_ca_date').value : '',
     pi: document.getElementById('s_pi').value.trim(),
@@ -1787,7 +1807,7 @@ function addSale() {
 }
 
 function clearSaleForm() {
-  ['s_date','s_vehicle','s_buyer','s_cid','s_phone','s_address','s_price','s_discount','s_netprice','s_amountpaid','s_pending','s_ca_number','s_ca_date','s_pi','s_salesperson','s_notes']
+  ['s_date','s_vehicle','s_buyer','s_cid','s_phone','s_address','s_price','s_discount','s_netprice','s_amountpaid','s_pending','s_journal_number','s_cheque_number','s_ca_number','s_ca_date','s_pi','s_salesperson','s_notes']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   document.getElementById('s_date').value = today();
   document.getElementById('s_discount').value = '0';
@@ -1848,6 +1868,7 @@ function renderSalesTable() {
       <td>${fmtNum(veh ? veh.totalCost : 0)}</td>
       <td class="${pCls}">${fmtNum(s.profit)}</td>
       <td><span class="badge badge-new">${s.payment}</span></td>
+      <td style="font-size:0.78rem">${s.payment === 'Cash' ? (s.journalNumber || '-') : s.payment === 'Cheque' ? (s.chequeNumber || '-') : '-'}</td>
       <td style="font-size:0.78rem">${s.caNumber ? s.caNumber + (s.caDate ? '<br><small>' + s.caDate + '</small>' : '') : '-'}</td>
       <td>${s.salesperson || '-'}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -2507,6 +2528,8 @@ function openEditSale(id) {
   document.getElementById('es_phone').value = s.phone || '';
   document.getElementById('es_address').value = s.address || '';
   document.getElementById('es_payment').value = s.payment || 'Cash';
+  document.getElementById('es_journal_number').value = s.journalNumber || '';
+  document.getElementById('es_cheque_number').value = s.chequeNumber || '';
   document.getElementById('es_ca_number').value = s.caNumber || '';
   document.getElementById('es_ca_date').value = s.caDate || '';
   document.getElementById('es_pi').value = s.pi || '';
@@ -2548,8 +2571,10 @@ function saveEditSale() {
   s.amountPaid    = amountPaid;
   s.pendingAmount = pending;
   s.payment       = esPayment;
-  s.caNumber      = esPayment === 'Loan' ? document.getElementById('es_ca_number').value.trim() : '';
-  s.caDate        = esPayment === 'Loan' ? document.getElementById('es_ca_date').value : '';
+  s.journalNumber = esPayment === 'Cash'   ? document.getElementById('es_journal_number').value.trim() : '';
+  s.chequeNumber  = esPayment === 'Cheque' ? document.getElementById('es_cheque_number').value.trim() : '';
+  s.caNumber      = esPayment === 'Loan'   ? document.getElementById('es_ca_number').value.trim() : '';
+  s.caDate        = esPayment === 'Loan'   ? document.getElementById('es_ca_date').value : '';
   s.pi            = document.getElementById('es_pi').value.trim();
   s.salesperson   = document.getElementById('es_salesperson').value.trim();
   s.notes         = document.getElementById('es_notes').value.trim();
