@@ -1086,16 +1086,22 @@ async function loadAll() {
 }
 
 // ---- Save (upsert) to Supabase — fire and forget ----
-function save() {
-  if (purchases.length)  sb.from('purchases').upsert(purchases.map(purchaseToDB), {onConflict:'id'});
-  if (sales.length)      sb.from('sales').upsert(sales.map(saleToDB), {onConflict:'id'});
-  if (bookings.length)   sb.from('bookings').upsert(bookings.map(bookingToDB), {onConflict:'id'});
-  if (catModels.length)  sb.from('cat_models').upsert(catModels, {onConflict:'id'});
-  if (catColours.length) sb.from('cat_colours').upsert(catColours, {onConflict:'id'});
+async function save() {
+  const run = (p) => p.then(({ error }) => { if (error) { console.error('[save]', error); showToast('⚠️ Save failed: ' + error.message, 'error'); } });
+  const tasks = [];
+  if (purchases.length)  tasks.push(run(sb.from('purchases').upsert(purchases.map(purchaseToDB), {onConflict:'id'})));
+  if (sales.length)      tasks.push(run(sb.from('sales').upsert(sales.map(saleToDB), {onConflict:'id'})));
+  if (bookings.length)   tasks.push(run(sb.from('bookings').upsert(bookings.map(bookingToDB), {onConflict:'id'})));
+  if (catModels.length)  tasks.push(run(sb.from('cat_models').upsert(catModels, {onConflict:'id'})));
+  if (catColours.length) tasks.push(run(sb.from('cat_colours').upsert(catColours, {onConflict:'id'})));
+  await Promise.all(tasks);
 }
 
 // ---- Delete helper ----
-function sbDelete(table, id) { sb.from(table).delete().eq('id', id); }
+function sbDelete(table, id) {
+  sb.from(table).delete().eq('id', id)
+    .then(({ error }) => { if (error) console.error('[delete]', error); });
+}
 
 // ---- Real-time subscriptions ----
 function setupRealtime() {
