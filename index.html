@@ -548,7 +548,7 @@
       </div>
       <div class="form-group">
         <label>Select Vehicle</label>
-        <select id="s_vehicle"><option value="">-- Select Vehicle --</option></select>
+        <select id="s_vehicle" onchange="autoFillSaleListPrice()"><option value="">-- Select Vehicle --</option></select>
       </div>
       <div class="form-group">
         <label>Buyer Name</label>
@@ -715,7 +715,7 @@
       </div>
       <div class="form-group">
         <label>Select Vehicle</label>
-        <select id="b_vehicle"><option value="">-- Select Available Vehicle --</option></select>
+        <select id="b_vehicle" onchange="autoFillBookingListPrice()"><option value="">-- Select Available Vehicle --</option></select>
       </div>
       <div class="form-group">
         <label>Customer Name</label>
@@ -1656,6 +1656,38 @@ function updatePurchaseDropdowns() {
   const scf = document.getElementById('stockColourFilter');
   if (smf) smf.innerHTML = '<option value="">All Models</option>' + models.map(m=>`<option>${m}</option>`).join('');
   if (scf) scf.innerHTML = '<option value="">All Colours</option>' + colours.map(c=>`<option>${c}</option>`).join('');
+}
+
+function lookupListPrice(vehicleId) {
+  const veh = getPurchase(vehicleId);
+  if (!veh) return null;
+  // Try exact model+variant match first, then model-only fallback
+  return priceLists.find(pl => pl.model === veh.model && pl.variant === (veh.variant || ''))
+      || priceLists.find(pl => pl.model === veh.model && pl.variant === '');
+}
+
+function autoFillSaleListPrice() {
+  const vehicleId = document.getElementById('s_vehicle').value;
+  if (!vehicleId) return;
+  const pl = lookupListPrice(vehicleId);
+  if (pl) {
+    const el = document.getElementById('s_price');
+    el.value = pl.listPrice;
+    fmtInput(el);
+    calcSalePending();
+  }
+}
+
+function autoFillBookingListPrice() {
+  const vehicleId = document.getElementById('b_vehicle').value;
+  if (!vehicleId) return;
+  const pl = lookupListPrice(vehicleId);
+  if (pl) {
+    const el = document.getElementById('b_agreedprice');
+    el.value = pl.listPrice;
+    fmtInput(el);
+    calcBookingSalePrice();
+  }
 }
 
 function updateVehicleSelects() {
