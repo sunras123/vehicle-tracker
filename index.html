@@ -662,25 +662,37 @@
 <!-- BOOKINGS TAB -->
 <div id="tab-pricelist" class="tab-content">
   <div class="panel">
-    <h3>&#127991; Vehicle Price List</h3>
+    <h3>&#10133; Add List Price</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Model</label>
+        <select id="pl_model"><option value="">-- Select Model --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Variant</label>
+        <input type="text" id="pl_variant" placeholder="e.g. Standard, Premium">
+      </div>
+      <div class="form-group">
+        <label>List Price (Nu.)</label>
+        <input type="text" inputmode="decimal" id="pl_price" placeholder="0.00" oninput="fmtInput(this)">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addPriceListEntry()">&#127991; Save Price</button>
+      <button class="btn" onclick="clearPriceListForm()" style="background:#f0f2f5;color:#555;">Clear</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>&#127991; Price List</h3>
     <div class="toolbar">
-      <input type="text" id="pricelistSearch" oninput="renderPriceList()" placeholder="&#128269; Search by model, colour, variant...">
-      <select id="pricelistStatusFilter" onchange="renderPriceList()">
-        <option value="">All Statuses</option>
-        <option value="available">Available</option>
-        <option value="booked">Booked</option>
-        <option value="sold">Sold</option>
-      </select>
-      <select id="pricelistModelFilter" onchange="renderPriceList()">
-        <option value="">All Models</option>
-      </select>
+      <input type="text" id="pricelistSearch" oninput="renderPriceList()" placeholder="&#128269; Search by model, variant...">
     </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Model</th><th>Variant</th><th>Colour</th><th>Year</th>
-            <th>Status</th><th>List Price (Nu.)</th>
+            <th>#</th><th>Model</th><th>Variant</th><th>List Price (Nu.)</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="pricelistTableBody"></tbody>
@@ -688,7 +700,7 @@
     </div>
     <div id="pricelistEmpty" class="empty-state" style="display:none">
       <div class="empty-icon">&#127991;</div>
-      <div>No vehicles found.</div>
+      <div>No list prices added yet.</div>
     </div>
   </div>
 </div>
@@ -1150,6 +1162,13 @@ function bookingFromDB(r) {
   return b;
 }
 
+function priceListToDB(pl) {
+  const r = {...pl}; r.list_price = pl.listPrice; delete r.listPrice; return r;
+}
+function priceListFromDB(r) {
+  const pl = {...r}; pl.listPrice = r.list_price; delete pl.list_price; return pl;
+}
+
 // ---- Loader overlay ----
 function showLoader(show) {
   const el = document.getElementById('app-loader');
@@ -1159,14 +1178,15 @@ function showLoader(show) {
 // ---- Load all data from Supabase ----
 async function loadAll() {
   showLoader(true);
-  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }, { data: ppl }] =
+  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }, { data: ppl }, { data: prl }] =
     await Promise.all([
       sb.from('purchases').select('*'),
       sb.from('sales').select('*'),
       sb.from('bookings').select('*'),
       sb.from('cat_models').select('*'),
       sb.from('cat_colours').select('*'),
-      sb.from('purchase_plans').select('*')
+      sb.from('purchase_plans').select('*'),
+      sb.from('price_list').select('*')
     ]);
 
   // First-run migration: if Supabase is empty, seed from localStorage
@@ -1200,7 +1220,7 @@ async function loadAll() {
 
   purchases     = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
   bookings      = (bok||[]).map(bookingFromDB);  catModels = mod||[]; catColours = col||[];
-  purchasePlans = ppl||[];
+  purchasePlans = ppl||[]; priceLists = (prl||[]).map(priceListFromDB);
   showLoader(false);
   refreshAll();
 }
@@ -1215,6 +1235,7 @@ async function save() {
   if (catModels.length)     tasks.push(run(sb.from('cat_models').upsert(catModels, {onConflict:'id'})));
   if (catColours.length)    tasks.push(run(sb.from('cat_colours').upsert(catColours, {onConflict:'id'})));
   if (purchasePlans.length) tasks.push(run(sb.from('purchase_plans').upsert(purchasePlans, {onConflict:'id'})));
+  if (priceLists.length)    tasks.push(run(sb.from('price_list').upsert(priceLists.map(priceListToDB), {onConflict:'id'})));
   await Promise.all(tasks);
 }
 
@@ -1275,6 +1296,13 @@ function setupRealtime() {
       purchasePlans = data||[]; renderPurchasePlanTable();
     })
     .subscribe(onStatus('purchase_plans'));
+
+  sb.channel('rt-price-list')
+    .on('postgres_changes', {event:'*', schema:'public', table:'price_list'}, async () => {
+      const { data } = await sb.from('price_list').select('*');
+      priceLists = (data||[]).map(priceListFromDB); renderPriceList();
+    })
+    .subscribe(onStatus('price_list'));
 }
 
 // ============================================================
@@ -1298,6 +1326,7 @@ let bookings      = [];
 let catModels     = [];
 let catColours    = [];
 let purchasePlans = [];
+let priceLists    = [];
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
@@ -2407,24 +2436,53 @@ function renderSummary() {
 // ============================================================
 // PRICE LIST
 // ============================================================
-function renderPriceList() {
-  const search  = (document.getElementById('pricelistSearch')?.value || '').toLowerCase();
-  const statusF = document.getElementById('pricelistStatusFilter')?.value || '';
-  const modelF  = document.getElementById('pricelistModelFilter')?.value || '';
+function updatePriceListModelSelect() {
+  const sel = document.getElementById('pl_model');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- Select Model --</option>' +
+    catModels.map(m => `<option value="${m.name}" ${m.name === current ? 'selected' : ''}>${m.name}</option>`).join('');
+}
 
-  // Populate model filter
-  const modelSel = document.getElementById('pricelistModelFilter');
-  if (modelSel) {
-    const current = modelSel.value;
-    const models  = [...new Set(purchases.map(p => p.model).filter(Boolean))].sort();
-    modelSel.innerHTML = '<option value="">All Models</option>' +
-      models.map(m => `<option value="${m}" ${m === current ? 'selected' : ''}>${m}</option>`).join('');
+function addPriceListEntry() {
+  const model    = document.getElementById('pl_model').value.trim();
+  const variant  = document.getElementById('pl_variant').value.trim();
+  const listPrice = parseNum('pl_price');
+  if (!model || !listPrice) { showToast('Model and List Price are required.', 'error'); return; }
+
+  // Update existing entry for same model+variant, or add new
+  const existing = priceLists.find(pl => pl.model === model && pl.variant === (variant || ''));
+  if (existing) {
+    existing.listPrice = listPrice;
+  } else {
+    priceLists.push({ id: genId(), model, variant: variant || '', listPrice });
   }
+  save();
+  showToast('List price saved.');
+  clearPriceListForm();
+  renderPriceList();
+}
 
-  const data = purchases.filter(p => {
-    const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
-    return match && (!statusF || p.status === statusF) && (!modelF || p.model === modelF);
-  }).sort((a, b) => a.model.localeCompare(b.model) || a.colour.localeCompare(b.colour));
+function clearPriceListForm() {
+  document.getElementById('pl_model').value = '';
+  document.getElementById('pl_variant').value = '';
+  document.getElementById('pl_price').value = '';
+}
+
+function deletePriceListEntry(id) {
+  if (!confirm('Delete this price entry?')) return;
+  sbDelete('price_list', id);
+  priceLists = priceLists.filter(pl => pl.id !== id);
+  renderPriceList();
+}
+
+function renderPriceList() {
+  updatePriceListModelSelect();
+  const search = (document.getElementById('pricelistSearch')?.value || '').toLowerCase();
+
+  const data = priceLists.filter(pl =>
+    [pl.model, pl.variant].join(' ').toLowerCase().includes(search)
+  ).sort((a, b) => a.model.localeCompare(b.model) || a.variant.localeCompare(b.variant));
 
   const tbody = document.getElementById('pricelistTableBody');
   const empty = document.getElementById('pricelistEmpty');
@@ -2432,20 +2490,13 @@ function renderPriceList() {
   if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  tbody.innerHTML = data.map((p, i) => {
-    const sale      = sales.find(s => s.vehicleId === p.id);
-    const hex       = getColourHex(p.colour);
-    const listPrice = sale ? fmtNum(sale.salePrice) : '-';
-    return `<tr>
-      <td>${i + 1}</td>
-      <td><strong>${p.model}</strong></td>
-      <td>${p.variant || '-'}</td>
-      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td>${p.year || '-'}</td>
-      <td><span class="badge badge-${p.status}">${p.status}</span></td>
-      <td style="font-weight:600;color:#1a1a2e">${listPrice}</td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = data.map((pl, i) => `<tr>
+    <td>${i + 1}</td>
+    <td><strong>${pl.model}</strong></td>
+    <td>${pl.variant || '-'}</td>
+    <td style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button></td>
+  </tr>`).join('');
 }
 
 // ============================================================
