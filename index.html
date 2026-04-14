@@ -680,7 +680,7 @@
         <thead>
           <tr>
             <th>#</th><th>Model</th><th>Variant</th><th>Colour</th><th>Year</th>
-            <th>Status</th><th>Cost (Nu.)</th><th>List Price (Nu.)</th><th>Discount (Nu.)</th><th>Sale Price (Nu.)</th>
+            <th>Status</th><th>List Price (Nu.)</th>
           </tr>
         </thead>
         <tbody id="pricelistTableBody"></tbody>
@@ -2433,11 +2433,9 @@ function renderPriceList() {
   empty.style.display = 'none';
 
   tbody.innerHTML = data.map((p, i) => {
-    const sale = sales.find(s => s.vehicleId === p.id);
-    const hex  = getColourHex(p.colour);
-    const listPrice  = sale ? fmtNum(sale.salePrice)  : '-';
-    const discount   = sale ? fmtNum(sale.discount)   : '-';
-    const salePrice  = sale ? fmtNum(sale.netPrice)   : '-';
+    const sale      = sales.find(s => s.vehicleId === p.id);
+    const hex       = getColourHex(p.colour);
+    const listPrice = sale ? fmtNum(sale.salePrice) : '-';
     return `<tr>
       <td>${i + 1}</td>
       <td><strong>${p.model}</strong></td>
@@ -2445,10 +2443,7 @@ function renderPriceList() {
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
       <td>${p.year || '-'}</td>
       <td><span class="badge badge-${p.status}">${p.status}</span></td>
-      <td>${fmtNum(p.totalCost)}</td>
       <td style="font-weight:600;color:#1a1a2e">${listPrice}</td>
-      <td>${discount}</td>
-      <td style="font-weight:700;color:#27ae60">${salePrice}</td>
     </tr>`;
   }).join('');
 }
