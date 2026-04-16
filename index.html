@@ -235,8 +235,43 @@
       <div class="header-date" id="headerDate"></div>
     </div>
   </div>
-  <img src="byd-logo.jpg" alt="BYD Logo" style="height:80px;width:auto;object-fit:contain;">
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+    <img src="byd-logo.jpg" alt="BYD Logo" style="height:80px;width:auto;object-fit:contain;">
+    <div id="header_session" style="display:none;align-items:center;gap:10px">
+      <span id="header_user_label" style="font-size:0.8rem;opacity:0.85"></span>
+      <button onclick="logout()" style="padding:4px 12px;background:rgba(255,255,255,0.12);color:white;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:0.78rem;cursor:pointer;font-weight:600">Sign Out</button>
+    </div>
+  </div>
 </header>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);display:flex;align-items:center;justify-content:center;z-index:99999;">
+  <div style="background:white;border-radius:16px;padding:40px 36px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:2rem;font-weight:800;color:#1a1a2e">Asanga Mobility</div>
+      <div style="font-size:0.85rem;color:#999;margin-top:4px">Dealership Management System</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:0.82rem;font-weight:600;color:#555;margin-bottom:5px">Username</label>
+      <input type="text" id="login_username" placeholder="Enter username" autocomplete="username"
+        style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:0.95rem;outline:none;transition:border 0.2s"
+        onfocus="this.style.borderColor='#e94560'" onblur="this.style.borderColor='#ddd'"
+        onkeydown="if(event.key==='Enter')document.getElementById('login_password').focus()">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="display:block;font-size:0.82rem;font-weight:600;color:#555;margin-bottom:5px">Password</label>
+      <input type="password" id="login_password" placeholder="Enter password" autocomplete="current-password"
+        style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:0.95rem;outline:none;transition:border 0.2s"
+        onfocus="this.style.borderColor='#e94560'" onblur="this.style.borderColor='#ddd'"
+        onkeydown="if(event.key==='Enter')attemptLogin()">
+    </div>
+    <div id="login_error" style="color:#e74c3c;font-size:0.82rem;min-height:20px;margin-bottom:12px;text-align:center"></div>
+    <button onclick="attemptLogin()"
+      style="width:100%;padding:12px;background:linear-gradient(135deg,#e94560,#c0392b);color:white;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;letter-spacing:0.5px">
+      Sign In
+    </button>
+  </div>
+</div>
 
 <!-- LOADING OVERLAY -->
 <div id="app-loader" style="position:fixed;inset:0;background:rgba(26,26,46,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:white;">
@@ -740,7 +775,7 @@
 
 <!-- BOOKINGS TAB -->
 <div id="tab-pricelist" class="tab-content">
-  <div class="panel">
+  <div class="panel" id="pl_add_panel">
     <h3>&#10133; Add List Price</h3>
     <div class="form-grid">
       <div class="form-group">
@@ -3227,6 +3262,68 @@ function renderPriceList() {
     <td style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</td>
     <td><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button></td>
   </tr>`).join('');
+}
+
+// ============================================================
+// LOGIN / SESSION
+// ============================================================
+const VIEW_TABS  = ['pricelist','bookings','stock'];
+const ADMIN_TABS = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports','credentials'];
+
+function attemptLogin() {
+  try {
+    const username = document.getElementById('login_username').value.trim();
+    const password = document.getElementById('login_password').value;
+    const errEl    = document.getElementById('login_error');
+    errEl.textContent = '';
+
+    if (!username || !password) {
+      errEl.textContent = 'Please enter your username and password.'; return;
+    }
+
+    const users = credLoad();
+    if (!users.length) {
+      errEl.textContent = 'No users found. Please run setup in the browser console.'; return;
+    }
+
+    const hash = btoa(unescape(encodeURIComponent(password)));
+    const user = users.find(u => u.username === username && u.passwordHash === hash);
+    if (!user) {
+      errEl.textContent = 'Invalid username or password. (' + users.length + ' user(s) on record)'; return;
+    }
+
+    // Hide login, show app
+    document.getElementById('login-screen').style.display = 'none';
+    const sess = document.getElementById('header_session');
+    sess.style.display = 'flex';
+    document.getElementById('header_user_label').textContent = user.username + ' (' + user.role + ')';
+
+    applyRoleAccess(user.role);
+  } catch(e) {
+    document.getElementById('login_error').textContent = 'Error: ' + e.message;
+  }
+}
+
+function applyRoleAccess(role) {
+  const allowed = role === 'admin' ? ADMIN_TABS : VIEW_TABS;
+  const allBtns = document.querySelectorAll('.tab-btn');
+  TAB_NAMES.forEach((name, idx) => {
+    if (allBtns[idx]) allBtns[idx].style.display = allowed.includes(name) ? '' : 'none';
+  });
+  // Show add-price panel only for admin
+  const plPanel = document.getElementById('pl_add_panel');
+  if (plPanel) plPanel.style.display = role === 'admin' ? '' : 'none';
+  showTab(allowed[0]);
+}
+
+function logout() {
+  document.getElementById('login_username').value = '';
+  document.getElementById('login_password').value = '';
+  document.getElementById('login_error').textContent = '';
+  document.getElementById('header_session').style.display = 'none';
+  document.getElementById('header_user_label').textContent = '';
+  document.querySelectorAll('.tab-btn').forEach(b => b.style.display = '');
+  document.getElementById('login-screen').style.display = 'flex';
 }
 
 // ============================================================
