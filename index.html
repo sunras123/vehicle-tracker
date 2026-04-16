@@ -1560,7 +1560,7 @@ function showLoader(show) {
 // ---- Load all data from Supabase ----
 async function loadAll() {
   showLoader(true);
-  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }, { data: ppl }, { data: prl }] =
+  const [{ data: pur }, { data: sal }, { data: bok }, { data: mod }, { data: col }, { data: ppl }, { data: prl }, { data: usr }] =
     await Promise.all([
       sb.from('purchases').select('*'),
       sb.from('sales').select('*'),
@@ -1568,8 +1568,10 @@ async function loadAll() {
       sb.from('cat_models').select('*'),
       sb.from('cat_colours').select('*'),
       sb.from('purchase_plans').select('*'),
-      sb.from('price_list').select('*')
+      sb.from('price_list').select('*'),
+      sb.from('users').select('*'),
     ]);
+  credUsers = (usr || []).map(u => ({ id: u.id, username: u.username, role: u.role, passwordHash: u.password_hash, created: u.created }));
 
   // First-run migration: if Supabase is empty, seed from localStorage
   if (!pur || pur.length === 0) {
@@ -1685,6 +1687,14 @@ function setupRealtime() {
       priceLists = (data||[]).map(priceListFromDB); renderPriceList();
     })
     .subscribe(onStatus('price_list'));
+
+  sb.channel('rt-users')
+    .on('postgres_changes', {event:'*', schema:'public', table:'users'}, async () => {
+      const { data } = await sb.from('users').select('*');
+      credUsers = (data||[]).map(u => ({ id: u.id, username: u.username, role: u.role, passwordHash: u.password_hash, created: u.created }));
+      renderCredUsers();
+    })
+    .subscribe(onStatus('users'));
 }
 
 // ============================================================
@@ -1706,6 +1716,7 @@ let purchases     = [];
 let sales         = [];
 let bookings      = [];
 let catModels     = [];
+let credUsers     = [];
 let catColours    = [];
 let purchasePlans = [];
 let priceLists    = [];
@@ -3336,12 +3347,21 @@ function hashPassword(str) {
   return btoa(unescape(encodeURIComponent(str)));
 }
 
-function credLoad() {
-  try { return JSON.parse(localStorage.getItem('cred_users') || '[]'); } catch { return []; }
+function credLoad() { return credUsers; }
+
+async function credUpsert(user) {
+  const { error } = await sb.from('users').upsert({
+    id: user.id, username: user.username, role: user.role,
+    password_hash: user.passwordHash, created: user.created,
+  }, { onConflict: 'id' });
+  if (error) { showToast('Save failed: ' + error.message, 'error'); return false; }
+  return true;
 }
 
-function credSave(users) {
-  localStorage.setItem('cred_users', JSON.stringify(users));
+async function credDelete(id) {
+  const { error } = await sb.from('users').delete().eq('id', id);
+  if (error) { showToast('Delete failed: ' + error.message, 'error'); return false; }
+  return true;
 }
 
 function changeCredential() {
@@ -3384,7 +3404,7 @@ function openAddUserModal() {
   document.getElementById('addUserModal').classList.add('open');
 }
 
-function saveNewUser() {
+async function saveNewUser() {
   const username = document.getElementById('au_username').value.trim();
   const role     = document.getElementById('au_role').value;
   const pw       = document.getElementById('au_password').value;
@@ -3394,32 +3414,29 @@ function saveNewUser() {
   if (pw !== confirm) { showToast('Passwords do not match.', 'error'); return; }
   if (pw.length < 6)  { showToast('Password must be at least 6 characters.', 'error'); return; }
 
-  const users = credLoad();
-  if (users.find(u => u.username === username)) {
+  if (credUsers.find(u => u.username === username)) {
     showToast('Username already exists.', 'error'); return;
   }
 
-  users.push({
-    id: genId(),
-    username,
-    role,
-    passwordHash: hashPassword(pw),
-    created: new Date().toISOString().substr(0,10),
-  });
-  credSave(users);
+  const newUser = { id: genId(), username, role, passwordHash: hashPassword(pw), created: new Date().toISOString().substr(0,10) };
+  const ok = await credUpsert(newUser);
+  if (!ok) return;
+  credUsers.push(newUser);
   closeModal('addUserModal');
   showToast('User created successfully.');
   renderCredUsers();
 }
 
-function deleteCredUser(id) {
+async function deleteCredUser(id) {
   if (!confirm('Delete this user?')) return;
-  credSave(credLoad().filter(u => u.id !== id));
+  const ok = await credDelete(id);
+  if (!ok) return;
+  credUsers = credUsers.filter(u => u.id !== id);
   renderCredUsers();
 }
 
 function openEditUserModal(id) {
-  const user = credLoad().find(u => u.id === id);
+  const user = credUsers.find(u => u.id === id);
   if (!user) return;
   document.getElementById('eu_id').value       = id;
   document.getElementById('eu_username').value = user.username;
@@ -3429,7 +3446,7 @@ function openEditUserModal(id) {
   document.getElementById('editUserModal').classList.add('open');
 }
 
-function saveEditUser() {
+async function saveEditUser() {
   const id       = document.getElementById('eu_id').value;
   const username = document.getElementById('eu_username').value.trim();
   const role     = document.getElementById('eu_role').value;
@@ -3440,20 +3457,19 @@ function saveEditUser() {
   if (pw && pw !== confirm) { showToast('Passwords do not match.', 'error'); return; }
   if (pw && pw.length < 6)  { showToast('Password must be at least 6 characters.', 'error'); return; }
 
-  const users = credLoad();
-  const idx   = users.findIndex(u => u.id === id);
+  const idx = credUsers.findIndex(u => u.id === id);
   if (idx === -1) { showToast('User not found.', 'error'); return; }
 
-  // Check duplicate username (excluding self)
-  if (users.some(u => u.id !== id && u.username === username)) {
+  if (credUsers.some(u => u.id !== id && u.username === username)) {
     showToast('Username already taken.', 'error'); return;
   }
 
-  users[idx].username = username;
-  users[idx].role     = role;
-  if (pw) users[idx].passwordHash = hashPassword(pw);
+  credUsers[idx].username = username;
+  credUsers[idx].role     = role;
+  if (pw) credUsers[idx].passwordHash = hashPassword(pw);
 
-  credSave(users);
+  const ok = await credUpsert(credUsers[idx]);
+  if (!ok) return;
   closeModal('editUserModal');
   showToast('User updated successfully.');
   renderCredUsers();
