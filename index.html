@@ -1309,6 +1309,28 @@
     </div>
   </div>
 
+  <!-- Login / Logout Audit Log -->
+  <div class="panel" style="margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">&#128203; Login / Logout Activity</h3>
+      <button class="btn" onclick="loadLoginLogs()" style="background:#f0f2f5;color:#555;font-size:0.82rem">&#8635; Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Action</th>
+            <th>Date</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="loginLogsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- ADD USER MODAL -->
@@ -3303,6 +3325,9 @@ function attemptLogin() {
       errEl.textContent = 'Invalid username or password. (' + users.length + ' user(s) on record)'; return;
     }
 
+    // Log login event
+    writeLoginLog(user.username, 'Login');
+
     // Hide login, show app
     document.getElementById('login-screen').style.display = 'none';
     const sess = document.getElementById('header_session');
@@ -3328,6 +3353,11 @@ function applyRoleAccess(role) {
 }
 
 function logout() {
+  // Log logout event before clearing session
+  const label = document.getElementById('header_user_label').textContent;
+  const username = label ? label.split(' (')[0] : 'Unknown';
+  writeLoginLog(username, 'Logout');
+
   document.getElementById('login_username').value = '';
   document.getElementById('login_password').value = '';
   document.getElementById('login_error').textContent = '';
@@ -3335,6 +3365,37 @@ function logout() {
   document.getElementById('header_user_label').textContent = '';
   document.querySelectorAll('.tab-btn').forEach(b => b.style.display = '');
   document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ============================================================
+// LOGIN LOGS
+// ============================================================
+async function writeLoginLog(username, action) {
+  await sb.from('login_logs').insert({ id: genId(), username, action });
+}
+
+async function loadLoginLogs() {
+  const { data, error } = await sb.from('login_logs').select('*').order('logged_at', { ascending: false }).limit(100);
+  if (error) { console.error('login_logs fetch error', error); return; }
+  const tbody = document.getElementById('loginLogsBody');
+  if (!tbody) return;
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa">No activity yet.</td></tr>'; return;
+  }
+  const ACTION_COLOR = { Login: '#27ae60', Logout: '#e74c3c' };
+  tbody.innerHTML = data.map((row, i) => {
+    const dt = new Date(row.logged_at);
+    const date = dt.toLocaleDateString('en-GB');
+    const time = dt.toLocaleTimeString('en-GB');
+    const color = ACTION_COLOR[row.action] || '#888';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td><strong>${row.username}</strong></td>
+      <td><span class="badge" style="background:${color}22;color:${color}">${row.action}</span></td>
+      <td>${date}</td>
+      <td>${time}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ============================================================
@@ -3478,6 +3539,7 @@ async function saveEditUser() {
 const ROLE_COLORS = { admin:'#e94560', view:'#2980b9' };
 
 function renderCredUsers() {
+  loadLoginLogs();
   const users = credLoad();
   const tbody = document.getElementById('credUsersBody');
   if (!tbody) return;
