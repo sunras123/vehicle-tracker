@@ -340,6 +340,12 @@
       <div id="dashProfitChart"></div>
     </div>
   </div>
+
+  <!-- Sales by vehicle model -->
+  <div class="panel" style="margin-top:16px">
+    <h3>&#128663; Sales by Vehicle Model (Units)</h3>
+    <div id="dashModelSalesChart"></div>
+  </div>
 </div>
 
 <!-- MODELS & COLOURS TAB -->
@@ -3209,6 +3215,26 @@ function renderSummary() {
   renderCountChart('dashBookingsChart',  'bookings',  BAR_COLORS.bookings);
   renderCountChart('dashStockChart',     'stock',     BAR_COLORS.stock);
   renderMoneyChart('dashProfitChart',    'profit',    null);
+
+  // Sales by vehicle model (all-time, not period-filtered)
+  const modelSales = {};
+  sales.forEach(s => {
+    const v = getPurchase(s.vehicleId);
+    const label = v ? v.model + (v.variant ? ' ' + v.variant : '') : 'Unknown';
+    modelSales[label] = (modelSales[label] || 0) + 1;
+  });
+  const modelColors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad','#1abc9c','#e74c3c','#f39c12'];
+  const modelEntries = Object.entries(modelSales).sort((a, b) => b[1] - a[1]);
+  const maxModelSale = Math.max(...modelEntries.map(e => e[1]), 1);
+  const el = document.getElementById('dashModelSalesChart');
+  if (el) el.innerHTML = modelEntries.length
+    ? modelEntries.map(([name, count], i) => `
+        <div class="chart-bar-row">
+          <span class="chart-bar-label" title="${name}">${name.length > 22 ? name.substr(0, 22) + '…' : name}</span>
+          <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(count / maxModelSale * 100).toFixed(1)}%;background:${modelColors[i % modelColors.length]}"></div></div>
+          <span class="chart-bar-val">${count}</span>
+        </div>`).join('')
+    : '<div style="color:#aaa;font-size:0.82rem">No sales yet.</div>';
 }
 
 // ============================================================
