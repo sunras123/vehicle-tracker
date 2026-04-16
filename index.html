@@ -23,17 +23,19 @@
   .header-date { font-size: 0.8rem; opacity: 0.6; }
 
   .tabs {
-    display: flex; background: #1a1a2e;
-    overflow-x: auto; border-bottom: none;
-    padding: 0 24px;
+    display: flex; flex-wrap: wrap; background: #1a1a2e;
+    border-bottom: none;
+    padding: 4px 12px 0;
+    gap: 2px;
   }
   .tab-btn {
-    padding: 12px 20px; color: rgba(255,255,255,0.6);
+    padding: 8px 10px; color: rgba(255,255,255,0.6);
     border: none; background: none; cursor: pointer;
-    font-size: 0.85rem; font-weight: 500;
+    font-size: 0.88rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px;
     border-bottom: 3px solid transparent;
-    transition: all 0.2s; white-space: nowrap;
-    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 4px;
   }
   .tab-btn:hover { color: white; background: rgba(255,255,255,0.05); }
   .tab-btn.active { color: #e94560; border-bottom-color: #e94560; }
@@ -179,6 +181,12 @@
 
   .highlight-row { background: #fff8e1 !important; }
 
+  .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+  .sortable-th:hover { background: #2a2a4e; }
+  .sortable-th::after { content: ' ⇅'; opacity: 0.35; font-size: 0.7rem; }
+  .sortable-th.sort-asc::after { content: ' ▲'; opacity: 1; }
+  .sortable-th.sort-desc::after { content: ' ▼'; opacity: 1; }
+
   .model-stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
   .model-card {
     background: white; border-radius: 10px; padding: 16px;
@@ -238,37 +246,63 @@
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
 <nav class="tabs">
-  <button class="tab-btn active" onclick="showTab('summary')"><span class="icon">&#128200;</span> Summary</button>
-  <button class="tab-btn" onclick="showTab('catalogue')"><span class="icon">&#9881;</span> Models &amp; Colours</button>
-  <button class="tab-btn" onclick="showTab('purchaseplan')"><span class="icon">&#128196;</span> Purchase Plan</button>
-  <button class="tab-btn" onclick="showTab('purchases')"><span class="icon">&#128666;</span> Purchases</button>
-  <button class="tab-btn" onclick="showTab('sales')"><span class="icon">&#128176;</span> Sales</button>
-  <button class="tab-btn" onclick="showTab('pricelist')"><span class="icon">&#127991;</span> Price List</button>
-  <button class="tab-btn" onclick="showTab('bookings')"><span class="icon">&#128197;</span> Bookings</button>
-  <button class="tab-btn" onclick="showTab('stock')"><span class="icon">&#128218;</span> Stock</button>
-  <button class="tab-btn" onclick="showTab('financials')"><span class="icon">&#128181;</span> Financials</button>
-  <button class="tab-btn" onclick="showTab('reports')"><span class="icon">&#128203;</span> Reports</button>
+  <button class="tab-btn active" onclick="showTab('summary')">Dashboard</button>
+  <button class="tab-btn" onclick="showTab('pricelist')">Price List</button>
+  <button class="tab-btn" onclick="showTab('catalogue')">Models/Colours</button>
+  <button class="tab-btn" onclick="showTab('purchaseplan')">Order Plan</button>
+  <button class="tab-btn" onclick="showTab('purchases')">Purchases</button>
+  <button class="tab-btn" onclick="showTab('sales')">Sales</button>
+  <button class="tab-btn" onclick="showTab('bookings')">Bookings</button>
+  <button class="tab-btn" onclick="showTab('stock')">Stock</button>
+  <button class="tab-btn" onclick="showTab('financials')">Financials</button>
+  <button class="tab-btn" onclick="showTab('reports')">Reports</button>
+  <button class="tab-btn" onclick="showTab('credentials')">Credential Management</button>
 </nav>
 
 <!-- SUMMARY TAB -->
 <div id="tab-summary" class="tab-content active">
+
+  <!-- Period controls -->
+  <div class="panel" style="margin-bottom:16px">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="min-width:160px">
+        <label>View By</label>
+        <select id="dash_mode" onchange="onDashModeChange()">
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:120px" id="dash_year_group">
+        <label>Year</label>
+        <select id="dash_year" onchange="renderSummary()"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI summary cards -->
   <div class="cards-grid" id="summaryCards"></div>
+
+  <!-- 6 bar charts in 2-col grid -->
   <div class="summary-grid">
     <div class="panel">
-      <h3>&#128202; Stock by Model</h3>
-      <div id="modelBarChart"></div>
+      <h3>&#128666; Purchases</h3>
+      <div id="dashPurchasesChart"></div>
     </div>
     <div class="panel">
-      <h3>&#127774; Stock by Colour</h3>
-      <div id="colourBarChart"></div>
+      <h3>&#128176; Sales</h3>
+      <div id="dashSalesChart"></div>
     </div>
     <div class="panel">
-      <h3>&#128204; Recent Activity</h3>
-      <div id="recentActivity"></div>
+      <h3>&#128197; Bookings</h3>
+      <div id="dashBookingsChart"></div>
     </div>
     <div class="panel">
-      <h3>&#127942; Top Performers</h3>
-      <div id="topPerformers"></div>
+      <h3>&#128218; Stock (Available by Period)</h3>
+      <div id="dashStockChart"></div>
+    </div>
+    <div class="panel">
+      <h3>&#128200; Gross Profit (Nu.)</h3>
+      <div id="dashProfitChart"></div>
     </div>
   </div>
 </div>
@@ -335,7 +369,7 @@
 <!-- PURCHASE PLAN TAB -->
 <div id="tab-purchaseplan" class="tab-content">
   <div class="panel">
-    <h3>&#128196; Add Purchase Plan</h3>
+    <h3>&#128196; Add Order Plan</h3>
     <div class="form-grid">
       <div class="form-group">
         <label>Date</label>
@@ -343,7 +377,11 @@
       </div>
       <div class="form-group">
         <label>Vehicle Model</label>
-        <select id="pp_model"><option value="">-- Select Model --</option></select>
+        <select id="pp_model" onchange="updatePurchasePlanVariantSelect()"><option value="">-- Select Model --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Variant</label>
+        <select id="pp_variant"><option value="">-- Select Model First --</option></select>
       </div>
       <div class="form-group">
         <label>Colour</label>
@@ -352,6 +390,14 @@
       <div class="form-group">
         <label>Quantity</label>
         <input type="number" id="pp_qty" placeholder="1" min="1" value="1">
+      </div>
+      <div class="form-group">
+        <label>PO Number</label>
+        <input type="text" id="pp_po" placeholder="Purchase Order number">
+      </div>
+      <div class="form-group">
+        <label>FOB Price (USD)</label>
+        <input type="text" inputmode="decimal" id="pp_fob" placeholder="0.00" oninput="fmtInput(this)">
       </div>
       <div class="form-group">
         <label>LC Status</label>
@@ -373,7 +419,7 @@
   </div>
 
   <div class="panel">
-    <h3>&#128196; Purchase Plan Records</h3>
+    <h3>&#128196; Order Plan Records</h3>
     <div class="toolbar">
       <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour...">
       <select id="ppLcFilter" onchange="renderPurchasePlanTable()">
@@ -388,7 +434,7 @@
         <thead>
           <tr>
             <th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th>
-            <th>Qty</th><th>LC Status</th><th>Notes</th><th>Action</th>
+            <th>Qty</th><th>PO No.</th><th>FOB Price (USD)</th><th>LC Status</th><th>Notes</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="ppTableBody"></tbody>
@@ -412,7 +458,11 @@
       </div>
       <div class="form-group">
         <label>Model</label>
-        <select id="p_model"><option value="">-- Select Model --</option></select>
+        <select id="p_model" onchange="updatePurchaseVariantSelect()"><option value="">-- Select Model --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Variant</label>
+        <select id="p_variant"><option value="">-- Select Model First --</option></select>
       </div>
       <div class="form-group">
         <label>Colour</label>
@@ -424,18 +474,26 @@
       </div>
       <div class="form-group">
         <label>FOB Price (USD)</label>
-        <input type="text" inputmode="decimal" id="p_cost" placeholder="0.00" oninput="fmtInput(this)">
+        <input type="text" inputmode="decimal" id="p_cost" placeholder="0.00" oninput="fmtInput(this); calcFobNu()">
       </div>
       <div class="form-group">
         <label>Exchange Rate (Nu./USD)</label>
-        <input type="text" inputmode="decimal" id="p_exrate" placeholder="0.00" oninput="fmtInput(this)">
+        <input type="text" inputmode="decimal" id="p_exrate" placeholder="0.00" oninput="fmtInput(this); calcFobNu(); calcShippingNu()">
+      </div>
+      <div class="form-group">
+        <label>FOB Price (Nu.)</label>
+        <input type="text" id="p_fob_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;">
       </div>
       <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;">
         <span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Cost Breakdown</span>
       </div>
       <div class="form-group">
         <label>Shipping China → Kolkata (USD)</label>
-        <input type="text" inputmode="decimal" id="p_shipping" placeholder="0.00" oninput="fmtInput(this)">
+        <input type="text" inputmode="decimal" id="p_shipping" placeholder="0.00" oninput="fmtInput(this); calcShippingNu()">
+      </div>
+      <div class="form-group">
+        <label>Shipping China → Kolkata (Nu.)</label>
+        <input type="text" id="p_shipping_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;">
       </div>
       <div class="form-group">
         <label>Transport Kolkata → Phuentsholing (Nu.)</label>
@@ -521,10 +579,17 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr>
-            <th>#</th><th>Date</th><th>Model</th><th>Variant</th>
-            <th>Year</th><th>Colour</th><th>Invoice No.</th><th>PO No.</th>
-            <th>FOB Price (USD)</th><th>Ex. Rate</th><th>Add. Costs</th><th>Total Cost</th><th>Status</th><th>Action</th>
+          <tr id="purchasesThead">
+            <th>Sl #</th>
+            <th class="sortable-th" onclick="setPurchaseSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setPurchaseSort('model')" data-col="model">Model</th>
+            <th class="sortable-th" onclick="setPurchaseSort('variant')" data-col="variant">Variant</th>
+            <th class="sortable-th" onclick="setPurchaseSort('year')" data-col="year">Year</th>
+            <th class="sortable-th" onclick="setPurchaseSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setPurchaseSort('po')" data-col="po">PO No.</th>
+            <th class="sortable-th" onclick="setPurchaseSort('totalCost')" data-col="totalCost">Total Cost (Nu.)</th>
+            <th class="sortable-th" onclick="setPurchaseSort('status')" data-col="status">Status</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody id="purchasesTableBody"></tbody>
@@ -556,11 +621,11 @@
       </div>
       <div class="form-group">
         <label>CID Number</label>
-        <input type="text" id="s_cid" placeholder="CID number">
+        <input type="text" id="s_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11">
       </div>
       <div class="form-group">
         <label>Buyer Phone</label>
-        <input type="text" id="s_phone" placeholder="Phone number">
+        <input type="text" id="s_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8">
       </div>
       <div class="form-group">
         <label>Buyer Address</label>
@@ -642,11 +707,25 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
+        <thead id="salesThead">
           <tr>
-            <th>#</th><th>Date</th><th>Vehicle</th><th>Colour</th>
-            <th>Buyer</th><th>CID No.</th><th>Phone</th><th>Address</th><th>Invoice No.</th><th>List Price</th><th>Discount</th>
-            <th>Sale Price</th><th>Paid</th><th>Balance Payable</th><th>Cost</th><th>Profit</th><th>Payment</th><th>Ref. No.</th><th>CA No.</th><th>Salesperson</th><th>Action</th>
+            <th>#</th>
+            <th class="sortable-th" onclick="setSaleSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setSaleSort('model')" data-col="model">Vehicle</th>
+            <th class="sortable-th" onclick="setSaleSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setSaleSort('buyer')" data-col="buyer">Buyer</th>
+            <th>CID No.</th><th>Phone</th><th>Address</th><th>Invoice No.</th>
+            <th class="sortable-th" onclick="setSaleSort('salePrice')" data-col="salePrice">List Price</th>
+            <th class="sortable-th" onclick="setSaleSort('discount')" data-col="discount">Discount</th>
+            <th class="sortable-th" onclick="setSaleSort('netPrice')" data-col="netPrice">Sale Price</th>
+            <th class="sortable-th" onclick="setSaleSort('amountPaid')" data-col="amountPaid">Paid</th>
+            <th class="sortable-th" onclick="setSaleSort('pendingAmount')" data-col="pendingAmount">Balance Payable</th>
+            <th class="sortable-th" onclick="setSaleSort('totalCost')" data-col="totalCost">Cost</th>
+            <th class="sortable-th" onclick="setSaleSort('profit')" data-col="profit">Profit</th>
+            <th class="sortable-th" onclick="setSaleSort('payment')" data-col="payment">Payment</th>
+            <th>Ref. No.</th><th>CA No.</th>
+            <th class="sortable-th" onclick="setSaleSort('salesperson')" data-col="salesperson">Salesperson</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody id="salesTableBody"></tbody>
@@ -666,11 +745,11 @@
     <div class="form-grid">
       <div class="form-group">
         <label>Model</label>
-        <select id="pl_model"><option value="">-- Select Model --</option></select>
+        <select id="pl_model" onchange="updatePriceListVariantSelect()"><option value="">-- Select Model --</option></select>
       </div>
       <div class="form-group">
         <label>Variant</label>
-        <input type="text" id="pl_variant" placeholder="e.g. Standard, Premium">
+        <select id="pl_variant"><option value="">-- Select Model First --</option></select>
       </div>
       <div class="form-group">
         <label>List Price (Nu.)</label>
@@ -718,16 +797,20 @@
         <select id="b_vehicle" onchange="autoFillBookingListPrice()"><option value="">-- Select Available Vehicle --</option></select>
       </div>
       <div class="form-group">
+        <label>Variant</label>
+        <input type="text" id="b_variant" readonly placeholder="—" style="background:#f0f2f5;color:#1a1a2e;font-weight:600;cursor:default;">
+      </div>
+      <div class="form-group">
         <label>Customer Name</label>
         <input type="text" id="b_customer" placeholder="Full name">
       </div>
       <div class="form-group">
         <label>CID Number</label>
-        <input type="text" id="b_cid" placeholder="CID number">
+        <input type="text" id="b_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11">
       </div>
       <div class="form-group">
         <label>Customer Phone</label>
-        <input type="text" id="b_phone" placeholder="Phone number">
+        <input type="text" id="b_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8">
       </div>
       <div class="form-group">
         <label>Customer Address</label>
@@ -832,6 +915,37 @@
 
 <!-- FINANCIALS TAB -->
 <div id="tab-financials" class="tab-content">
+
+  <!-- Period controls -->
+  <div class="panel" style="margin-bottom:16px">
+    <h3>&#128197; Select Period</h3>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="min-width:160px">
+        <label>Period Type</label>
+        <select id="fin_mode" onchange="onFinModeChange()">
+          <option value="all">All Time</option>
+          <option value="yearly">Yearly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:120px" id="fin_year_group" style="display:none">
+        <label>Year</label>
+        <select id="fin_year" onchange="renderFinancials()"></select>
+      </div>
+      <div class="form-group" style="min-width:140px" id="fin_month_group" style="display:none">
+        <label>Month</label>
+        <select id="fin_month" onchange="renderFinancials()">
+          <option value="01">January</option><option value="02">February</option>
+          <option value="03">March</option><option value="04">April</option>
+          <option value="05">May</option><option value="06">June</option>
+          <option value="07">July</option><option value="08">August</option>
+          <option value="09">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
   <div class="cards-grid" id="finCards"></div>
 
   <div class="summary-grid">
@@ -881,11 +995,6 @@
 
   <div class="panel">
     <h3>&#128203; Detailed Financial Records</h3>
-    <div class="toolbar">
-      <select id="finMonthFilter" onchange="renderFinancialsDetail()">
-        <option value="">All Time</option>
-      </select>
-    </div>
     <div class="table-wrap">
       <table class="fin-table">
         <thead>
@@ -907,14 +1016,27 @@
   <div class="panel" style="margin-bottom:16px">
     <h3>&#128203; Report Generator</h3>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-      <div class="form-group" style="min-width:160px">
-        <label>Report Type</label>
-        <select id="rpt_mode" onchange="onRptModeChange()">
-          <option value="monthly">Monthly Report</option>
-          <option value="yearly">Yearly Report</option>
+      <div class="form-group" style="min-width:180px">
+        <label>Report Category</label>
+        <select id="rpt_category" onchange="onRptCategoryChange()">
+          <option value="sales">Sales</option>
+          <option value="purchases">Purchases</option>
+          <option value="bookings">Bookings</option>
+          <option value="orderplan">Order Plan</option>
+          <option value="financials">Financials</option>
+          <option value="stock">Stock</option>
+          <option value="pricelist">Price List</option>
+          <option value="models">Models &amp; Colours</option>
         </select>
       </div>
-      <div class="form-group" style="min-width:120px">
+      <div class="form-group" style="min-width:160px" id="rpt_period_group">
+        <label>Period</label>
+        <select id="rpt_mode" onchange="onRptModeChange()">
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:120px" id="rpt_year_group">
         <label>Year</label>
         <select id="rpt_year" onchange="renderReports()"></select>
       </div>
@@ -935,6 +1057,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ── SALES SECTION ─────────────────────────────────────────── -->
+  <div id="rptSec_sales">
 
   <!-- KPI Cards -->
   <div class="cards-grid" id="rptCards"></div>
@@ -997,6 +1122,225 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /rptSec_sales -->
+
+  <!-- ── PURCHASES SECTION ──────────────────────────────────────── -->
+  <div id="rptSec_purchases" style="display:none">
+    <div class="cards-grid" id="rptPurCards"></div>
+    <div class="panel">
+      <h3>&#128666; Purchase Records</h3>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th><th>Year</th><th>PO No.</th><th>Total Cost (Nu.)</th><th>Status</th></tr></thead>
+          <tbody id="rptPurBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BOOKINGS SECTION ───────────────────────────────────────── -->
+  <div id="rptSec_bookings" style="display:none">
+    <div class="cards-grid" id="rptBokCards"></div>
+    <div class="panel">
+      <h3>&#128197; Booking Records</h3>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>#</th><th>Date</th><th>Vehicle</th><th>Colour</th><th>Customer</th><th>CID</th><th>Phone</th><th>Advance Paid (Nu.)</th><th>List Price (Nu.)</th><th>Discount (Nu.)</th><th>Sale Price (Nu.)</th><th>Balance (Nu.)</th><th>Delivery</th></tr></thead>
+          <tbody id="rptBokBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ORDER PLAN SECTION ─────────────────────────────────────── -->
+  <div id="rptSec_orderplan" style="display:none">
+    <div class="cards-grid" id="rptPPCards"></div>
+    <div class="panel">
+      <h3>&#128196; Order Plan Records</h3>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th><th>Qty</th><th>PO No.</th><th>FOB Price (USD)</th><th>LC Status</th><th>Notes</th></tr></thead>
+          <tbody id="rptPPBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FINANCIALS SECTION ─────────────────────────────────────── -->
+  <div id="rptSec_financials" style="display:none">
+    <div class="cards-grid" id="rptFinCards"></div>
+    <div class="summary-grid">
+      <div class="panel">
+        <h3>&#128200; Financial Overview</h3>
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead><tr><th>Category</th><th>Units</th><th>Value (Nu.)</th></tr></thead>
+            <tbody id="rptFinOverview"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>&#128181; Sales by Payment Method</h3>
+        <div id="rptFinPayment"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>&#128203; Detailed Records</h3>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>#</th><th>Date</th><th>Vehicle</th><th>Buyer</th><th>Cost (Nu.)</th><th>Net Price (Nu.)</th><th>Profit (Nu.)</th><th>Payment</th></tr></thead>
+          <tbody id="rptFinDetail"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STOCK SECTION ──────────────────────────────────────────── -->
+  <div id="rptSec_stock" style="display:none">
+    <div class="cards-grid" id="rptStockCards"></div>
+    <div class="panel">
+      <h3>&#128218; Current Stock</h3>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>#</th><th>Model</th><th>Variant</th><th>Colour</th><th>Year</th><th>PO No.</th><th>Total Cost (Nu.)</th><th>Status</th></tr></thead>
+          <tbody id="rptStockBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRICE LIST SECTION ─────────────────────────────────────── -->
+  <div id="rptSec_pricelist" style="display:none">
+    <div class="panel">
+      <h3>&#127991; Price List</h3>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>#</th><th>Model</th><th>Variant</th><th>List Price (Nu.)</th></tr></thead>
+          <tbody id="rptPLBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODELS & COLOURS SECTION ──────────────────────────────── -->
+  <div id="rptSec_models" style="display:none">
+    <div class="summary-grid">
+      <div class="panel">
+        <h3>&#128663; Models &amp; Variants</h3>
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead><tr><th>#</th><th>Model</th><th>Variant</th></tr></thead>
+            <tbody id="rptModelsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>&#127912; Colours</h3>
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead><tr><th>#</th><th>Colour</th><th>Swatch</th></tr></thead>
+            <tbody id="rptColoursBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CREDENTIALS TAB -->
+<div id="tab-credentials" class="tab-content">
+
+  <!-- User list -->
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">&#128101; Users</h3>
+      <button class="btn btn-primary" onclick="openAddUserModal()">+ Add User</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="credUsersBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
+    <h3>&#128100; Add New User</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="au_username" placeholder="Enter username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="au_role">
+          <option value="view">View</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="au_password" placeholder="Set password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="au_confirm" placeholder="Confirm password" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveNewUser()">&#10003; Create User</button>
+      <button class="btn" onclick="closeModal('addUserModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT USER MODAL -->
+<div class="modal-overlay" id="editUserModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
+    <h3>&#9998; Edit User</h3>
+    <input type="hidden" id="eu_id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="eu_username" placeholder="Username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="eu_role">
+          <option value="view">View</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>New Password <span style="font-size:0.78rem;color:#aaa;font-weight:400">(leave blank to keep current)</span></label>
+        <input type="password" id="eu_password" placeholder="New password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="eu_confirm" placeholder="Confirm password" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-warning" onclick="saveEditUser()">&#10003; Save Changes</button>
+      <button class="btn" onclick="closeModal('editUserModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- EDIT PURCHASE MODAL -->
@@ -1007,13 +1351,16 @@
     <input type="hidden" id="ep_id">
     <div class="form-grid">
       <div class="form-group"><label>Date</label><input type="date" id="ep_date"></div>
-      <div class="form-group"><label>Model</label><select id="ep_model"><option value="">-- Select Model --</option></select></div>
+      <div class="form-group"><label>Model</label><select id="ep_model" onchange="updateEditPurchaseVariantSelect()"><option value="">-- Select Model --</option></select></div>
+      <div class="form-group"><label>Variant</label><select id="ep_variant"><option value="">-- Select Model First --</option></select></div>
       <div class="form-group"><label>Colour</label><select id="ep_colour"><option value="">-- Select Colour --</option></select></div>
       <div class="form-group"><label>Year</label><input type="number" id="ep_year" placeholder="2024" min="1990" max="2030"></div>
-      <div class="form-group"><label>FOB Price (USD)</label><input type="text" inputmode="decimal" id="ep_cost" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Exchange Rate (Nu./USD)</label><input type="text" inputmode="decimal" id="ep_exrate" placeholder="0.00" oninput="fmtInput(this)"></div>
+      <div class="form-group"><label>FOB Price (USD)</label><input type="text" inputmode="decimal" id="ep_cost" placeholder="0.00" oninput="fmtInput(this); calcEpFobNu()"></div>
+      <div class="form-group"><label>Exchange Rate (Nu./USD)</label><input type="text" inputmode="decimal" id="ep_exrate" placeholder="0.00" oninput="fmtInput(this); calcEpFobNu(); calcEpShippingNu()"></div>
+      <div class="form-group"><label>FOB Price (Nu.)</label><input type="text" id="ep_fob_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;"></div>
       <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;"><span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Cost Breakdown</span></div>
-      <div class="form-group"><label>Shipping China → Kolkata (USD)</label><input type="text" inputmode="decimal" id="ep_shipping" placeholder="0.00" oninput="fmtInput(this)"></div>
+      <div class="form-group"><label>Shipping China → Kolkata (USD)</label><input type="text" inputmode="decimal" id="ep_shipping" placeholder="0.00" oninput="fmtInput(this); calcEpShippingNu()"></div>
+      <div class="form-group"><label>Shipping China → Kolkata (Nu.)</label><input type="text" id="ep_shipping_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;"></div>
       <div class="form-group"><label>Transport Kolkata → Phuentsholing (Nu.)</label><input type="text" inputmode="decimal" id="ep_transport" placeholder="0.00" oninput="fmtInput(this)"></div>
       <div class="form-group"><label>Customs Duty (Nu.)</label><input type="text" inputmode="decimal" id="ep_customs" placeholder="0.00" oninput="fmtInput(this)"></div>
       <div class="form-group"><label>Excise Duty (Nu.)</label><input type="text" inputmode="decimal" id="ep_excise" placeholder="0.00" oninput="fmtInput(this)"></div>
@@ -1047,8 +1394,8 @@
     <div class="form-grid">
       <div class="form-group"><label>Date of Sale</label><input type="date" id="es_date"></div>
       <div class="form-group"><label>Buyer Name</label><input type="text" id="es_buyer" placeholder="Full name"></div>
-      <div class="form-group"><label>CID Number</label><input type="text" id="es_cid" placeholder="CID number"></div>
-      <div class="form-group"><label>Buyer Phone</label><input type="text" id="es_phone" placeholder="Phone number"></div>
+      <div class="form-group"><label>CID Number</label><input type="text" id="es_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11"></div>
+      <div class="form-group"><label>Buyer Phone</label><input type="text" id="es_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
       <div class="form-group"><label>Buyer Address</label><input type="text" id="es_address" placeholder="Address"></div>
       <div class="form-group"><label>List Price (Nu.)</label><input type="text" inputmode="decimal" id="es_price" placeholder="0.00" oninput="fmtInput(this);calcEditSalePending()"></div>
       <div class="form-group"><label>Discount (Nu.)</label><input type="text" inputmode="decimal" id="es_discount" placeholder="0.00" oninput="fmtInput(this);calcEditSalePending()"></div>
@@ -1086,8 +1433,8 @@
     <div class="form-grid">
       <div class="form-group"><label>Booking Date</label><input type="date" id="eb_date"></div>
       <div class="form-group"><label>Customer Name</label><input type="text" id="eb_customer" placeholder="Full name"></div>
-      <div class="form-group"><label>CID Number</label><input type="text" id="eb_cid" placeholder="CID number"></div>
-      <div class="form-group"><label>Customer Phone</label><input type="text" id="eb_phone" placeholder="Phone number"></div>
+      <div class="form-group"><label>CID Number</label><input type="text" id="eb_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11"></div>
+      <div class="form-group"><label>Customer Phone</label><input type="text" id="eb_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
       <div class="form-group"><label>Customer Address</label><input type="text" id="eb_address" placeholder="Address"></div>
       <div class="form-group"><label>Advance Paid (Nu.)</label><input type="text" inputmode="decimal" id="eb_deposit" placeholder="0.00" oninput="fmtInput(this);calcEditBookingBalance()"></div>
       <div class="form-group"><label>List Price (Nu.)</label><input type="text" inputmode="decimal" id="eb_agreedprice" placeholder="0.00" oninput="fmtInput(this);calcEditBookingSalePrice()"></div>
@@ -1390,7 +1737,7 @@ function getVehicleLabel(p) {
 // ============================================================
 // TABS
 // ============================================================
-const TAB_NAMES = ['summary','catalogue','purchaseplan','purchases','sales','pricelist','bookings','stock','financials','reports'];
+const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports','credentials'];
 
 function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -1518,25 +1865,38 @@ function updatePurchasePlanDropdowns() {
   if (!pm || !pc) return;
   const curModel  = pm.value;
   const curColour = pc.value;
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   pm.innerHTML = '<option value="">-- Select Model --</option>' +
-    catModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}${m.variant?' — '+m.variant:''}</option>`).join('');
+    uniqueModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}</option>`).join('');
   pc.innerHTML = '<option value="">-- Select Colour --</option>' +
     catColours.map(c => `<option value="${c.name}" ${c.name===curColour?'selected':''}>${c.name}</option>`).join('');
+  updatePurchasePlanVariantSelect();
+}
+
+function updatePurchasePlanVariantSelect() {
+  const model = document.getElementById('pp_model').value;
+  const sel   = document.getElementById('pp_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
+  sel.innerHTML = variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
 }
 
 function addPurchasePlan() {
   const model  = document.getElementById('pp_model').value;
   const colour = document.getElementById('pp_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
-  const catM    = catModels.find(m => m.name === model);
   const lcstatus = document.getElementById('pp_lcstatus').value;
   const entry = {
     id:       genId(),
     date:     document.getElementById('pp_date').value || today(),
     model,
-    variant:  catM ? catM.variant : '',
+    variant:  document.getElementById('pp_variant').value,
     colour,
     qty:      parseInt(document.getElementById('pp_qty').value) || 1,
+    po:       document.getElementById('pp_po').value.trim(),
+    fob:      parseFloat((document.getElementById('pp_fob').value || '').replace(/,/g,'')) || 0,
     lcstatus,
     notes:    document.getElementById('pp_notes').value.trim()
   };
@@ -1549,7 +1909,8 @@ function addPurchasePlan() {
 }
 
 function clearPurchasePlanForm() {
-  ['pp_model','pp_colour','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['pp_model','pp_colour','pp_po','pp_fob','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('pp_variant').innerHTML = '<option value="">-- Select Model First --</option>';
   document.getElementById('pp_date').value = today();
   document.getElementById('pp_qty').value  = '1';
   document.getElementById('pp_lcstatus').value = 'opened';
@@ -1622,6 +1983,8 @@ function renderPurchasePlanTable() {
     <td>${p.variant || '-'}</td>
     <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
     <td style="text-align:center">${p.qty || 1}</td>
+    <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
+    <td style="text-align:right">${p.fob ? fmtNum(p.fob) : '-'}</td>
     <td>
       <select onchange="updatePlanLcStatus('${p.id}', this.value)"
         style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
@@ -1643,11 +2006,14 @@ function updatePurchaseDropdowns() {
   const curModel  = pm.value;
   const curColour = pc.value;
 
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   pm.innerHTML = '<option value="">-- Select Model --</option>' +
-    catModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}${m.variant ? ' — ' + m.variant : ''}</option>`).join('');
+    uniqueModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}</option>`).join('');
 
   pc.innerHTML = '<option value="">-- Select Colour --</option>' +
     catColours.map(c => `<option value="${c.name}" ${c.name===curColour?'selected':''}>${c.name}</option>`).join('');
+
+  updatePurchaseVariantSelect();
 
   // Also update stock filters
   const models  = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.model))].sort();
@@ -1656,6 +2022,27 @@ function updatePurchaseDropdowns() {
   const scf = document.getElementById('stockColourFilter');
   if (smf) smf.innerHTML = '<option value="">All Models</option>' + models.map(m=>`<option>${m}</option>`).join('');
   if (scf) scf.innerHTML = '<option value="">All Colours</option>' + colours.map(c=>`<option>${c}</option>`).join('');
+}
+
+function updatePurchaseVariantSelect() {
+  const model = document.getElementById('p_model').value;
+  const sel   = document.getElementById('p_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
+  sel.innerHTML = variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
+}
+
+function updateEditPurchaseVariantSelect(currentVariant) {
+  const model = document.getElementById('ep_model').value;
+  const sel   = document.getElementById('ep_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
+  const cur = currentVariant !== undefined ? currentVariant : sel.value;
+  sel.innerHTML = variants.map(v => `<option value="${v}" ${v===cur?'selected':''}>${v || '(Base / No Variant)'}</option>`).join('');
 }
 
 function lookupListPrice(vehicleId) {
@@ -1680,6 +2067,9 @@ function autoFillSaleListPrice() {
 
 function autoFillBookingListPrice() {
   const vehicleId = document.getElementById('b_vehicle').value;
+  const veh = getPurchase(vehicleId);
+  const varEl = document.getElementById('b_variant');
+  if (varEl) varEl.value = (veh && veh.variant) ? veh.variant : '';
   if (!vehicleId) return;
   const pl = lookupListPrice(vehicleId);
   if (pl) {
@@ -1697,13 +2087,13 @@ function updateVehicleSelects() {
   document.getElementById('s_vehicle').innerHTML =
     '<option value="">-- Select Vehicle --</option>' +
     [...available, ...booked].map(p =>
-      `<option value="${p.id}">[${p.status.toUpperCase()}] ${p.model} | ${p.colour}</option>`
+      `<option value="${p.id}">[${p.status.toUpperCase()}] ${p.model}${p.variant ? ' ' + p.variant : ''} | ${p.colour}</option>`
     ).join('');
 
   document.getElementById('b_vehicle').innerHTML =
     '<option value="">-- Select Available Vehicle --</option>' +
     available.map(p =>
-      `<option value="${p.id}">${p.model} | ${p.colour}</option>`
+      `<option value="${p.id}">${p.model}${p.variant ? ' ' + p.variant : ''} | ${p.colour}</option>`
     ).join('');
 
   updatePurchaseDropdowns();
@@ -1718,7 +2108,6 @@ function addPurchase() {
   const colour = document.getElementById('p_colour').value;
   if (!date || !model || !colour) { showToast('Date, Model and Colour are required.', 'error'); return; }
 
-  const catM = catModels.find(m => m.name === model);
   const cost      = parseNum('p_cost');
   const exrate    = parseNum('p_exrate');
   const shipping  = parseNum('p_shipping');
@@ -1740,7 +2129,7 @@ function addPurchase() {
     date,
     make: 'BYD',
     model,
-    variant: catM ? catM.variant : '',
+    variant: document.getElementById('p_variant').value,
     year: document.getElementById('p_year').value || '',
     colour,
     cost,
@@ -1771,11 +2160,42 @@ function addPurchase() {
   updateVehicleSelects();
 }
 
+function calcFobNu() {
+  const usd = parseFloat((document.getElementById('p_cost').value || '').replace(/,/g,'')) || 0;
+  const rate = parseFloat((document.getElementById('p_exrate').value || '').replace(/,/g,'')) || 0;
+  const el = document.getElementById('p_fob_nu');
+  el.value = (usd > 0 && rate > 0) ? 'Nu. ' + (usd * rate).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+}
+
+function calcEpFobNu() {
+  const usd = parseFloat((document.getElementById('ep_cost').value || '').replace(/,/g,'')) || 0;
+  const rate = parseFloat((document.getElementById('ep_exrate').value || '').replace(/,/g,'')) || 0;
+  const el = document.getElementById('ep_fob_nu');
+  el.value = (usd > 0 && rate > 0) ? 'Nu. ' + (usd * rate).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+}
+
+function calcShippingNu() {
+  const usd = parseFloat((document.getElementById('p_shipping').value || '').replace(/,/g,'')) || 0;
+  const rate = parseFloat((document.getElementById('p_exrate').value || '').replace(/,/g,'')) || 0;
+  const el = document.getElementById('p_shipping_nu');
+  el.value = (usd > 0 && rate > 0) ? 'Nu. ' + (usd * rate).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+}
+
+function calcEpShippingNu() {
+  const usd = parseFloat((document.getElementById('ep_shipping').value || '').replace(/,/g,'')) || 0;
+  const rate = parseFloat((document.getElementById('ep_exrate').value || '').replace(/,/g,'')) || 0;
+  const el = document.getElementById('ep_shipping_nu');
+  el.value = (usd > 0 && rate > 0) ? 'Nu. ' + (usd * rate).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+}
+
 function clearPurchaseForm() {
   ['p_year','p_cost','p_exrate','p_shipping','p_transport','p_customs','p_excise','p_gst','p_dv','p_permit','p_loading','p_service','p_driver','p_fuel','p_insurance','p_addcost','p_pi','p_po','p_notes']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('p_fob_nu').value = '—';
+  document.getElementById('p_shipping_nu').value = '—';
   document.getElementById('p_date').value = today();
   document.getElementById('p_model').value = '';
+  document.getElementById('p_variant').innerHTML = '<option value="">-- Select Model First --</option>';
   document.getElementById('p_colour').value = '';
 }
 
@@ -1791,13 +2211,58 @@ function deletePurchase(id) {
   updateVehicleSelects();
 }
 
+let purchaseSortCol = 'date';
+let purchaseSortDir = 'desc';
+
+let salesSortCol = 'date';
+let salesSortDir = 'desc';
+
+function setSaleSort(col) {
+  if (salesSortCol === col) {
+    salesSortDir = salesSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    salesSortCol = col;
+    const numCols = ['salePrice','discount','netPrice','amountPaid','pendingAmount','totalCost','profit'];
+    salesSortDir = numCols.includes(col) ? 'desc' : 'asc';
+  }
+  renderSalesTable();
+}
+
+function setPurchaseSort(col) {
+  if (purchaseSortCol === col) {
+    purchaseSortDir = purchaseSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    purchaseSortCol = col;
+    purchaseSortDir = col === 'totalCost' ? 'desc' : 'asc';
+  }
+  renderPurchasesTable();
+}
+
 function renderPurchasesTable() {
   const search  = document.getElementById('purchaseSearch').value.toLowerCase();
   const statusF = document.getElementById('purchaseStatusFilter').value;
   let data = purchases.filter(p => {
     const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
     return match && (!statusF || p.status === statusF);
-  }).sort((a,b) => b.date.localeCompare(a.date));
+  });
+
+  // Apply sort
+  data.sort((a, b) => {
+    let av = a[purchaseSortCol] ?? '';
+    let bv = b[purchaseSortCol] ?? '';
+    if (purchaseSortCol === 'totalCost' || purchaseSortCol === 'year') {
+      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      return purchaseSortDir === 'asc' ? av - bv : bv - av;
+    }
+    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+    return purchaseSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  // Update header indicators
+  document.querySelectorAll('#purchasesThead .sortable-th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === purchaseSortCol) th.classList.add('sort-' + purchaseSortDir);
+  });
 
   const tbody = document.getElementById('purchasesTableBody');
   const empty = document.getElementById('purchasesEmpty');
@@ -1813,11 +2278,7 @@ function renderPurchasesTable() {
       <td>${p.variant || '-'}</td>
       <td>${p.year || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td style="font-size:0.78rem;font-family:monospace">${p.pi || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-      <td>${fmtNum(p.cost)}</td>
-      <td>${p.exrate ? fmtNum(p.exrate) : '-'}</td>
-      <td>${fmtNum(p.addcost)}</td>
       <td><strong>${fmtNum(p.totalCost)}</strong></td>
       <td><span class="badge badge-${p.status}">${p.status}</span></td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -1826,6 +2287,61 @@ function renderPurchasesTable() {
       </td>
     </tr>`;
   }).join('');
+}
+
+function exportPurchasesExcel() {
+  if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+  const search  = document.getElementById('purchaseSearch').value.toLowerCase();
+  const statusF = document.getElementById('purchaseStatusFilter').value;
+  const data = purchases.filter(p => {
+    const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
+    return match && (!statusF || p.status === statusF);
+  }).sort((a,b) => b.date.localeCompare(a.date));
+
+  if (!data.length) { showToast('No records to export.', 'error'); return; }
+
+  const header = [
+    '#','Date','Model','Variant','Year','Colour','Invoice No.','PO No.',
+    'FOB Price (USD)','Exchange Rate (Nu./USD)','FOB Price (Nu.)',
+    'Shipping China→Kolkata (USD)','Shipping China→Kolkata (Nu.)',
+    'Transport Kolkata→Phuentsholing (Nu.)','Customs Duty (Nu.)','Excise Duty (Nu.)',
+    'GST (Nu.)','DV Charges (Nu.)','Permit Charges (Nu.)','Unloading & Loading (Nu.)',
+    'Service Charge & Commission (Nu.)','Driver Charges (Nu.)','Fuel Cost (Nu.)',
+    'Transit Insurance (Nu.)','Additional Costs (Nu.)','Total Cost (Nu.)','Status','Notes'
+  ];
+
+  let total = 0;
+  const rows = data.map((p, i) => {
+    const fobNu = (p.cost||0) * (p.exrate||0);
+    const shippingNu = (p.shipping||0) * (p.exrate||0);
+    total += p.totalCost||0;
+    return [
+      i+1, p.date, p.model, p.variant||'', p.year||'', p.colour, p.pi||'', p.po||'',
+      p.cost||0, p.exrate||0, fobNu,
+      p.shipping||0, shippingNu,
+      p.transport||0, p.customs||0, p.excise||0,
+      p.gst||0, p.dv||0, p.permit||0, p.loading||0,
+      p.service||0, p.driver||0, p.fuel||0,
+      p.insurance||0, p.addcost||0, p.totalCost||0, p.status, p.notes||''
+    ];
+  });
+  rows.push(['','TOTAL','','','','','','','','','','','','','','','','','','','','','','','',total,'','']);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [
+    {wch:4},{wch:12},{wch:14},{wch:12},{wch:6},{wch:14},{wch:14},{wch:14},
+    {wch:18},{wch:20},{wch:18},
+    {wch:26},{wch:26},
+    {wch:32},{wch:18},{wch:18},
+    {wch:12},{wch:18},{wch:18},{wch:22},
+    {wch:28},{wch:18},{wch:16},
+    {wch:22},{wch:22},{wch:18},{wch:12},{wch:20}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Purchases');
+  const fileName = `AsangaMobility_Purchases_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast(`Exported: ${fileName}`);
 }
 
 // ============================================================
@@ -1863,6 +2379,10 @@ function addSale() {
   const buyer     = document.getElementById('s_buyer').value.trim();
   const price     = parseNum('s_price');
   if (!date || !vehicleId || !buyer || !price) { showToast('Date, Vehicle, Buyer and Price required.', 'error'); return; }
+  const cid_s = document.getElementById('s_cid').value.trim();
+  if (!/^\d{11}$/.test(cid_s)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  const phone_s = document.getElementById('s_phone').value.trim();
+  if (!/^\d{8}$/.test(phone_s)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
 
   const veh = getPurchase(vehicleId);
   if (!veh) { showToast('Vehicle not found.', 'error'); return; }
@@ -1934,7 +2454,39 @@ function renderSalesTable() {
     const label = veh ? `${veh.model} ${veh.colour}` : '';
     return [s.buyer, s.phone, label].join(' ').toLowerCase().includes(search)
         && (!payF || s.payment === payF);
-  }).sort((a,b) => b.date.localeCompare(a.date));
+  });
+
+  const numCols = ['salePrice','discount','netPrice','amountPaid','pendingAmount','totalCost','profit'];
+  data.sort((a, b) => {
+    let av, bv;
+    if (salesSortCol === 'model') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = (va ? va.model + ' ' + (va.variant||'') : '').trim();
+      bv = (vb ? vb.model + ' ' + (vb.variant||'') : '').trim();
+    } else if (salesSortCol === 'colour') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = va ? va.colour : '';
+      bv = vb ? vb.colour : '';
+    } else if (salesSortCol === 'totalCost') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = va ? (va.totalCost || 0) : 0;
+      bv = vb ? (vb.totalCost || 0) : 0;
+    } else {
+      av = a[salesSortCol] ?? '';
+      bv = b[salesSortCol] ?? '';
+    }
+    if (numCols.includes(salesSortCol) || salesSortCol === 'totalCost') {
+      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      return salesSortDir === 'asc' ? av - bv : bv - av;
+    }
+    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+    return salesSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  document.querySelectorAll('#salesThead .sortable-th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === salesSortCol) th.classList.add('sort-' + salesSortDir);
+  });
 
   const tbody = document.getElementById('salesTableBody');
   const empty = document.getElementById('salesEmpty');
@@ -1974,6 +2526,59 @@ function renderSalesTable() {
   }).join('');
 }
 
+function exportSalesExcel() {
+  if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+  const search = document.getElementById('salesSearch').value.toLowerCase();
+  const payF   = document.getElementById('salesPaymentFilter').value;
+  const data = sales.filter(s => {
+    const veh   = getPurchase(s.vehicleId);
+    const label = veh ? `${veh.model} ${veh.colour}` : '';
+    return [s.buyer, s.phone, label].join(' ').toLowerCase().includes(search)
+        && (!payF || s.payment === payF);
+  }).sort((a,b) => b.date.localeCompare(a.date));
+
+  if (!data.length) { showToast('No records to export.', 'error'); return; }
+
+  const header = [
+    '#','Date','Model','Variant','Year','Colour',
+    'Buyer','CID No.','Phone','Address','Invoice No.',
+    'List Price (Nu.)','Discount (Nu.)','Sale Price (Nu.)','Amount Paid (Nu.)','Balance Payable (Nu.)',
+    'Vehicle Cost (Nu.)','Profit (Nu.)',
+    'Payment Method','Ref. No.','CA No.','CA Date','Salesperson','Notes'
+  ];
+
+  let totalSale = 0, totalProfit = 0;
+  const rows = data.map((s, i) => {
+    const veh = getPurchase(s.vehicleId);
+    totalSale   += s.netPrice || 0;
+    totalProfit += s.profit   || 0;
+    const refNo = s.payment === 'Cash' ? (s.journalNumber || '') : s.payment === 'Cheque' ? (s.chequeNumber || '') : '';
+    return [
+      i+1, s.date,
+      veh ? veh.model : '', veh ? (veh.variant||'') : '', veh ? (veh.year||'') : '', veh ? veh.colour : '',
+      s.buyer, s.cid||'', s.phone||'', s.address||'', s.pi||'',
+      s.salePrice||0, s.discount||0, s.netPrice||0, s.amountPaid||0, s.pendingAmount||0,
+      veh ? (veh.totalCost||0) : 0, s.profit||0,
+      s.payment||'', refNo, s.caNumber||'', s.caDate||'', s.salesperson||'', s.notes||''
+    ];
+  });
+  rows.push(['','TOTAL','','','','','','','','','','','',totalSale,'','','',totalProfit,'','','','','','']);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [
+    {wch:4},{wch:12},{wch:14},{wch:12},{wch:6},{wch:14},
+    {wch:20},{wch:14},{wch:14},{wch:20},{wch:14},
+    {wch:18},{wch:16},{wch:18},{wch:18},{wch:18},
+    {wch:18},{wch:16},
+    {wch:16},{wch:14},{wch:12},{wch:12},{wch:16},{wch:20}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sales');
+  const fileName = `AsangaMobility_Sales_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast(`Exported: ${fileName}`);
+}
+
 // ============================================================
 // BOOKINGS
 // ============================================================
@@ -2004,6 +2609,10 @@ function addBooking() {
   const vehicleId = document.getElementById('b_vehicle').value;
   const customer  = document.getElementById('b_customer').value.trim();
   if (!date || !vehicleId || !customer) { showToast('Date, Vehicle and Customer required.', 'error'); return; }
+  const cid_b = document.getElementById('b_cid').value.trim();
+  if (!/^\d{11}$/.test(cid_b)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  const phone_b = document.getElementById('b_phone').value.trim();
+  if (!/^\d{8}$/.test(phone_b)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
 
   const veh = getPurchase(vehicleId);
   if (!veh || veh.status !== 'available') { showToast('Vehicle not available for booking.', 'error'); return; }
@@ -2031,7 +2640,7 @@ function addBooking() {
 }
 
 function clearBookingForm() {
-  ['b_date','b_vehicle','b_customer','b_cid','b_phone','b_address','b_deposit','b_agreedprice','b_discount','b_saleprice','b_balance','b_delivery','b_notes']
+  ['b_date','b_vehicle','b_variant','b_customer','b_cid','b_phone','b_address','b_deposit','b_agreedprice','b_discount','b_saleprice','b_balance','b_delivery','b_notes']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   document.getElementById('b_date').value = today();
   updateVehicleSelects();
@@ -2216,40 +2825,78 @@ function renderStockTable() {
 // ============================================================
 // FINANCIALS
 // ============================================================
+function initFinControls() {
+  const allYears = new Set();
+  [...sales, ...purchases].forEach(r => { if (r.date) allYears.add(r.date.substr(0, 4)); });
+  allYears.add(new Date().getFullYear().toString());
+  const sorted = [...allYears].sort().reverse();
+  const fy = document.getElementById('fin_year');
+  if (!fy) return;
+  const cur = fy.value || sorted[0];
+  fy.innerHTML = sorted.map(y => `<option value="${y}" ${y===cur?'selected':''}>${y}</option>`).join('');
+  const fm = document.getElementById('fin_month');
+  if (fm && !fm.dataset.init) {
+    fm.value = String(new Date().getMonth() + 1).padStart(2, '0');
+    fm.dataset.init = '1';
+  }
+}
+
+function onFinModeChange() {
+  const mode = document.getElementById('fin_mode').value;
+  document.getElementById('fin_year_group').style.display  = mode === 'all' ? 'none' : '';
+  document.getElementById('fin_month_group').style.display = mode === 'monthly' ? '' : 'none';
+  renderFinancials();
+}
+
+function getFinPeriodPrefix() {
+  const mode  = document.getElementById('fin_mode')?.value  || 'all';
+  const year  = document.getElementById('fin_year')?.value  || '';
+  const month = document.getElementById('fin_month')?.value || '';
+  if (mode === 'monthly' && year && month) return year + '-' + month;
+  if (mode === 'yearly'  && year)          return year;
+  return '';
+}
+
 function renderFinancials() {
+  initFinControls();
+  const prefix = getFinPeriodPrefix();
+
+  const periodSales     = prefix ? sales.filter(s => s.date && s.date.startsWith(prefix)) : sales;
+  const periodPurchases = prefix ? purchases.filter(p => p.date && p.date.startsWith(prefix)) : purchases;
+
   const stock  = purchases.filter(p => p.status === 'available');
   const booked = purchases.filter(p => p.status === 'booked');
 
-  const totalSalesValue  = sales.reduce((s,x) => s + x.netPrice, 0);
-  const totalCostSold    = sales.reduce((s,x) => { const v = getPurchase(x.vehicleId); return s + (v ? v.totalCost : 0); }, 0);
-  const totalProfit      = sales.reduce((s,x) => s + (x.profit||0), 0);
+  const totalSalesValue  = periodSales.reduce((s,x) => s + x.netPrice, 0);
+  const totalCostSold    = periodSales.reduce((s,x) => { const v = getPurchase(x.vehicleId); return s + (v ? v.totalCost : 0); }, 0);
+  const totalProfit      = periodSales.reduce((s,x) => s + (x.profit||0), 0);
   const stockValue       = stock.reduce((s,p) => s + (p.totalCost||0), 0);
   const bookingValue     = bookings.reduce((s,b) => s + (b.agreedPrice||0), 0);
   const bookingDeposits  = bookings.reduce((s,b) => s + (b.deposit||0), 0);
-  const totalPurchased   = purchases.reduce((s,p) => s + (p.totalCost||0), 0);
-  const totalAmountPaid  = sales.reduce((s,x) => s + (x.amountPaid||0), 0);
-  const totalPending     = sales.reduce((s,x) => s + (x.pendingAmount||0), 0);
-  const salesWithPending = sales.filter(x => (x.pendingAmount||0) > 0);
+  const totalPurchased   = periodPurchases.reduce((s,p) => s + (p.totalCost||0), 0);
+  const totalAmountPaid  = periodSales.reduce((s,x) => s + (x.amountPaid||0), 0);
+  const totalPending     = periodSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
+  const salesWithPending = periodSales.filter(x => (x.pendingAmount||0) > 0);
 
   const fc = document.getElementById('finCards');
   if (fc) fc.innerHTML = `
-    <div class="card green"><div class="card-label">Total Sales Revenue</div><div class="card-value" style="font-size:1.2rem">${fmt(totalSalesValue)}</div><div class="card-sub">${sales.length} vehicles sold</div></div>
+    <div class="card green"><div class="card-label">Total Sales Revenue</div><div class="card-value" style="font-size:1.2rem">${fmt(totalSalesValue)}</div><div class="card-sub">${periodSales.length} vehicles sold</div></div>
     <div class="card"><div class="card-label">Total Gross Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div><div class="card-sub">After cost of goods</div></div>
     <div class="card blue"><div class="card-label">Stock Value (at cost)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockValue)}</div><div class="card-sub">${stock.length} units in stock</div></div>
     <div class="card orange"><div class="card-label">Bookings Value</div><div class="card-value" style="font-size:1.2rem">${fmt(bookingValue)}</div><div class="card-sub">${fmt(bookingDeposits)} advance received</div></div>
     <div class="card purple"><div class="card-label">Total Capital Deployed</div><div class="card-value" style="font-size:1.2rem">${fmt(totalPurchased)}</div><div class="card-sub">All purchases incl. costs</div></div>
-    <div class="card red"><div class="card-label">Avg Profit / Vehicle</div><div class="card-value" style="font-size:1.2rem">${sales.length ? fmt(totalProfit/sales.length) : 'Nu. 0.00'}</div><div class="card-sub">Per unit sold</div></div>
+    <div class="card red"><div class="card-label">Avg Profit / Vehicle</div><div class="card-value" style="font-size:1.2rem">${periodSales.length ? fmt(totalProfit/periodSales.length) : 'Nu. 0.00'}</div><div class="card-sub">Per unit sold</div></div>
     <div class="card" style="border-left:4px solid #e74c3c"><div class="card-label">Total Pending Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalPending>0?'#e74c3c':'#27ae60'}">${fmt(totalPending)}</div><div class="card-sub">${salesWithPending.length} sale${salesWithPending.length!==1?'s':''} with outstanding balance</div></div>
     <div class="card" style="border-left:4px solid #27ae60"><div class="card-label">Total Amount Collected</div><div class="card-value" style="font-size:1.2rem;color:#27ae60">${fmt(totalAmountPaid)}</div><div class="card-sub">Cash received from sales</div></div>
   `;
 
   const fo = document.getElementById('finOverviewBody');
   if (fo) fo.innerHTML = `
-    <tr><td>Vehicles Purchased</td><td>${purchases.length}</td><td>${fmtNum(totalPurchased)}</td></tr>
-    <tr><td>Vehicles Sold</td><td>${sales.length}</td><td>${fmtNum(totalSalesValue)}</td></tr>
-    <tr><td>Cost of Goods Sold</td><td>${sales.length}</td><td>${fmtNum(totalCostSold)}</td></tr>
+    <tr><td>Vehicles Purchased</td><td>${periodPurchases.length}</td><td>${fmtNum(totalPurchased)}</td></tr>
+    <tr><td>Vehicles Sold</td><td>${periodSales.length}</td><td>${fmtNum(totalSalesValue)}</td></tr>
+    <tr><td>Cost of Goods Sold</td><td>${periodSales.length}</td><td>${fmtNum(totalCostSold)}</td></tr>
     <tr class="fin-total"><td>Gross Profit (Sales)</td><td>-</td><td style="color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmtNum(totalProfit)}</td></tr>
-    <tr><td>Amount Collected from Sales</td><td>${sales.length}</td><td style="color:#27ae60">${fmtNum(totalAmountPaid)}</td></tr>
+    <tr><td>Amount Collected from Sales</td><td>${periodSales.length}</td><td style="color:#27ae60">${fmtNum(totalAmountPaid)}</td></tr>
     <tr><td style="color:#e74c3c">Pending Receivables</td><td style="color:#e74c3c">${salesWithPending.length}</td><td style="color:#e74c3c;font-weight:600">${fmtNum(totalPending)}</td></tr>
     <tr><td>Current Stock (at cost)</td><td>${stock.length}</td><td>${fmtNum(stockValue)}</td></tr>
     <tr><td>Active Bookings</td><td>${bookings.length}</td><td>${fmtNum(bookingValue)}</td></tr>
@@ -2259,7 +2906,7 @@ function renderFinancials() {
 
   const pa = document.getElementById('profitAnalysis');
   if (pa) {
-    const sorted = [...sales].sort((a,b)=>(b.profit||0)-(a.profit||0));
+    const sorted = [...periodSales].sort((a,b)=>(b.profit||0)-(a.profit||0));
     const best = sorted.slice(0,3), worst = sorted.slice(-3).reverse();
     pa.innerHTML = `
       <div style="margin-bottom:12px">
@@ -2305,7 +2952,7 @@ function renderFinancials() {
   const pb = document.getElementById('paymentBreakdown');
   if (pb) {
     const pm = {};
-    sales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + s.netPrice; });
+    periodSales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + s.netPrice; });
     const total = Object.values(pm).reduce((a,b)=>a+b,0) || 1;
     const colors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad'];
     pb.innerHTML = Object.entries(pm).map(([method, val], i) => `
@@ -2319,7 +2966,7 @@ function renderFinancials() {
   const mc = document.getElementById('monthlyChart');
   if (mc) {
     const monthly = {};
-    sales.forEach(s => {
+    periodSales.forEach(s => {
       const mon = s.date.substr(0,7);
       if (!monthly[mon]) monthly[mon] = {revenue:0, profit:0, units:0};
       monthly[mon].revenue += s.netPrice; monthly[mon].profit += (s.profit||0); monthly[mon].units++;
@@ -2333,18 +2980,12 @@ function renderFinancials() {
       </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales data yet</div>';
   }
 
-  const months = [...new Set(sales.map(s=>s.date.substr(0,7)))].sort().reverse();
-  const mf = document.getElementById('finMonthFilter');
-  if (mf) {
-    const cur = mf.value;
-    mf.innerHTML = '<option value="">All Time</option>' + months.map(m=>`<option ${m===cur?'selected':''}>${m}</option>`).join('');
-  }
   renderFinancialsDetail();
 }
 
 function renderFinancialsDetail() {
-  const monF = document.getElementById('finMonthFilter')?.value || '';
-  let data = sales.filter(s => !monF || s.date.startsWith(monF)).sort((a,b)=>b.date.localeCompare(a.date));
+  const prefix = getFinPeriodPrefix();
+  let data = (prefix ? sales.filter(s => s.date && s.date.startsWith(prefix)) : sales).sort((a,b)=>b.date.localeCompare(a.date));
 
   const tbody = document.getElementById('finDetailBody');
   if (!tbody) return;
@@ -2377,92 +3018,129 @@ function renderFinancialsDetail() {
 }
 
 // ============================================================
-// SUMMARY
+// DASHBOARD
 // ============================================================
+function initDashControls() {
+  const yearSel = document.getElementById('dash_year');
+  if (!yearSel) return;
+  const allDates = [
+    ...purchases.map(p => p.date),
+    ...sales.map(s => s.date),
+    ...bookings.map(b => b.date),
+  ].filter(Boolean);
+  const years = allDates.length
+    ? [...new Set(allDates.map(d => d.substr(0,4)))].sort()
+    : [new Date().getFullYear().toString()];
+  const cur = yearSel.value;
+  yearSel.innerHTML = years.map(y => `<option value="${y}" ${y===cur?'selected':''}>${y}</option>`).join('');
+  if (!yearSel.value) yearSel.value = years[years.length - 1];
+}
+
+function onDashModeChange() {
+  const mode = document.getElementById('dash_mode').value;
+  const yg   = document.getElementById('dash_year_group');
+  if (yg) yg.style.display = mode === 'yearly' ? 'none' : '';
+  renderSummary();
+}
+
 function renderSummary() {
-  const stock  = purchases.filter(p => p.status === 'available');
-  const booked = purchases.filter(p => p.status === 'booked');
-  const stockValue    = stock.reduce((s,p) => s + (p.totalCost||0), 0);
-  const totalSales    = sales.reduce((s,x) => s + x.netPrice, 0);
-  const totalProfit   = sales.reduce((s,x) => s + (x.profit||0), 0);
-  const bookingDeposits = bookings.reduce((s,b) => s + (b.deposit||0), 0);
+  initDashControls();
+
+  const mode = (document.getElementById('dash_mode') || {}).value || 'monthly';
+  const year = (document.getElementById('dash_year') || {}).value || new Date().getFullYear().toString();
+
+  // Build period buckets
+  let buckets; // [{label, prefix}]
+  if (mode === 'yearly') {
+    const allDates = [
+      ...purchases.map(p => p.date),
+      ...sales.map(s => s.date),
+      ...bookings.map(b => b.date),
+    ].filter(Boolean);
+    const years = allDates.length
+      ? [...new Set(allDates.map(d => d.substr(0,4)))].sort()
+      : [year];
+    buckets = years.map(y => ({ label: y, prefix: y }));
+  } else {
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    buckets = MONTHS.map((m, i) => ({
+      label: m,
+      prefix: `${year}-${String(i+1).padStart(2,'0')}`,
+    }));
+  }
+
+  // Per-bucket aggregates
+  const BAR_COLORS = {
+    purchases: '#2980b9',
+    sales:     '#27ae60',
+    bookings:  '#e67e22',
+    stock:     '#8e44ad',
+    profit:    null, // dynamic (green/red)
+  };
+
+  const bucketData = buckets.map(b => {
+    const p   = purchases.filter(x => x.date && x.date.startsWith(b.prefix));
+    const s   = sales.filter(x => x.date && x.date.startsWith(b.prefix));
+    const bk  = bookings.filter(x => x.date && x.date.startsWith(b.prefix));
+    const gp  = s.reduce((acc, x) => acc + (x.profit  || 0), 0);
+    // stock = vehicles purchased in period that are still available
+    const stk = p.filter(x => x.status === 'available').length;
+    return { label: b.label, purchases: p.length, sales: s.length,
+             bookings: bk.length, stock: stk, profit: gp };
+  });
+
+  // KPI cards (all-time)
+  const allStock   = purchases.filter(p => p.status === 'available');
+  const allBooked  = purchases.filter(p => p.status === 'booked');
+  const allRev     = sales.reduce((s,x) => s + (x.netPrice||0), 0);
+  const allProfit  = sales.reduce((s,x) => s + (x.profit||0), 0);
+  const allDeposit = bookings.reduce((s,b) => s + (b.deposit||0), 0);
 
   const sc = document.getElementById('summaryCards');
   if (sc) sc.innerHTML = `
-    <div class="card green"><div class="card-label">Available Stock</div><div class="card-value">${stock.length}</div><div class="card-sub">${fmt(stockValue)} at cost</div></div>
-    <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">${bookings.length} active bookings</div></div>
-    <div class="card blue"><div class="card-label">Total Sales</div><div class="card-value">${sales.length}</div><div class="card-sub">${fmt(totalSales)} revenue</div></div>
-    <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.3rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div><div class="card-sub">All time</div></div>
-    <div class="card purple"><div class="card-label">Advance Held</div><div class="card-value" style="font-size:1.3rem">${fmt(bookingDeposits)}</div><div class="card-sub">From bookings</div></div>
+    <div class="card blue"><div class="card-label">Total Purchases</div><div class="card-value">${purchases.length}</div><div class="card-sub">All time</div></div>
+    <div class="card green"><div class="card-label">Total Sales</div><div class="card-value">${sales.length}</div><div class="card-sub">${fmt(allRev)} revenue</div></div>
+    <div class="card orange"><div class="card-label">Bookings</div><div class="card-value">${bookings.length}</div><div class="card-sub">${fmt(allDeposit)} deposits held</div></div>
+    <div class="card purple"><div class="card-label">Available Stock</div><div class="card-value">${allStock.length}</div><div class="card-sub">${allBooked.length} booked</div></div>
+    <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.3rem;color:${allProfit>=0?'#27ae60':'#e74c3c'}">${fmt(allProfit)}</div><div class="card-sub">All time</div></div>
   `;
 
-  // Model bar chart
-  const modelCounts = {};
-  stock.forEach(p => { modelCounts[p.model] = (modelCounts[p.model]||0) + 1; });
-  const maxModel = Math.max(...Object.values(modelCounts), 1);
-  const modelColors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad','#e74c3c','#1abc9c'];
-  const mbc = document.getElementById('modelBarChart');
-  if (mbc) mbc.innerHTML = Object.entries(modelCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v],i) => `
-    <div class="chart-bar-row">
-      <span class="chart-bar-label" title="${k}">${k.length>14?k.substr(0,14)+'...':k}</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(v/maxModel*100).toFixed(1)}%;background:${modelColors[i%7]}"></div></div>
-      <span class="chart-bar-val">${v}</span>
-    </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No stock</div>';
-
-  // Colour bar chart
-  const colCounts = {};
-  stock.forEach(p => { const c = p.colour||'Unknown'; colCounts[c] = (colCounts[c]||0)+1; });
-  const maxCol = Math.max(...Object.values(colCounts), 1);
-  const cbc = document.getElementById('colourBarChart');
-  if (cbc) cbc.innerHTML = Object.entries(colCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([col,v]) => {
-    const hex = getColourHex(col);
-    return `<div class="chart-bar-row">
-      <span class="chart-bar-label"><span class="color-dot" style="background:${hex}"></span>${col.length>10?col.substr(0,10)+'...':col}</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(v/maxCol*100).toFixed(1)}%;background:${hex};border:1px solid rgba(0,0,0,0.1)"></div></div>
-      <span class="chart-bar-val">${v}</span>
-    </div>`;
-  }).join('') || '<div style="color:#aaa;font-size:0.82rem">No stock</div>';
-
-  // Recent activity
-  const activities = [
-    ...sales.map(s => ({ date:s.date, type:'SALE', icon:'&#128176;', color:'#27ae60',
-      text:`${s.buyer} bought ${getPurchase(s.vehicleId)?getVehicleLabel(getPurchase(s.vehicleId)):'vehicle'} for ${fmt(s.netPrice)}` })),
-    ...bookings.map(b => ({ date:b.date, type:'BOOKING', icon:'&#128197;', color:'#e67e22',
-      text:`${b.customer} booked ${getPurchase(b.vehicleId)?getVehicleLabel(getPurchase(b.vehicleId)):'vehicle'}` })),
-    ...purchases.map(p => ({ date:p.date, type:'PURCHASE', icon:'&#128666;', color:'#2980b9',
-      text:`Acquired ${getVehicleLabel(p)} (${p.colour})` })),
-  ].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
-
-  const ra = document.getElementById('recentActivity');
-  if (ra) ra.innerHTML = activities.map(a => `
-    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f0f2f5;align-items:flex-start">
-      <span style="font-size:1.2rem">${a.icon}</span>
-      <div style="flex:1">
-        <span class="badge" style="background:${a.color}22;color:${a.color};margin-bottom:2px">${a.type}</span>
-        <div style="font-size:0.82rem;color:#444">${a.text}</div>
-        <div style="font-size:0.72rem;color:#aaa">${a.date}</div>
-      </div>
-    </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No activity yet</div>';
-
-  // Top performers
-  const tp = document.getElementById('topPerformers');
-  if (tp) {
-    const byModel = {};
-    sales.forEach(s => {
-      const v = getPurchase(s.vehicleId); if (!v) return;
-      if (!byModel[v.model]) byModel[v.model] = {units:0, profit:0};
-      byModel[v.model].units++; byModel[v.model].profit += (s.profit||0);
-    });
-    tp.innerHTML = Object.entries(byModel).sort((a,b)=>b[1].profit-a[1].profit).slice(0,5).map(([m,d],i) => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f2f5">
-        <div>
-          <span style="font-size:0.78rem;font-weight:700;color:#1a1a2e;margin-right:8px">#${i+1}</span>
-          <span style="font-size:0.85rem">${m}</span>
-          <span style="font-size:0.75rem;color:#888;margin-left:6px">${d.units} sold</span>
-        </div>
-        <span class="profit-positive">${fmt(d.profit)}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales yet</div>';
+  // Helper: render a count bar chart
+  function renderCountChart(elId, key, color) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const max = Math.max(...bucketData.map(b => b[key]), 1);
+    el.innerHTML = bucketData.map(b => `
+      <div class="chart-bar-row">
+        <span class="chart-bar-label">${b.label}</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(b[key]/max*100).toFixed(1)}%;background:${color}"></div></div>
+        <span class="chart-bar-val">${b[key]}</span>
+      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No data</div>';
   }
+
+  // Helper: render a money bar chart (profit can be negative)
+  function renderMoneyChart(elId, key, color) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const vals = bucketData.map(b => b[key]);
+    const absMax = Math.max(...vals.map(Math.abs), 1);
+    el.innerHTML = bucketData.map(b => {
+      const v = b[key];
+      const w = (Math.abs(v) / absMax * 100).toFixed(1);
+      const c = color || (v >= 0 ? '#27ae60' : '#e74c3c');
+      return `<div class="chart-bar-row">
+        <span class="chart-bar-label">${b.label}</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${w}%;background:${c}"></div></div>
+        <span class="chart-bar-val" style="color:${v<0?'#e74c3c':'inherit'}">${fmt(v)}</span>
+      </div>`;
+    }).join('') || '<div style="color:#aaa;font-size:0.82rem">No data</div>';
+  }
+
+  renderCountChart('dashPurchasesChart', 'purchases', BAR_COLORS.purchases);
+  renderCountChart('dashSalesChart',     'sales',     BAR_COLORS.sales);
+  renderCountChart('dashBookingsChart',  'bookings',  BAR_COLORS.bookings);
+  renderCountChart('dashStockChart',     'stock',     BAR_COLORS.stock);
+  renderMoneyChart('dashProfitChart',    'profit',    null);
 }
 
 // ============================================================
@@ -2472,8 +3150,28 @@ function updatePriceListModelSelect() {
   const sel = document.getElementById('pl_model');
   if (!sel) return;
   const current = sel.value;
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()].map(m => m.name).sort();
   sel.innerHTML = '<option value="">-- Select Model --</option>' +
-    catModels.map(m => `<option value="${m.name}" ${m.name === current ? 'selected' : ''}>${m.name}</option>`).join('');
+    uniqueModels.map(m => `<option value="${m}" ${m === current ? 'selected' : ''}>${m}</option>`).join('');
+  updatePriceListVariantSelect();
+}
+
+function updatePriceListVariantSelect() {
+  const model = document.getElementById('pl_model').value;
+  const sel   = document.getElementById('pl_variant');
+  if (!sel) return;
+  if (!model) {
+    sel.innerHTML = '<option value="">-- Select Model First --</option>';
+    return;
+  }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) {
+    sel.innerHTML = '<option value="">-- No variants found --</option>';
+    return;
+  }
+  sel.innerHTML = variants.map(v =>
+    `<option value="${v}">${v === '' ? '(Base / No Variant)' : v}</option>`
+  ).join('');
 }
 
 function addPriceListEntry() {
@@ -2497,7 +3195,7 @@ function addPriceListEntry() {
 
 function clearPriceListForm() {
   document.getElementById('pl_model').value = '';
-  document.getElementById('pl_variant').value = '';
+  document.getElementById('pl_variant').innerHTML = '<option value="">-- Select Model First --</option>';
   document.getElementById('pl_price').value = '';
 }
 
@@ -2532,6 +3230,162 @@ function renderPriceList() {
 }
 
 // ============================================================
+// CREDENTIAL MANAGEMENT
+// ============================================================
+// Credentials stored in localStorage (key: 'cred_users') as an array of
+// {id, username, role, passwordHash, created} objects.
+
+function hashPassword(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function credLoad() {
+  try { return JSON.parse(localStorage.getItem('cred_users') || '[]'); } catch { return []; }
+}
+
+function credSave(users) {
+  localStorage.setItem('cred_users', JSON.stringify(users));
+}
+
+function changeCredential() {
+  const username = document.getElementById('cred_username').value.trim();
+  const current  = document.getElementById('cred_current').value;
+  const newPw    = document.getElementById('cred_new').value;
+  const confirm  = document.getElementById('cred_confirm').value;
+
+  if (!username || !current || !newPw || !confirm) {
+    showToast('All fields are required.', 'error'); return;
+  }
+  if (newPw !== confirm) { showToast('New passwords do not match.', 'error'); return; }
+  if (newPw.length < 6)  { showToast('Password must be at least 6 characters.', 'error'); return; }
+
+  const users = credLoad();
+  const idx   = users.findIndex(u => u.username === username);
+  if (idx === -1) { showToast('Username not found.', 'error'); return; }
+
+  const currentHash = hashPassword(current);
+  if (users[idx].passwordHash !== currentHash) {
+    showToast('Current password is incorrect.', 'error'); return;
+  }
+
+  users[idx].passwordHash = hashPassword(newPw);
+  credSave(users);
+  showToast('Password updated successfully.');
+  clearCredentialForm();
+  renderCredUsers();
+}
+
+function clearCredentialForm() {
+  ['cred_username','cred_current','cred_new','cred_confirm'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function openAddUserModal() {
+  ['au_username','au_password','au_confirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('au_role').value = 'staff';
+  document.getElementById('addUserModal').classList.add('open');
+}
+
+function saveNewUser() {
+  const username = document.getElementById('au_username').value.trim();
+  const role     = document.getElementById('au_role').value;
+  const pw       = document.getElementById('au_password').value;
+  const confirm  = document.getElementById('au_confirm').value;
+
+  if (!username || !pw || !confirm) { showToast('All fields are required.', 'error'); return; }
+  if (pw !== confirm) { showToast('Passwords do not match.', 'error'); return; }
+  if (pw.length < 6)  { showToast('Password must be at least 6 characters.', 'error'); return; }
+
+  const users = credLoad();
+  if (users.find(u => u.username === username)) {
+    showToast('Username already exists.', 'error'); return;
+  }
+
+  users.push({
+    id: genId(),
+    username,
+    role,
+    passwordHash: hashPassword(pw),
+    created: new Date().toISOString().substr(0,10),
+  });
+  credSave(users);
+  closeModal('addUserModal');
+  showToast('User created successfully.');
+  renderCredUsers();
+}
+
+function deleteCredUser(id) {
+  if (!confirm('Delete this user?')) return;
+  credSave(credLoad().filter(u => u.id !== id));
+  renderCredUsers();
+}
+
+function openEditUserModal(id) {
+  const user = credLoad().find(u => u.id === id);
+  if (!user) return;
+  document.getElementById('eu_id').value       = id;
+  document.getElementById('eu_username').value = user.username;
+  document.getElementById('eu_role').value     = user.role;
+  document.getElementById('eu_password').value = '';
+  document.getElementById('eu_confirm').value  = '';
+  document.getElementById('editUserModal').classList.add('open');
+}
+
+function saveEditUser() {
+  const id       = document.getElementById('eu_id').value;
+  const username = document.getElementById('eu_username').value.trim();
+  const role     = document.getElementById('eu_role').value;
+  const pw       = document.getElementById('eu_password').value;
+  const confirm  = document.getElementById('eu_confirm').value;
+
+  if (!username) { showToast('Username is required.', 'error'); return; }
+  if (pw && pw !== confirm) { showToast('Passwords do not match.', 'error'); return; }
+  if (pw && pw.length < 6)  { showToast('Password must be at least 6 characters.', 'error'); return; }
+
+  const users = credLoad();
+  const idx   = users.findIndex(u => u.id === id);
+  if (idx === -1) { showToast('User not found.', 'error'); return; }
+
+  // Check duplicate username (excluding self)
+  if (users.some(u => u.id !== id && u.username === username)) {
+    showToast('Username already taken.', 'error'); return;
+  }
+
+  users[idx].username = username;
+  users[idx].role     = role;
+  if (pw) users[idx].passwordHash = hashPassword(pw);
+
+  credSave(users);
+  closeModal('editUserModal');
+  showToast('User updated successfully.');
+  renderCredUsers();
+}
+
+const ROLE_COLORS = { admin:'#e94560', view:'#2980b9' };
+
+function renderCredUsers() {
+  const users = credLoad();
+  const tbody = document.getElementById('credUsersBody');
+  if (!tbody) return;
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa">No users yet. Add one above.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map((u, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${u.username}</strong></td>
+      <td><span class="badge" style="background:${(ROLE_COLORS[u.role]||'#888')}22;color:${ROLE_COLORS[u.role]||'#888'}">${u.role}</span></td>
+      <td>${u.created || '-'}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-warning btn-sm" onclick="openEditUserModal('${u.id}')">&#9998; Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCredUser('${u.id}')">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ============================================================
 // REFRESH ALL
 // ============================================================
 function refreshAll() {
@@ -2548,6 +3402,7 @@ function refreshAll() {
   renderFinancials();
   renderSummary();
   renderReports();
+  renderCredUsers();
 }
 
 // ============================================================
@@ -2560,6 +3415,7 @@ document.getElementById('headerDate').textContent =
   const el = document.getElementById(id);
   if (el) el.value = today();
 });
+
 
 loadAll();
 setupRealtime();
@@ -2594,6 +3450,8 @@ function openEditPurchase(id) {
   const addEl    = document.getElementById('ep_addcost');
   costEl.value   = p.cost || '';   fmtInput(costEl);
   exrateEl.value = p.exrate || ''; fmtInput(exrateEl);
+  calcEpFobNu();
+  calcEpShippingNu();
   addEl.value    = p.addcost || ''; fmtInput(addEl);
   [['ep_shipping',p.shipping],['ep_transport',p.transport],['ep_customs',p.customs],
    ['ep_excise',p.excise],['ep_gst',p.gst],['ep_dv',p.dv],['ep_permit',p.permit],
@@ -2603,8 +3461,10 @@ function openEditPurchase(id) {
 
   // Populate model select
   const ms = document.getElementById('ep_model');
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   ms.innerHTML = '<option value="">-- Select Model --</option>' +
-    catModels.map(m => `<option value="${m.name}"${m.name===p.model?' selected':''}>${m.name}${m.variant?' — '+m.variant:''}</option>`).join('');
+    uniqueModels.map(m => `<option value="${m.name}"${m.name===p.model?' selected':''}>${m.name}</option>`).join('');
+  updateEditPurchaseVariantSelect(p.variant || '');
 
   // Populate colour select
   const cs = document.getElementById('ep_colour');
@@ -2637,10 +3497,9 @@ function saveEditPurchase() {
   const fuel      = pn('ep_fuel');
   const insurance = pn('ep_insurance');
   const addcost   = pn('ep_addcost');
-  const catM = catModels.find(m => m.name === model);
   p.date      = document.getElementById('ep_date').value;
   p.model     = model;
-  p.variant   = catM ? catM.variant : p.variant;
+  p.variant   = document.getElementById('ep_variant').value;
   p.colour    = colour;
   p.year      = document.getElementById('ep_year').value;
   p.cost      = cost;
@@ -2720,6 +3579,10 @@ function saveEditSale() {
   if (!s) return;
   const buyer = document.getElementById('es_buyer').value.trim();
   if (!buyer) { showToast('Buyer name is required.', 'error'); return; }
+  const cid_es = document.getElementById('es_cid').value.trim();
+  if (!/^\d{11}$/.test(cid_es)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  const phone_es = document.getElementById('es_phone').value.trim();
+  if (!/^\d{8}$/.test(phone_es)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
   const price      = parseFloat((document.getElementById('es_price').value||'').replace(/,/g,'')) || 0;
   const discount   = parseFloat((document.getElementById('es_discount').value||'').replace(/,/g,'')) || 0;
   const amountPaid = parseFloat((document.getElementById('es_amountpaid').value||'').replace(/,/g,'')) || 0;
@@ -2786,6 +3649,10 @@ function saveEditBooking() {
   if (!b) return;
   const customer = document.getElementById('eb_customer').value.trim();
   if (!customer) { showToast('Customer name is required.', 'error'); return; }
+  const cid_eb = document.getElementById('eb_cid').value.trim();
+  if (!/^\d{11}$/.test(cid_eb)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  const phone_eb = document.getElementById('eb_phone').value.trim();
+  if (!/^\d{8}$/.test(phone_eb)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
   const pn = id => parseFloat((document.getElementById(id).value||'').replace(/,/g,'')) || 0;
   const deposit     = pn('eb_deposit');
   const agreedPrice = pn('eb_agreedprice');
@@ -2841,15 +3708,51 @@ function onRptModeChange() {
   renderReports();
 }
 
+const RPT_PERIOD_CATS = ['sales','purchases','bookings','orderplan','financials'];
+
+function onRptCategoryChange() {
+  const cat      = document.getElementById('rpt_category').value;
+  const hasPer   = RPT_PERIOD_CATS.includes(cat);
+  const mode     = document.getElementById('rpt_mode').value;
+  document.getElementById('rpt_period_group').style.display = hasPer ? '' : 'none';
+  document.getElementById('rpt_year_group').style.display   = hasPer ? '' : 'none';
+  document.getElementById('rpt_month_group').style.display  = (hasPer && mode === 'monthly') ? '' : 'none';
+  renderReports();
+}
+
+function getRptPrefix() {
+  const mode  = document.getElementById('rpt_mode')?.value  || 'monthly';
+  const year  = document.getElementById('rpt_year')?.value  || '';
+  const month = document.getElementById('rpt_month')?.value || '';
+  return mode === 'yearly' ? year : (year + '-' + month);
+}
+
 function renderReports() {
   initReportControls();
+  const cat = document.getElementById('rpt_category')?.value || 'sales';
+  const allCats = ['sales','purchases','bookings','orderplan','financials','stock','pricelist','models'];
+  allCats.forEach(c => {
+    const el = document.getElementById('rptSec_' + c);
+    if (el) el.style.display = c === cat ? '' : 'none';
+  });
+  const dispatch = {
+    sales:      renderRptSales,
+    purchases:  renderRptPurchases,
+    bookings:   renderRptBookings,
+    orderplan:  renderRptOrderPlan,
+    financials: renderRptFinancials,
+    stock:      renderRptStock,
+    pricelist:  renderRptPriceList,
+    models:     renderRptModels,
+  };
+  if (dispatch[cat]) dispatch[cat]();
+}
 
+function renderRptSales() {
   const mode  = document.getElementById('rpt_mode')?.value || 'monthly';
   const year  = document.getElementById('rpt_year')?.value || '';
   const month = document.getElementById('rpt_month')?.value || '';
-
-  // Build period prefix for filtering: "YYYY" or "YYYY-MM"
-  const prefix = mode === 'yearly' ? year : (year + '-' + month);
+  const prefix = getRptPrefix();
 
   const periodSales     = sales.filter(s => s.date && s.date.startsWith(prefix));
   const periodPurchases = purchases.filter(p => p.date && p.date.startsWith(prefix));
@@ -3044,6 +3947,224 @@ function renderReports() {
   }
 }
 
+// ── NEW SECTION RENDERERS ────────────────────────────────────────
+
+function renderRptPurchases() {
+  const prefix = getRptPrefix();
+  const data   = prefix ? purchases.filter(p => p.date && p.date.startsWith(prefix)) : purchases;
+  const totalCost = data.reduce((s,p) => s + (p.totalCost||0), 0);
+  const byStatus  = { available: 0, booked: 0, sold: 0 };
+  data.forEach(p => { if (byStatus[p.status] !== undefined) byStatus[p.status]++; });
+
+  const cards = document.getElementById('rptPurCards');
+  if (cards) cards.innerHTML = `
+    <div class="card blue"><div class="card-label">Total Purchased</div><div class="card-value">${data.length}</div><div class="card-sub">vehicles</div></div>
+    <div class="card purple"><div class="card-label">Total Cost</div><div class="card-value" style="font-size:1.2rem">${fmt(totalCost)}</div><div class="card-sub">capital deployed</div></div>
+    <div class="card green"><div class="card-label">Available</div><div class="card-value">${byStatus.available}</div><div class="card-sub">in stock</div></div>
+    <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${byStatus.booked}</div><div class="card-sub">reserved</div></div>
+    <div class="card"><div class="card-label">Sold</div><div class="card-value">${byStatus.sold}</div><div class="card-sub">delivered</div></div>`;
+
+  const tbody = document.getElementById('rptPurBody');
+  if (!tbody) return;
+  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:20px">No records in this period</td></tr>'; return; }
+  let tCost = 0;
+  tbody.innerHTML = [...data].sort((a,b)=>a.date.localeCompare(b.date)).map((p,i) => {
+    tCost += p.totalCost||0;
+    const hex = getColourHex(p.colour);
+    return `<tr>
+      <td>${i+1}</td><td>${p.date}</td>
+      <td><strong>${p.model}</strong></td>
+      <td>${p.variant||'-'}</td>
+      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
+      <td>${p.year||'-'}</td>
+      <td>${p.po||'-'}</td>
+      <td style="text-align:right">${fmtNum(p.totalCost)}</td>
+      <td><span class="badge badge-new">${p.status}</span></td>
+    </tr>`;
+  }).join('') + `<tr class="fin-total"><td colspan="7">TOTAL</td><td style="text-align:right">${fmtNum(tCost)}</td><td></td></tr>`;
+}
+
+function renderRptBookings() {
+  const prefix = getRptPrefix();
+  const data   = prefix ? bookings.filter(b => b.date && b.date.startsWith(prefix)) : bookings;
+  const totalAdv  = data.reduce((s,b) => s + (b.deposit||0), 0);
+  const totalBal  = data.reduce((s,b) => s + (b.balance||0), 0);
+
+  const cards = document.getElementById('rptBokCards');
+  if (cards) cards.innerHTML = `
+    <div class="card blue"><div class="card-label">Total Bookings</div><div class="card-value">${data.length}</div><div class="card-sub">active reservations</div></div>
+    <div class="card green"><div class="card-label">Advance Collected</div><div class="card-value" style="font-size:1.2rem">${fmt(totalAdv)}</div><div class="card-sub">deposits received</div></div>
+    <div class="card orange"><div class="card-label">Balance Pending</div><div class="card-value" style="font-size:1.2rem">${fmt(totalBal)}</div><div class="card-sub">outstanding</div></div>`;
+
+  const tbody = document.getElementById('rptBokBody');
+  if (!tbody) return;
+  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:20px">No bookings in this period</td></tr>'; return; }
+  tbody.innerHTML = [...data].sort((a,b)=>a.date.localeCompare(b.date)).map((b,i) => {
+    const veh = getPurchase(b.vehicleId);
+    const hex = getColourHex(veh ? veh.colour : '');
+    return `<tr>
+      <td>${i+1}</td><td>${b.date}</td>
+      <td>${veh ? `<strong>${veh.model}</strong>${veh.variant?' <small>'+veh.variant+'</small>':''}` : '-'}</td>
+      <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
+      <td>${b.customer}</td><td>${b.cid||'-'}</td><td>${b.phone||'-'}</td>
+      <td style="text-align:right">${fmtNum(b.deposit||0)}</td>
+      <td style="text-align:right">${fmtNum(b.agreedPrice||0)}</td>
+      <td style="text-align:right">${fmtNum(b.discount||0)}</td>
+      <td style="text-align:right">${fmtNum(b.salePrice||0)}</td>
+      <td style="text-align:right;color:#e74c3c;font-weight:600">${fmtNum(b.balance||0)}</td>
+      <td>${b.delivery||'-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRptOrderPlan() {
+  const prefix = getRptPrefix();
+  const data   = prefix ? purchasePlans.filter(p => p.date && p.date.startsWith(prefix)) : purchasePlans;
+
+  const cards = document.getElementById('rptPPCards');
+  if (cards) {
+    const totalQty = data.reduce((s,p) => s + (p.qty||0), 0);
+    const totalFob = data.reduce((s,p) => s + (p.fob||0), 0);
+    const byLC = {};
+    data.forEach(p => { byLC[p.lcstatus] = (byLC[p.lcstatus]||0) + 1; });
+    cards.innerHTML = `
+      <div class="card blue"><div class="card-label">Plan Entries</div><div class="card-value">${data.length}</div><div class="card-sub">${totalQty} units total</div></div>
+      <div class="card green"><div class="card-label">LC Opened</div><div class="card-value">${byLC.opened||0}</div></div>
+      <div class="card orange"><div class="card-label">LC Pending</div><div class="card-value">${byLC.pending||0}</div></div>
+      <div class="card"><div class="card-label">LC Closed</div><div class="card-value">${byLC.closed||0}</div></div>
+      <div class="card purple"><div class="card-label">Total FOB (USD)</div><div class="card-value" style="font-size:1.2rem">$${fmtNum(totalFob)}</div></div>`;
+  }
+
+  const tbody = document.getElementById('rptPPBody');
+  if (!tbody) return;
+  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No order plans in this period</td></tr>'; return; }
+  tbody.innerHTML = [...data].sort((a,b)=>a.date.localeCompare(b.date)).map((p,i) => {
+    const lcCls = p.lcstatus==='closed'?'#27ae60':p.lcstatus==='opened'?'#2980b9':'#e67e22';
+    return `<tr>
+      <td>${i+1}</td><td>${p.date}</td>
+      <td><strong>${p.model}</strong></td><td>${p.variant||'-'}</td>
+      <td>${p.colour||'-'}</td><td style="text-align:right">${p.qty||1}</td>
+      <td>${p.po||'-'}</td><td style="text-align:right">${fmtNum(p.fob||0)}</td>
+      <td><span style="color:${lcCls};font-weight:600;text-transform:capitalize">${p.lcstatus}</span></td>
+      <td>${p.notes||'-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRptFinancials() {
+  const prefix = getRptPrefix();
+  const pSales = prefix ? sales.filter(s => s.date && s.date.startsWith(prefix)) : sales;
+  const pPur   = prefix ? purchases.filter(p => p.date && p.date.startsWith(prefix)) : purchases;
+  const totalRev    = pSales.reduce((s,x) => s + (x.netPrice||0), 0);
+  const totalCost   = pSales.reduce((s,x) => { const v=getPurchase(x.vehicleId); return s+(v?v.totalCost:0); }, 0);
+  const totalProfit = pSales.reduce((s,x) => s + (x.profit||0), 0);
+  const totalPaid   = pSales.reduce((s,x) => s + (x.amountPaid||0), 0);
+  const totalPend   = pSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
+  const purCost     = pPur.reduce((s,p) => s + (p.totalCost||0), 0);
+
+  const cards = document.getElementById('rptFinCards');
+  if (cards) cards.innerHTML = `
+    <div class="card green"><div class="card-label">Revenue</div><div class="card-value" style="font-size:1.2rem">${fmt(totalRev)}</div><div class="card-sub">${pSales.length} sales</div></div>
+    <div class="card ${totalProfit>=0?'':'red'}"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div></div>
+    <div class="card blue"><div class="card-label">Collected</div><div class="card-value" style="font-size:1.2rem">${fmt(totalPaid)}</div></div>
+    <div class="card orange"><div class="card-label">Pending Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalPend>0?'#e74c3c':'#27ae60'}">${fmt(totalPend)}</div></div>
+    <div class="card purple"><div class="card-label">Capital Deployed</div><div class="card-value" style="font-size:1.2rem">${fmt(purCost)}</div><div class="card-sub">${pPur.length} purchases</div></div>`;
+
+  const ov = document.getElementById('rptFinOverview');
+  if (ov) ov.innerHTML = `
+    <tr><td>Vehicles Purchased</td><td>${pPur.length}</td><td>${fmtNum(purCost)}</td></tr>
+    <tr><td>Vehicles Sold</td><td>${pSales.length}</td><td>${fmtNum(totalRev)}</td></tr>
+    <tr><td>Cost of Goods Sold</td><td>-</td><td>${fmtNum(totalCost)}</td></tr>
+    <tr class="fin-total"><td>Gross Profit</td><td>-</td><td style="color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmtNum(totalProfit)}</td></tr>
+    <tr><td>Amount Collected</td><td>-</td><td style="color:#27ae60">${fmtNum(totalPaid)}</td></tr>
+    <tr><td style="color:#e74c3c">Pending Receivables</td><td>-</td><td style="color:#e74c3c">${fmtNum(totalPend)}</td></tr>`;
+
+  const pm = {}; const colors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad'];
+  pSales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + (s.netPrice||0); });
+  const pmTotal = Object.values(pm).reduce((a,b)=>a+b,0)||1;
+  const fp = document.getElementById('rptFinPayment');
+  if (fp) fp.innerHTML = Object.entries(pm).sort((a,b)=>b[1]-a[1]).map(([m,v],i) => `
+    <div class="chart-bar-row">
+      <span class="chart-bar-label">${m}</span>
+      <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(v/pmTotal*100).toFixed(1)}%;background:${colors[i%5]}"></div></div>
+      <span class="chart-bar-val">${fmt(v)}</span>
+    </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
+
+  const det = document.getElementById('rptFinDetail');
+  if (!det) return;
+  if (pSales.length === 0) { det.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No records</td></tr>'; return; }
+  let tRev=0, tCost2=0, tPrf=0;
+  det.innerHTML = [...pSales].sort((a,b)=>a.date.localeCompare(b.date)).map((s,i) => {
+    const veh=getPurchase(s.vehicleId); const c=veh?veh.totalCost:0;
+    tRev+=s.netPrice||0; tCost2+=c; tPrf+=s.profit||0;
+    const pCls=(s.profit||0)>=0?'profit-positive':'profit-negative';
+    return `<tr>
+      <td>${i+1}</td><td>${s.date}</td>
+      <td>${veh?`<strong>${veh.model}</strong>${veh.variant?' <small>'+veh.variant+'</small>':''}`:'-'}</td>
+      <td>${s.buyer}</td>
+      <td style="text-align:right">${fmtNum(c)}</td>
+      <td style="text-align:right">${fmtNum(s.netPrice)}</td>
+      <td class="${pCls}" style="text-align:right">${fmtNum(s.profit)}</td>
+      <td><span class="badge badge-new">${s.payment}</span></td>
+    </tr>`;
+  }).join('') + `<tr class="fin-total"><td colspan="4">TOTALS</td><td style="text-align:right">${fmtNum(tCost2)}</td><td style="text-align:right">${fmtNum(tRev)}</td><td class="${tPrf>=0?'profit-positive':'profit-negative'}" style="text-align:right">${fmtNum(tPrf)}</td><td></td></tr>`;
+}
+
+function renderRptStock() {
+  const stock    = purchases.filter(p => p.status !== 'sold');
+  const avail    = stock.filter(p => p.status === 'available');
+  const booked   = stock.filter(p => p.status === 'booked');
+  const stockVal = avail.reduce((s,p) => s + (p.totalCost||0), 0);
+
+  const cards = document.getElementById('rptStockCards');
+  if (cards) cards.innerHTML = `
+    <div class="card blue"><div class="card-label">Total Units</div><div class="card-value">${stock.length}</div><div class="card-sub">in inventory</div></div>
+    <div class="card green"><div class="card-label">Available</div><div class="card-value">${avail.length}</div><div class="card-sub">ready to sell</div></div>
+    <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">reserved</div></div>
+    <div class="card purple"><div class="card-label">Stock Value (at cost)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockVal)}</div><div class="card-sub">available units only</div></div>`;
+
+  const tbody = document.getElementById('rptStockBody');
+  if (!tbody) return;
+  if (stock.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No stock</td></tr>'; return; }
+  tbody.innerHTML = [...stock].sort((a,b)=>a.model.localeCompare(b.model)).map((p,i) => {
+    const hex = getColourHex(p.colour);
+    const sCls = p.status==='available'?'#27ae60':'#e67e22';
+    return `<tr>
+      <td>${i+1}</td><td><strong>${p.model}</strong></td><td>${p.variant||'-'}</td>
+      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
+      <td>${p.year||'-'}</td><td>${p.po||'-'}</td>
+      <td style="text-align:right">${fmtNum(p.totalCost)}</td>
+      <td><span style="color:${sCls};font-weight:600;text-transform:capitalize">${p.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRptPriceList() {
+  const tbody = document.getElementById('rptPLBody');
+  if (!tbody) return;
+  const sorted = [...priceLists].sort((a,b)=>a.model.localeCompare(b.model)||a.variant.localeCompare(b.variant));
+  if (sorted.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">No price list entries</td></tr>'; return; }
+  tbody.innerHTML = sorted.map((pl,i) => `
+    <tr><td>${i+1}</td><td><strong>${pl.model}</strong></td><td>${pl.variant||'(Base)'}</td><td style="text-align:right;font-weight:600">${fmtNum(pl.listPrice)}</td></tr>`).join('');
+}
+
+function renderRptModels() {
+  const mb = document.getElementById('rptModelsBody');
+  if (mb) {
+    const sorted = [...catModels].sort((a,b)=>a.name.localeCompare(b.name)||a.variant.localeCompare(b.variant));
+    mb.innerHTML = sorted.length === 0
+      ? '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No models</td></tr>'
+      : sorted.map((m,i) => `<tr><td>${i+1}</td><td><strong>${m.name}</strong></td><td>${m.variant||'—'}</td></tr>`).join('');
+  }
+  const cb = document.getElementById('rptColoursBody');
+  if (cb) {
+    const sorted = [...catColours].sort((a,b)=>a.name.localeCompare(b.name));
+    cb.innerHTML = sorted.length === 0
+      ? '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No colours</td></tr>'
+      : sorted.map((c,i) => `<tr><td>${i+1}</td><td>${c.name}</td><td><span class="color-dot" style="background:${c.hex||'#ccc'};width:24px;height:24px;border-radius:4px;display:inline-block;border:1px solid #ddd"></span></td></tr>`).join('');
+  }
+}
+
 function printReport() {
   window.print();
 }
@@ -3192,6 +4313,16 @@ function exportExcel() {
   showToast(`Excel report exported: ${fileName}`);
 }
 
+</script>
+
+<script>
+  // Live reload — only active when served via watch.js (not file://)
+  (function () {
+    if (location.protocol === 'file:') return;
+    var src = new EventSource('/__livereload');
+    src.onmessage = function (e) { if (e.data === 'reload') location.reload(); };
+    src.onerror   = function () { src.close(); };
+  }());
 </script>
 </body>
 </html>
