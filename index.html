@@ -3252,10 +3252,9 @@ function onDashModeChange() {
 }
 
 function renderSummary() {
-  initDashControls();
-
   const mode = (document.getElementById('dash_mode') || {}).value || 'monthly';
-  const year = (document.getElementById('dash_year') || {}).value || new Date().getFullYear().toString();
+  const yearSel = document.getElementById('dash_year');
+  const year = (yearSel && yearSel.value) || new Date().getFullYear().toString();
 
   // Build period buckets
   let buckets; // [{label, prefix}]
@@ -3730,6 +3729,7 @@ function refreshAll() {
   renderModelStockGrid();
   renderStockTable();
   renderFinancials();
+  initDashControls();
   renderSummary();
   renderReports();
   renderCredUsers();
