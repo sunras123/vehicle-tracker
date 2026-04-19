@@ -615,6 +615,8 @@
         <option value="booked">Booked</option>
         <option value="sold">Sold</option>
       </select>
+      <button class="btn btn-success btn-sm" onclick="importPurchasesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
+      <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
     </div>
     <div class="table-wrap">
       <table>
@@ -2175,6 +2177,139 @@ function updateVehicleSelects() {
 // ============================================================
 // PURCHASES
 // ============================================================
+function importPurchasesFromExcel() {
+  document.getElementById('excelImportInput').click();
+}
+
+function handleExcelImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // raw:true keeps numbers as numbers; no cellDates so date-formatted cells stay as serials
+    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+    let imported = 0, skipped = 0;
+
+    // Convert Excel date serial to YYYY-MM-DD
+    const serialToDate = s => {
+      const d = new Date(Math.round((s - 25569) * 86400 * 1000));
+      return d.toISOString().split('T')[0];
+    };
+
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+      // Find the header row (contains 'Date' column)
+      let headerIdx = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] && rows[i].some(c => c && String(c).trim() === 'Date')) { headerIdx = i; break; }
+      }
+      if (headerIdx === -1) continue;
+
+      // Build column index map from header
+      const cm = {};
+      rows[headerIdx].forEach((h, idx) => {
+        if (!h) return;
+        const s = String(h).trim().toLowerCase();
+        if (s === 'date') cm.date = idx;
+        else if (s === 'model') cm.model = idx;
+        else if (s === 'colour' || s === 'color') cm.colour = idx;
+        else if (s === 'year') cm.year = idx;
+        else if (s.includes('fob price')) cm.cost = idx;
+        else if (s.includes('exchange rate')) cm.exrate = idx;
+        else if (s.includes('shipping')) cm.shipping = idx;
+        else if (s.includes('transport')) cm.transport = idx;
+        else if (s.includes('custom')) cm.customs = idx;
+        else if (s.includes('excise')) cm.excise = idx;
+        else if (s.includes('gst')) cm.gst = idx;
+        else if (s.includes('dv charge')) cm.dv = idx;
+        else if (s.includes('permit')) cm.permit = idx;
+        else if (s.includes('unload')) cm.loading = idx;
+        else if (s.includes('service')) cm.service = idx;
+        else if (s.includes('driver')) cm.driver = idx;
+        else if (s.includes('fuel')) cm.fuel = idx;
+        else if (s.includes('transit') && s.includes('insur')) cm.insurance = idx;
+        else if (s.includes('additional')) cm.addcost = idx;
+        else if (s.includes('invoice')) cm.pi = idx;
+        else if (s.includes('po number') || s === 'po number') cm.po = idx;
+        else if (s === 'note' || s === 'notes') cm.notes = idx;
+      });
+
+      const get = (row, key) => (cm[key] !== undefined ? row[cm[key]] : null) ?? null;
+      // For numeric fields: value is a raw number or a string; never a Date object with raw:true
+      const num = (row, key) => { const v = get(row, key); if (v === null || v === '') return 0; const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g,'')); return isNaN(n) ? 0 : n; };
+      const str = (row, key) => { const v = get(row, key); return v !== null ? String(v).trim() : ''; };
+
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row.some(c => c !== null && c !== '')) continue;
+
+        // Parse date: serial number (Excel date) or DD/MM/YYYY string
+        let dateStr = '';
+        const dv = get(row, 'date');
+        if (typeof dv === 'number') {
+          dateStr = serialToDate(dv);
+        } else if (dv) {
+          const parts = String(dv).split('/');
+          dateStr = parts.length === 3
+            ? `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`
+            : String(dv);
+        }
+
+        const model = str(row, 'model');
+        const colour = str(row, 'colour');
+        if (!dateStr || !model || !colour) { skipped++; continue; }
+
+        const cost = num(row, 'cost');
+        const addcost = num(row, 'addcost');
+
+        purchases.push({
+          id: genId(),
+          date: dateStr,
+          make: 'BYD',
+          model,
+          variant: '',
+          year: str(row, 'year'),
+          colour,
+          cost,
+          exrate:    num(row, 'exrate'),
+          shipping:  num(row, 'shipping'),
+          transport: num(row, 'transport'),
+          customs:   num(row, 'customs'),
+          excise:    num(row, 'excise'),
+          gst:       num(row, 'gst'),
+          dv:        num(row, 'dv'),
+          permit:    num(row, 'permit'),
+          loading:   num(row, 'loading'),
+          service:   num(row, 'service'),
+          driver:    num(row, 'driver'),
+          fuel:      num(row, 'fuel'),
+          insurance: num(row, 'insurance'),
+          addcost,
+          totalCost: cost + addcost,
+          pi:     str(row, 'pi'),
+          po:     (sheetName.match(/^([\d.]+)/) || [])[1] || sheetName,
+          notes:  str(row, 'notes'),
+          status: 'available'
+        });
+        imported++;
+      }
+    }
+
+    if (imported > 0) {
+      save();
+      renderPurchasesTable();
+      updateVehicleSelects();
+      showToast(`Imported ${imported} purchase records${skipped ? ` (${skipped} rows skipped)` : ''}.`);
+    } else {
+      showToast('No valid purchase records found in file.', 'error');
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function addPurchase() {
   const date  = document.getElementById('p_date').value;
   const model = document.getElementById('p_model').value;
