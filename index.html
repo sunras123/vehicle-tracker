@@ -445,6 +445,7 @@
           <option value="opened">Opened</option>
           <option value="pending">Pending</option>
           <option value="closed">Closed</option>
+          <option value="delivered">Delivered</option>
         </select>
       </div>
       <div class="form-group">
@@ -467,6 +468,7 @@
         <option value="opened">Opened</option>
         <option value="pending">Pending</option>
         <option value="closed">Closed</option>
+        <option value="delivered">Delivered</option>
       </select>
     </div>
     <div class="table-wrap">
@@ -1536,6 +1538,7 @@
           <option value="opened">Opened</option>
           <option value="pending">Pending</option>
           <option value="closed">Closed</option>
+          <option value="delivered">Delivered</option>
         </select>
       </div>
       <div class="form-group form-row-full"><label>Notes</label><input type="text" id="epp_notes" placeholder="Any notes"></div>
@@ -2143,7 +2146,7 @@ function renderPurchasePlanTable() {
   if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  const lcBadge = { opened: '#2980b9', pending: '#e67e22', closed: '#27ae60' };
+  const lcBadge = { opened: '#2980b9', pending: '#e67e22', closed: '#27ae60', delivered: '#8e44ad' };
   tbody.innerHTML = data.map((p, i) => `<tr>
     <td>${i+1}</td>
     <td>${p.date}</td>
@@ -2156,9 +2159,10 @@ function renderPurchasePlanTable() {
     <td>
       <select onchange="updatePlanLcStatus('${p.id}', this.value)"
         style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
-        <option value="opened"  ${p.lcstatus==='opened' ?'selected':''}>Opened</option>
-        <option value="pending" ${p.lcstatus==='pending'?'selected':''}>Pending</option>
-        <option value="closed"  ${p.lcstatus==='closed' ?'selected':''}>Closed</option>
+        <option value="opened"    ${p.lcstatus==='opened'    ?'selected':''}>Opened</option>
+        <option value="pending"   ${p.lcstatus==='pending'   ?'selected':''}>Pending</option>
+        <option value="closed"    ${p.lcstatus==='closed'    ?'selected':''}>Closed</option>
+        <option value="delivered" ${p.lcstatus==='delivered' ?'selected':''}>Delivered</option>
       </select>
     </td>
     <td>${p.notes || '-'}</td>
@@ -4638,6 +4642,7 @@ function renderRptOrderPlan() {
       <div class="card green"><div class="card-label">LC Opened</div><div class="card-value">${byLC.opened||0}</div></div>
       <div class="card orange"><div class="card-label">LC Pending</div><div class="card-value">${byLC.pending||0}</div></div>
       <div class="card"><div class="card-label">LC Closed</div><div class="card-value">${byLC.closed||0}</div></div>
+      <div class="card purple"><div class="card-label">Delivered</div><div class="card-value">${byLC.delivered||0}</div></div>
       <div class="card purple"><div class="card-label">Total FOB (USD)</div><div class="card-value" style="font-size:1.2rem">$${fmtNum(totalFob)}</div></div>`;
   }
 
