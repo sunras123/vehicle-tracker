@@ -2423,9 +2423,11 @@ function handleSalesExcelImport(event) {
         if (pi && existingPIs.has(pi)) { skipped++; continue; }
 
         // Match purchase by PO number + vehicle model name
+        // Normalize PO from both sides: extract numeric part so "PO1", "1PO", "1" all match
+        const extractPO = s => { const m = String(s || '').match(/[\d.]+/); return m ? m[0] : String(s); };
         const vehicleKey = normalizeVehicle(str(row, 'vehicle'));
         const veh = purchases.find(p => {
-          if (p.po !== poNum) return false;
+          if (extractPO(p.po) !== poNum) return false;
           if (p.status === 'sold') return false;
           const key1 = normalizeVehicle(p.model + (p.variant ? '_' + p.variant : ''));
           const key2 = normalizeVehicle(p.model);
@@ -2433,7 +2435,7 @@ function handleSalesExcelImport(event) {
         });
 
         if (!veh) {
-          console.warn(`[sales import] No match: PO=${poNum}, vehicle="${vehicleKey}". Available in PO:`, purchases.filter(p=>p.po===poNum).map(p=>({model:p.model,variant:p.variant,status:p.status})));
+          console.warn(`[sales import] No match: PO=${poNum}, vehicle="${vehicleKey}". Available (any status):`, purchases.filter(p=>extractPO(p.po)===poNum).map(p=>({model:p.model,variant:p.variant,status:p.status,po:p.po})));
           unmatched++; continue;
         }
 
@@ -2473,7 +2475,11 @@ function handleSalesExcelImport(event) {
         (skipped ? ` (${skipped} rows skipped)` : '') +
         (unmatched ? ` — ${unmatched} rows had no matching vehicle in Purchases` : '') + '.');
     } else if (unmatched > 0) {
-      showToast(`No sales imported — ${unmatched} rows had no matching vehicle. Check PO numbers and model names in Purchases.`, 'error');
+      const allSold = purchases.every(p => p.status === 'sold');
+      const msg = allSold
+        ? `No sales imported — all ${purchases.length} purchase records are already marked Sold. Check console (F12) for details.`
+        : `No sales imported — ${unmatched} rows had no matching vehicle. Check console (F12) for details.`;
+      showToast(msg, 'error');
     } else {
       showToast('No valid sale records found in file.', 'error');
     }
