@@ -746,6 +746,8 @@
         <option value="Cheque">Cheque</option>
         <option value="Loan">Loan</option>
       </select>
+      <button class="btn btn-success btn-sm" onclick="importSalesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
+      <input type="file" id="salesExcelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleSalesExcelImport(event)">
     </div>
     <div class="table-wrap">
       <table>
@@ -2304,6 +2306,166 @@ function handleExcelImport(event) {
       showToast(`Imported ${imported} purchase records${skipped ? ` (${skipped} rows skipped)` : ''}.`);
     } else {
       showToast('No valid purchase records found in file.', 'error');
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function importSalesFromExcel() {
+  document.getElementById('salesExcelImportInput').click();
+}
+
+function handleSalesExcelImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+    let imported = 0, skipped = 0, unmatched = 0;
+
+    const serialToDate = s => {
+      const d = new Date(Math.round((s - 25569) * 86400 * 1000));
+      return d.toISOString().split('T')[0];
+    };
+
+    const normalizeVehicle = s => String(s).toLowerCase().replace(/[\s\-]+/g, '_').trim();
+
+    const normalizePayment = s => {
+      if (!s) return 'Cash';
+      const v = String(s).toLowerCase().trim();
+      if (v.startsWith('loan')) return 'Loan';
+      if (v.startsWith('cheque') || v.startsWith('check')) return 'Cheque';
+      if (v.startsWith('cash')) return 'Cash';
+      return 'Cheque'; // transfer, bank transfer, etc.
+    };
+
+    const existingPIs = new Set(sales.map(s => s.pi).filter(Boolean));
+
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+      // Extract PO number from sheet name (e.g. '6.1PO' → '6.1')
+      const poMatch = sheetName.match(/^([\d.]+)/);
+      const poNum = poMatch ? poMatch[1] : sheetName;
+
+      // Find header row containing 'Date of Sales' or 'Buyer Name'
+      let headerIdx = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] && rows[i].some(c => c && String(c).trim().toLowerCase().includes('date of sales'))) {
+          headerIdx = i; break;
+        }
+      }
+      if (headerIdx === -1) continue;
+
+      const cm = {};
+      rows[headerIdx].forEach((h, idx) => {
+        if (!h) return;
+        const s = String(h).trim().toLowerCase();
+        if (s.includes('date of sales') || s === 'date') cm.date = idx;
+        else if (s.includes('select vehicle') || s === 'select vehicle') cm.vehicle = idx;
+        else if (s.includes('buyer name')) cm.buyer = idx;
+        else if (s.includes('cid')) cm.cid = idx;
+        else if (s.includes('phone')) cm.phone = idx;
+        else if (s.includes('address')) cm.address = idx;
+        else if (s.includes('list price')) cm.listPrice = idx;
+        else if (s.includes('discount')) cm.discount = idx;
+        else if (s.includes('sale price')) cm.salePrice = idx;
+        else if (s.includes('amount paid')) cm.amountPaid = idx;
+        else if (s.includes('balance') || s.includes('payable')) cm.pending = idx;
+        else if (s.includes('payment')) cm.payment = idx;
+        else if (s.includes('sales person') || s.includes('salesperson')) cm.salesperson = idx;
+        else if (s.includes('invoice')) cm.pi = idx;
+        else if (s === 'note' || s === 'notes') cm.notes = idx;
+      });
+
+      const get = (row, key) => (cm[key] !== undefined ? row[cm[key]] : null) ?? null;
+      const num = (row, key) => {
+        const v = get(row, key);
+        if (v === null || v === '') return 0;
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+      };
+      const str = (row, key) => {
+        const v = get(row, key);
+        return v !== null ? String(v).trim() : '';
+      };
+
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row.some(c => c !== null && c !== '')) continue;
+
+        const buyer = str(row, 'buyer');
+        if (!buyer) { skipped++; continue; }
+
+        // Parse date: serial number or DD/MM/YYYY string
+        const dv = get(row, 'date');
+        if (!dv) { skipped++; continue; }
+        let dateStr = '';
+        if (typeof dv === 'number') {
+          dateStr = serialToDate(dv);
+        } else {
+          const parts = String(dv).split('/');
+          dateStr = parts.length === 3
+            ? `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`
+            : String(dv);
+        }
+
+        const pi = str(row, 'pi');
+        if (pi && existingPIs.has(pi)) { skipped++; continue; }
+
+        // Match purchase by PO number + vehicle model name
+        const vehicleKey = normalizeVehicle(str(row, 'vehicle'));
+        const veh = purchases.find(p => {
+          if (p.po !== poNum) return false;
+          if (p.status === 'sold') return false;
+          const key1 = normalizeVehicle(p.model + (p.variant ? '_' + p.variant : ''));
+          const key2 = normalizeVehicle(p.model);
+          return key1 === vehicleKey || key2 === vehicleKey;
+        });
+
+        if (!veh) { unmatched++; continue; }
+
+        const listPrice  = num(row, 'listPrice');
+        const discount   = num(row, 'discount');
+        const netPrice   = num(row, 'salePrice') || Math.max(0, listPrice - discount);
+        const amountPaid = num(row, 'amountPaid');
+        const pending    = num(row, 'pending') !== 0 ? num(row, 'pending') : Math.max(0, netPrice - amountPaid);
+
+        veh.status = 'sold';
+        const payment = normalizePayment(str(row, 'payment'));
+        sales.push({
+          id: genId(), date: dateStr,
+          vehicleId: veh.id,
+          buyer,
+          cid: str(row, 'cid'),
+          phone: str(row, 'phone'),
+          address: str(row, 'address'),
+          salePrice: listPrice, discount, netPrice,
+          amountPaid, pendingAmount: pending,
+          payment,
+          journalNumber: '', chequeNumber: '', caNumber: '', caDate: '',
+          pi, salesperson: str(row, 'salesperson'),
+          notes: str(row, 'notes'),
+          profit: netPrice - (veh.totalCost || 0)
+        });
+        if (pi) existingPIs.add(pi);
+        imported++;
+      }
+    }
+
+    if (imported > 0) {
+      save();
+      renderSalesTable();
+      updateVehicleSelects();
+      showToast(`Imported ${imported} sale record${imported > 1 ? 's' : ''}` +
+        (skipped ? ` (${skipped} rows skipped)` : '') +
+        (unmatched ? ` — ${unmatched} rows had no matching vehicle in Purchases` : '') + '.');
+    } else if (unmatched > 0) {
+      showToast(`No sales imported — ${unmatched} rows had no matching vehicle. Check PO numbers and model names in Purchases.`, 'error');
+    } else {
+      showToast('No valid sale records found in file.', 'error');
     }
     event.target.value = '';
   };
