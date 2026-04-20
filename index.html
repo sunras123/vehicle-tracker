@@ -2319,8 +2319,14 @@ function importSalesFromExcel() {
 function handleSalesExcelImport(event) {
   const file = event.target.files[0];
   if (!file) return;
+  if (!purchases.length) {
+    showToast('No purchase records loaded. Import purchases first before importing sales.', 'error');
+    event.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = function(e) {
+    try {
     const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
     let imported = 0, skipped = 0, unmatched = 0;
 
@@ -2357,7 +2363,8 @@ function handleSalesExcelImport(event) {
           headerIdx = i; break;
         }
       }
-      if (headerIdx === -1) continue;
+      if (headerIdx === -1) { console.warn('[sales import] No header row found in sheet:', sheetName); continue; }
+      console.log(`[sales import] Sheet: ${sheetName} → PO: ${poNum}, header at row ${headerIdx}`);
 
       const cm = {};
       rows[headerIdx].forEach((h, idx) => {
@@ -2425,7 +2432,10 @@ function handleSalesExcelImport(event) {
           return key1 === vehicleKey || key2 === vehicleKey;
         });
 
-        if (!veh) { unmatched++; continue; }
+        if (!veh) {
+          console.warn(`[sales import] No match: PO=${poNum}, vehicle="${vehicleKey}". Available in PO:`, purchases.filter(p=>p.po===poNum).map(p=>({model:p.model,variant:p.variant,status:p.status})));
+          unmatched++; continue;
+        }
 
         const listPrice  = num(row, 'listPrice');
         const discount   = num(row, 'discount');
@@ -2466,6 +2476,10 @@ function handleSalesExcelImport(event) {
       showToast(`No sales imported — ${unmatched} rows had no matching vehicle. Check PO numbers and model names in Purchases.`, 'error');
     } else {
       showToast('No valid sale records found in file.', 'error');
+    }
+    } catch (err) {
+      console.error('[sales import]', err);
+      showToast('Import error: ' + err.message, 'error');
     }
     event.target.value = '';
   };
