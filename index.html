@@ -3601,35 +3601,39 @@ function renderSummary() {
     <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.3rem;color:${allProfit>=0?'#27ae60':'#e74c3c'}">${fmt(allProfit)}</div><div class="card-sub">All time</div></div>
   `;
 
-  // Helper: render a count bar chart
+  // Helper: vertical column chart for counts
   function renderCountChart(elId, key, color) {
     const el = document.getElementById(elId);
     if (!el) return;
     const max = Math.max(...bucketData.map(b => b[key]), 1);
-    el.innerHTML = bucketData.map(b => `
-      <div class="chart-bar-row">
-        <span class="chart-bar-label">${b.label}</span>
-        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(b[key]/max*100).toFixed(1)}%;background:${color}"></div></div>
-        <span class="chart-bar-val">${b[key]}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No data</div>';
+    el.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:20px;position:relative">` +
+      bucketData.map(b => {
+        const pct = (b[key] / max * 100).toFixed(1);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+          <span style="font-size:0.68rem;color:#555;margin-bottom:2px">${b[key]||''}</span>
+          <div style="width:100%;background:${color};height:${pct}%;border-radius:3px 3px 0 0;min-height:${b[key]?2:0}px"></div>
+          <span style="font-size:0.65rem;color:#888;margin-top:4px;white-space:nowrap">${b.label}</span>
+        </div>`;
+      }).join('') + `</div>`;
   }
 
-  // Helper: render a money bar chart (profit can be negative)
+  // Helper: vertical column chart for money values
   function renderMoneyChart(elId, key, color) {
     const el = document.getElementById(elId);
     if (!el) return;
     const vals = bucketData.map(b => b[key]);
     const absMax = Math.max(...vals.map(Math.abs), 1);
-    el.innerHTML = bucketData.map(b => {
-      const v = b[key];
-      const w = (Math.abs(v) / absMax * 100).toFixed(1);
-      const c = color || (v >= 0 ? '#27ae60' : '#e74c3c');
-      return `<div class="chart-bar-row">
-        <span class="chart-bar-label">${b.label}</span>
-        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${w}%;background:${c}"></div></div>
-        <span class="chart-bar-val" style="color:${v<0?'#e74c3c':'inherit'}">${fmt(v)}</span>
-      </div>`;
-    }).join('') || '<div style="color:#aaa;font-size:0.82rem">No data</div>';
+    el.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:20px">` +
+      bucketData.map(b => {
+        const v = b[key];
+        const pct = (Math.abs(v) / absMax * 100).toFixed(1);
+        const c = color || (v >= 0 ? '#27ae60' : '#e74c3c');
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+          <span style="font-size:0.62rem;color:${v<0?'#e74c3c':'#555'};margin-bottom:2px;white-space:nowrap">${v?fmt(v):''}</span>
+          <div style="width:100%;background:${c};height:${pct}%;border-radius:3px 3px 0 0;min-height:${v?2:0}px"></div>
+          <span style="font-size:0.65rem;color:#888;margin-top:4px;white-space:nowrap">${b.label}</span>
+        </div>`;
+      }).join('') + `</div>`;
   }
 
   renderCountChart('dashPurchasesChart', 'purchases', BAR_COLORS.purchases);
@@ -3646,12 +3650,15 @@ function renderSummary() {
   });
   const maxMonthlySale = Math.max(...monthlySales.map(b => b.count), 1);
   const elM = document.getElementById('dashModelSalesChart');
-  if (elM) elM.innerHTML = monthlySales.map(b => `
-    <div class="chart-bar-row">
-      <span class="chart-bar-label">${b.label}</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(b.count / maxMonthlySale * 100).toFixed(1)}%;background:#27ae60"></div></div>
-      <span class="chart-bar-val">${b.count}</span>
-    </div>`).join('');
+  if (elM) elM.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:20px">` +
+    monthlySales.map(b => {
+      const pct = (b.count / maxMonthlySale * 100).toFixed(1);
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+        <span style="font-size:0.68rem;color:#555;margin-bottom:2px">${b.count||''}</span>
+        <div style="width:100%;background:#27ae60;height:${pct}%;border-radius:3px 3px 0 0;min-height:${b.count?2:0}px"></div>
+        <span style="font-size:0.65rem;color:#888;margin-top:4px">${b.label}</span>
+      </div>`;
+    }).join('') + `</div>`;
 }
 
 // ============================================================
