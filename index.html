@@ -1132,13 +1132,7 @@
     <h3 id="rptSalesTitle">&#128176; Sales Detail</h3>
     <div class="table-wrap">
       <table class="fin-table">
-        <thead>
-          <tr>
-            <th>#</th><th>Date</th><th>Model</th><th>Colour</th>
-            <th>Buyer</th><th>Payment</th><th>Salesperson</th>
-            <th>Cost (Nu.)</th><th>Net Price (Nu.)</th><th>Profit (Nu.)</th>
-          </tr>
-        </thead>
+        <thead id="rptSalesThead"></thead>
         <tbody id="rptSalesBody"></tbody>
       </table>
     </div>
@@ -1178,7 +1172,7 @@
       <h3>&#128666; Purchase Records</h3>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th><th>Year</th><th>PO No.</th><th>Total Cost (Nu.)</th><th>Status</th></tr></thead>
+          <thead id="rptPurThead"></thead>
           <tbody id="rptPurBody"></tbody>
         </table>
       </div>
@@ -1192,7 +1186,7 @@
       <h3>&#128197; Booking Records</h3>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>#</th><th>Date</th><th>Vehicle</th><th>Colour</th><th>Customer</th><th>CID</th><th>Phone</th><th>Advance Paid (Nu.)</th><th>List Price (Nu.)</th><th>Discount (Nu.)</th><th>Sale Price (Nu.)</th><th>Balance (Nu.)</th><th>Delivery</th></tr></thead>
+          <thead id="rptBokThead"></thead>
           <tbody id="rptBokBody"></tbody>
         </table>
       </div>
@@ -1206,7 +1200,7 @@
       <h3>&#128196; Order Plan Records</h3>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th><th>Qty</th><th>PO No.</th><th>FOB Price (USD)</th><th>LC Status</th><th>Notes</th></tr></thead>
+          <thead id="rptPPThead"></thead>
           <tbody id="rptPPBody"></tbody>
         </table>
       </div>
@@ -1235,7 +1229,7 @@
       <h3>&#128203; Detailed Records</h3>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>#</th><th>Date</th><th>Vehicle</th><th>Buyer</th><th>Cost (Nu.)</th><th>Net Price (Nu.)</th><th>Profit (Nu.)</th><th>Payment</th></tr></thead>
+          <thead id="rptFinThead"></thead>
           <tbody id="rptFinDetail"></tbody>
         </table>
       </div>
@@ -1249,7 +1243,7 @@
       <h3>&#128218; Current Stock</h3>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>#</th><th>Model</th><th>Variant</th><th>Colour</th><th>Year</th><th>PO No.</th><th>Total Cost (Nu.)</th><th>Status</th></tr></thead>
+          <thead id="rptStockThead"></thead>
           <tbody id="rptStockBody"></tbody>
         </table>
       </div>
@@ -1262,7 +1256,7 @@
       <h3>&#127991; Price List</h3>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>#</th><th>Model</th><th>Variant</th><th>List Price (Nu.)</th></tr></thead>
+          <thead id="rptPLThead"></thead>
           <tbody id="rptPLBody"></tbody>
         </table>
       </div>
@@ -4342,6 +4336,40 @@ function getRptPrefix() {
   return mode === 'yearly' ? year : (year + '-' + month);
 }
 
+// ── Report table sort state ──────────────────────────────────────
+const rptSort = {
+  sales:      { col: 'date',  dir: 1 },
+  purchases:  { col: 'date',  dir: 1 },
+  bookings:   { col: 'date',  dir: 1 },
+  orderplan:  { col: 'date',  dir: 1 },
+  financials: { col: 'date',  dir: 1 },
+  stock:      { col: 'model', dir: 1 },
+  pricelist:  { col: 'model', dir: 1 },
+};
+
+function setRptSort(section, col) {
+  const s = rptSort[section];
+  if (s.col === col) s.dir *= -1; else { s.col = col; s.dir = 1; }
+  renderReports();
+}
+
+function rptTh(section, col, label, extra) {
+  const s = rptSort[section];
+  const arrow = s && s.col === col ? (s.dir === 1 ? ' &#9650;' : ' &#9660;') : '';
+  const active = s && s.col === col ? 'color:#e94560;' : '';
+  return `<th style="cursor:pointer;user-select:none;white-space:nowrap;${active}${extra||''}" onclick="setRptSort('${section}','${col}')">${label}${arrow}</th>`;
+}
+
+function rptCmp(section, getVal, numericCols) {
+  const { col, dir } = rptSort[section];
+  return (a, b) => {
+    const av = getVal(a, col), bv = getVal(b, col);
+    const isNum = numericCols && numericCols.includes(col);
+    const cmp = isNum ? (av - bv) : String(av||'').localeCompare(String(bv||''));
+    return cmp * dir;
+  };
+}
+
 function renderReports() {
   initReportControls();
   const cat = document.getElementById('rpt_category')?.value || 'sales';
@@ -4449,13 +4477,26 @@ function renderRptSales() {
   }
 
   // Sales detail table
+  const rptSalesThead = document.getElementById('rptSalesThead');
+  if (rptSalesThead) rptSalesThead.innerHTML = `<tr><th>#</th>${rptTh('sales','date','Date')}${rptTh('sales','model','Model')}${rptTh('sales','colour','Colour')}${rptTh('sales','buyer','Buyer')}${rptTh('sales','payment','Payment')}${rptTh('sales','salesperson','Salesperson')}${rptTh('sales','cost','Cost (Nu.)','text-align:right')}${rptTh('sales','netPrice','Net Price (Nu.)','text-align:right')}${rptTh('sales','profit','Profit (Nu.)','text-align:right')}</tr>`;
+
   const rptSalesBody = document.getElementById('rptSalesBody');
   if (rptSalesBody) {
     if (periodSales.length === 0) {
       rptSalesBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No sales in this period</td></tr>';
     } else {
       let tRev = 0, tCost = 0, tProfit = 0;
-      const rows = [...periodSales].sort((a,b) => a.date.localeCompare(b.date)).map((s, i) => {
+      const numCols = ['cost','netPrice','profit'];
+      const getVal = (s, col) => {
+        const veh = getPurchase(s.vehicleId);
+        if (col === 'model')      return veh ? veh.model : '';
+        if (col === 'colour')     return veh ? veh.colour : '';
+        if (col === 'cost')       return veh ? veh.totalCost : 0;
+        if (col === 'netPrice')   return s.netPrice || 0;
+        if (col === 'profit')     return s.profit || 0;
+        return s[col] || '';
+      };
+      const rows = [...periodSales].sort(rptCmp('sales', getVal, numCols)).map((s, i) => {
         const veh  = getPurchase(s.vehicleId);
         const cost = veh ? veh.totalCost : 0;
         const hex  = getColourHex(veh ? veh.colour : '');
@@ -4579,11 +4620,15 @@ function renderRptPurchases() {
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${byStatus.booked}</div><div class="card-sub">reserved</div></div>
     <div class="card"><div class="card-label">Sold</div><div class="card-value">${byStatus.sold}</div><div class="card-sub">delivered</div></div>`;
 
+  const rptPurThead = document.getElementById('rptPurThead');
+  if (rptPurThead) rptPurThead.innerHTML = `<tr><th>#</th>${rptTh('purchases','date','Date')}${rptTh('purchases','model','Model')}${rptTh('purchases','variant','Variant')}${rptTh('purchases','colour','Colour')}${rptTh('purchases','year','Year')}${rptTh('purchases','po','PO No.')}${rptTh('purchases','totalCost','Total Cost (Nu.)','text-align:right')}${rptTh('purchases','status','Status')}</tr>`;
+
   const tbody = document.getElementById('rptPurBody');
   if (!tbody) return;
   if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:20px">No records in this period</td></tr>'; return; }
   let tCost = 0;
-  tbody.innerHTML = [...data].sort((a,b)=>a.date.localeCompare(b.date)).map((p,i) => {
+  const purGetVal = (p, col) => col === 'totalCost' ? (p.totalCost||0) : (p[col]||'');
+  tbody.innerHTML = [...data].sort(rptCmp('purchases', purGetVal, ['totalCost'])).map((p,i) => {
     tCost += p.totalCost||0;
     const hex = getColourHex(p.colour);
     return `<tr>
@@ -4611,10 +4656,20 @@ function renderRptBookings() {
     <div class="card green"><div class="card-label">Advance Collected</div><div class="card-value" style="font-size:1.2rem">${fmt(totalAdv)}</div><div class="card-sub">deposits received</div></div>
     <div class="card orange"><div class="card-label">Balance Pending</div><div class="card-value" style="font-size:1.2rem">${fmt(totalBal)}</div><div class="card-sub">outstanding</div></div>`;
 
+  const rptBokThead = document.getElementById('rptBokThead');
+  if (rptBokThead) rptBokThead.innerHTML = `<tr><th>#</th>${rptTh('bookings','date','Date')}${rptTh('bookings','model','Vehicle')}${rptTh('bookings','colour','Colour')}${rptTh('bookings','customer','Customer')}${rptTh('bookings','cid','CID')}${rptTh('bookings','phone','Phone')}${rptTh('bookings','deposit','Advance (Nu.)','text-align:right')}${rptTh('bookings','agreedPrice','List Price (Nu.)','text-align:right')}${rptTh('bookings','discount','Discount (Nu.)','text-align:right')}${rptTh('bookings','salePrice','Sale Price (Nu.)','text-align:right')}${rptTh('bookings','balance','Balance (Nu.)','text-align:right')}${rptTh('bookings','delivery','Delivery')}</tr>`;
+
   const tbody = document.getElementById('rptBokBody');
   if (!tbody) return;
   if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:20px">No bookings in this period</td></tr>'; return; }
-  tbody.innerHTML = [...data].sort((a,b)=>a.date.localeCompare(b.date)).map((b,i) => {
+  const bokNumCols = ['deposit','agreedPrice','discount','salePrice','balance'];
+  const bokGetVal = (b, col) => {
+    if (col === 'model') { const v = getPurchase(b.vehicleId); return v ? v.model : ''; }
+    if (col === 'colour') { const v = getPurchase(b.vehicleId); return v ? v.colour : ''; }
+    if (bokNumCols.includes(col)) return b[col] || 0;
+    return b[col] || '';
+  };
+  tbody.innerHTML = [...data].sort(rptCmp('bookings', bokGetVal, bokNumCols)).map((b,i) => {
     const veh = getPurchase(b.vehicleId);
     const hex = getColourHex(veh ? veh.colour : '');
     return `<tr>
@@ -4651,10 +4706,14 @@ function renderRptOrderPlan() {
       <div class="card purple"><div class="card-label">Total FOB (USD)</div><div class="card-value" style="font-size:1.2rem">$${fmtNum(totalFob)}</div></div>`;
   }
 
+  const rptPPThead = document.getElementById('rptPPThead');
+  if (rptPPThead) rptPPThead.innerHTML = `<tr><th>#</th>${rptTh('orderplan','date','Date')}${rptTh('orderplan','model','Model')}${rptTh('orderplan','variant','Variant')}${rptTh('orderplan','colour','Colour')}${rptTh('orderplan','qty','Qty','text-align:right')}${rptTh('orderplan','po','PO No.')}${rptTh('orderplan','fob','FOB (USD)','text-align:right')}${rptTh('orderplan','lcstatus','LC Status')}${rptTh('orderplan','notes','Notes')}</tr>`;
+
   const tbody = document.getElementById('rptPPBody');
   if (!tbody) return;
   if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No order plans in this period</td></tr>'; return; }
-  tbody.innerHTML = [...data].sort((a,b)=>a.date.localeCompare(b.date)).map((p,i) => {
+  const ppGetVal = (p, col) => (col === 'qty' || col === 'fob') ? (p[col]||0) : (p[col]||'');
+  tbody.innerHTML = [...data].sort(rptCmp('orderplan', ppGetVal, ['qty','fob'])).map((p,i) => {
     const lcCls = p.lcstatus==='closed'?'#27ae60':p.lcstatus==='opened'?'#2980b9':'#e67e22';
     return `<tr>
       <td>${i+1}</td><td>${p.date}</td>
@@ -4706,11 +4765,23 @@ function renderRptFinancials() {
       <span class="chart-bar-val">${fmt(v)}</span>
     </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
 
+  const rptFinThead = document.getElementById('rptFinThead');
+  if (rptFinThead) rptFinThead.innerHTML = `<tr><th>#</th>${rptTh('financials','date','Date')}${rptTh('financials','model','Vehicle')}${rptTh('financials','buyer','Buyer')}${rptTh('financials','cost','Cost (Nu.)','text-align:right')}${rptTh('financials','netPrice','Net Price (Nu.)','text-align:right')}${rptTh('financials','profit','Profit (Nu.)','text-align:right')}${rptTh('financials','payment','Payment')}</tr>`;
+
   const det = document.getElementById('rptFinDetail');
   if (!det) return;
   if (pSales.length === 0) { det.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No records</td></tr>'; return; }
   let tRev=0, tCost2=0, tPrf=0;
-  det.innerHTML = [...pSales].sort((a,b)=>a.date.localeCompare(b.date)).map((s,i) => {
+  const finNumCols = ['cost','netPrice','profit'];
+  const finGetVal = (s, col) => {
+    const veh = getPurchase(s.vehicleId);
+    if (col === 'model')    return veh ? veh.model : '';
+    if (col === 'cost')     return veh ? veh.totalCost : 0;
+    if (col === 'netPrice') return s.netPrice || 0;
+    if (col === 'profit')   return s.profit || 0;
+    return s[col] || '';
+  };
+  det.innerHTML = [...pSales].sort(rptCmp('financials', finGetVal, finNumCols)).map((s,i) => {
     const veh=getPurchase(s.vehicleId); const c=veh?veh.totalCost:0;
     tRev+=s.netPrice||0; tCost2+=c; tPrf+=s.profit||0;
     const pCls=(s.profit||0)>=0?'profit-positive':'profit-negative';
@@ -4739,10 +4810,14 @@ function renderRptStock() {
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">reserved</div></div>
     <div class="card purple"><div class="card-label">Stock Value (at cost)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockVal)}</div><div class="card-sub">available units only</div></div>`;
 
+  const rptStockThead = document.getElementById('rptStockThead');
+  if (rptStockThead) rptStockThead.innerHTML = `<tr><th>#</th>${rptTh('stock','model','Model')}${rptTh('stock','variant','Variant')}${rptTh('stock','colour','Colour')}${rptTh('stock','year','Year')}${rptTh('stock','po','PO No.')}${rptTh('stock','totalCost','Total Cost (Nu.)','text-align:right')}${rptTh('stock','status','Status')}</tr>`;
+
   const tbody = document.getElementById('rptStockBody');
   if (!tbody) return;
   if (stock.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No stock</td></tr>'; return; }
-  tbody.innerHTML = [...stock].sort((a,b)=>a.model.localeCompare(b.model)).map((p,i) => {
+  const stGetVal = (p, col) => col === 'totalCost' ? (p.totalCost||0) : (p[col]||'');
+  tbody.innerHTML = [...stock].sort(rptCmp('stock', stGetVal, ['totalCost'])).map((p,i) => {
     const hex = getColourHex(p.colour);
     const sCls = p.status==='available'?'#27ae60':'#e67e22';
     return `<tr>
@@ -4756,9 +4831,13 @@ function renderRptStock() {
 }
 
 function renderRptPriceList() {
+  const rptPLThead = document.getElementById('rptPLThead');
+  if (rptPLThead) rptPLThead.innerHTML = `<tr><th>#</th>${rptTh('pricelist','model','Model')}${rptTh('pricelist','variant','Variant')}${rptTh('pricelist','listPrice','List Price (Nu.)','text-align:right')}</tr>`;
+
   const tbody = document.getElementById('rptPLBody');
   if (!tbody) return;
-  const sorted = [...priceLists].sort((a,b)=>a.model.localeCompare(b.model)||a.variant.localeCompare(b.variant));
+  const plGetVal = (pl, col) => col === 'listPrice' ? (pl.listPrice||0) : (pl[col]||'');
+  const sorted = [...priceLists].sort(rptCmp('pricelist', plGetVal, ['listPrice']));
   if (sorted.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">No price list entries</td></tr>'; return; }
   tbody.innerHTML = sorted.map((pl,i) => `
     <tr><td>${i+1}</td><td><strong>${pl.model}</strong></td><td>${pl.variant||'(Base)'}</td><td style="text-align:right;font-weight:600">${fmtNum(pl.listPrice)}</td></tr>`).join('');
