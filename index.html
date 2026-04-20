@@ -330,7 +330,7 @@
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
     <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
-      <h3>&#128176; Sales</h3>
+      <h3>&#128176; Sales Revenue (Nu.)</h3>
       <div id="dashSalesChart"></div>
     </div>
     <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
@@ -3578,10 +3578,11 @@ function renderSummary() {
     const s   = sales.filter(x => x.date && x.date.startsWith(b.prefix));
     const bk  = bookings.filter(x => x.date && x.date.startsWith(b.prefix));
     const gp  = s.reduce((acc, x) => acc + (x.profit  || 0), 0);
+    const rev = s.reduce((acc, x) => acc + (x.netPrice || 0), 0);
     // stock = vehicles purchased in period that are still available
     const stk = p.filter(x => x.status === 'available').length;
     return { label: b.label, purchases: p.length, sales: s.length,
-             bookings: bk.length, stock: stk, profit: gp };
+             revenue: rev, bookings: bk.length, stock: stk, profit: gp };
   });
 
   // KPI cards (all-time)
@@ -3632,7 +3633,7 @@ function renderSummary() {
   }
 
   renderCountChart('dashPurchasesChart', 'purchases', BAR_COLORS.purchases);
-  renderCountChart('dashSalesChart',     'sales',     BAR_COLORS.sales);
+  renderMoneyChart('dashSalesChart',     'revenue',   BAR_COLORS.sales);
   renderCountChart('dashBookingsChart',  'bookings',  BAR_COLORS.bookings);
   renderCountChart('dashStockChart',     'stock',     BAR_COLORS.stock);
   renderMoneyChart('dashProfitChart',    'profit',    null);
