@@ -4957,16 +4957,16 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, wsSales, 'Sales Detail');
 
   // ── Sheet 4: Purchases ────────────────────────────────────
-  const ppHeader = ['#','Date','Model','Variant','Year','Colour','Invoice No.','FOB Price (USD)','Ex. Rate (Nu./USD)','Shipping China→Kolkata (USD)','Transport Kolkata→Phuentsholing (Nu.)','Customs Duty (Nu.)','Excise Duty (Nu.)','GST (Nu.)','DV Charges (Nu.)','Permit Charges (Nu.)','Unloading & Loading (Nu.)','Service Charge & Commission (Nu.)','Driver Charges (Nu.)','Fuel Cost (Nu.)','Transit Insurance (Nu.)','Add. Costs (Nu.)','Total Cost (Nu.)','Status'];
+  const ppHeader = ['#','Date','Model','Variant','Year','Colour','PO No.','Invoice No.','FOB Price (USD)','Ex. Rate (Nu./USD)','Shipping China→Kolkata (USD)','Transport Kolkata→Phuentsholing (Nu.)','Customs Duty (Nu.)','Excise Duty (Nu.)','GST (Nu.)','DV Charges (Nu.)','Permit Charges (Nu.)','Unloading & Loading (Nu.)','Service Charge & Commission (Nu.)','Driver Charges (Nu.)','Fuel Cost (Nu.)','Transit Insurance (Nu.)','Add. Costs (Nu.)','Total Cost (Nu.)','Status'];
   const ppRows   = [ppHeader];
   let ppTotal = 0;
   [...periodPurchases].sort((a,b)=>a.date.localeCompare(b.date)).forEach((p, i) => {
     ppTotal += p.totalCost||0;
-    ppRows.push([i+1, p.date, p.model, p.variant||'', p.year||'', p.colour, p.pi||'', p.cost||0, p.exrate||0, p.shipping||0, p.transport||0, p.customs||0, p.excise||0, p.gst||0, p.dv||0, p.permit||0, p.loading||0, p.service||0, p.driver||0, p.fuel||0, p.insurance||0, p.addcost||0, p.totalCost||0, p.status]);
+    ppRows.push([i+1, p.date, p.model, p.variant||'', p.year||'', p.colour, p.po||'', p.pi||'', p.cost||0, p.exrate||0, p.shipping||0, p.transport||0, p.customs||0, p.excise||0, p.gst||0, p.dv||0, p.permit||0, p.loading||0, p.service||0, p.driver||0, p.fuel||0, p.insurance||0, p.addcost||0, p.totalCost||0, p.status]);
   });
-  if (periodPurchases.length) ppRows.push(['','TOTAL','','','','','','','','','','','','','','','','','','','','',ppTotal,'']);
+  if (periodPurchases.length) ppRows.push(['','TOTAL','','','','','','','','','','','','','','','','','','','','','',ppTotal,'']);
   const wsPurchases = XLSX.utils.aoa_to_sheet(ppRows);
-  wsPurchases['!cols'] = [{wch:4},{wch:12},{wch:14},{wch:12},{wch:6},{wch:14},{wch:14},{wch:18},{wch:16},{wch:22},{wch:28},{wch:18},{wch:18},{wch:12},{wch:18},{wch:18},{wch:22},{wch:26},{wch:18},{wch:16},{wch:20},{wch:18},{wch:18},{wch:12}];
+  wsPurchases['!cols'] = [{wch:4},{wch:12},{wch:14},{wch:12},{wch:6},{wch:14},{wch:10},{wch:14},{wch:18},{wch:16},{wch:22},{wch:28},{wch:18},{wch:18},{wch:12},{wch:18},{wch:18},{wch:22},{wch:26},{wch:18},{wch:16},{wch:20},{wch:18},{wch:18},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsPurchases, 'Purchases');
 
   // ── Sheet 5: Model Performance ────────────────────────────
