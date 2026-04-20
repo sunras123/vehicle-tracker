@@ -315,11 +315,11 @@
   </div>
 
   <!-- KPI summary cards -->
-  <div class="cards-grid" id="summaryCards"></div>
+  <div class="cards-grid" id="summaryCards" style="grid-template-columns:1fr;"></div>
 
-  <!-- 6 bar charts in 2-col grid -->
-  <div class="summary-grid">
-    <div class="panel" style="grid-column:1/-1">
+  <!-- Charts stacked vertically -->
+  <div class="summary-grid" style="grid-template-columns:1fr;">
+    <div class="panel">
       <h3>&#128176; Monthly Vehicle Sales (Units)</h3>
       <div id="dashModelSalesChart" style="min-height:40px"></div>
     </div>
