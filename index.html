@@ -2313,6 +2313,7 @@ function handleExcelImport(event) {
         const s = String(h).trim().toLowerCase();
         if (s === 'date') cm.date = idx;
         else if (s === 'model') cm.model = idx;
+        else if (s === 'variant') cm.variant = idx;
         else if (s === 'colour' || s === 'color') cm.colour = idx;
         else if (s === 'year') cm.year = idx;
         else if (s.includes('fob price')) cm.cost = idx;
@@ -2368,7 +2369,7 @@ function handleExcelImport(event) {
           date: dateStr,
           make: 'BYD',
           model,
-          variant: '',
+          variant: str(row, 'variant'),
           year: str(row, 'year'),
           colour,
           cost,
