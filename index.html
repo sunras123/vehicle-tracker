@@ -1517,6 +1517,36 @@
   </div>
 </div>
 
+<!-- EDIT PURCHASE PLAN MODAL -->
+<div class="modal-overlay" id="editPurchasePlanModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editPurchasePlanModal')">&times;</button>
+    <h3>&#9998; Edit Order Plan Entry</h3>
+    <input type="hidden" id="epp_id">
+    <div class="form-grid">
+      <div class="form-group"><label>Date</label><input type="date" id="epp_date"></div>
+      <div class="form-group"><label>Model</label><select id="epp_model" onchange="updateEditPurchasePlanVariantSelect()"><option value="">-- Select Model --</option></select></div>
+      <div class="form-group"><label>Variant</label><select id="epp_variant"><option value="">-- None --</option></select></div>
+      <div class="form-group"><label>Colour</label><select id="epp_colour"><option value="">-- Select Colour --</option></select></div>
+      <div class="form-group"><label>Quantity</label><input type="number" id="epp_qty" min="1" value="1"></div>
+      <div class="form-group"><label>PO Number</label><input type="text" id="epp_po" placeholder="Purchase Order number"></div>
+      <div class="form-group"><label>FOB Price (USD)</label><input type="text" inputmode="decimal" id="epp_fob" placeholder="0.00" oninput="fmtInput(this)"></div>
+      <div class="form-group"><label>LC Status</label>
+        <select id="epp_lcstatus">
+          <option value="opened">Opened</option>
+          <option value="pending">Pending</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+      <div class="form-group form-row-full"><label>Notes</label><input type="text" id="epp_notes" placeholder="Any notes"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-warning" onclick="saveEditPurchasePlan()">&#10003; Save Changes</button>
+      <button class="btn" onclick="closeModal('editPurchasePlanModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -2038,6 +2068,67 @@ function deletePurchasePlan(id) {
   showToast('Purchase plan entry deleted.');
 }
 
+function openEditPurchasePlan(id) {
+  const p = purchasePlans.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('epp_id').value       = p.id;
+  document.getElementById('epp_date').value     = p.date || '';
+  document.getElementById('epp_qty').value      = p.qty || 1;
+  document.getElementById('epp_po').value       = p.po || '';
+  document.getElementById('epp_fob').value      = p.fob ? fmtNum(p.fob) : '';
+  document.getElementById('epp_lcstatus').value = p.lcstatus || 'opened';
+  document.getElementById('epp_notes').value    = p.notes || '';
+
+  // Populate model select
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
+  const modelSel = document.getElementById('epp_model');
+  modelSel.innerHTML = '<option value="">-- Select Model --</option>' +
+    uniqueModels.map(m => `<option value="${m.name}" ${m.name===p.model?'selected':''}>${m.name}</option>`).join('');
+
+  // Populate variant select
+  const variants = catModels.filter(m => m.name === p.model).map(m => m.variant).filter(Boolean);
+  const varSel = document.getElementById('epp_variant');
+  varSel.innerHTML = '<option value="">-- None --</option>' +
+    variants.map(v => `<option value="${v}" ${v===p.variant?'selected':''}>${v}</option>`).join('');
+
+  // Populate colour select
+  const colSel = document.getElementById('epp_colour');
+  colSel.innerHTML = '<option value="">-- Select Colour --</option>' +
+    catColours.map(c => `<option value="${c.name}" ${c.name===p.colour?'selected':''}>${c.name}</option>`).join('');
+
+  document.getElementById('editPurchasePlanModal').classList.add('open');
+}
+
+function updateEditPurchasePlanVariantSelect() {
+  const model = document.getElementById('epp_model').value;
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant).filter(Boolean);
+  const varSel = document.getElementById('epp_variant');
+  varSel.innerHTML = '<option value="">-- None --</option>' +
+    variants.map(v => `<option value="${v}">${v}</option>`).join('');
+}
+
+function saveEditPurchasePlan() {
+  const id = document.getElementById('epp_id').value;
+  const p  = purchasePlans.find(x => x.id === id);
+  if (!p) return;
+  const model  = document.getElementById('epp_model').value;
+  const colour = document.getElementById('epp_colour').value;
+  if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+  p.date     = document.getElementById('epp_date').value;
+  p.model    = model;
+  p.variant  = document.getElementById('epp_variant').value;
+  p.colour   = colour;
+  p.qty      = parseInt(document.getElementById('epp_qty').value) || 1;
+  p.po       = document.getElementById('epp_po').value.trim();
+  p.fob      = parseFloat((document.getElementById('epp_fob').value || '').replace(/,/g,'')) || 0;
+  p.lcstatus = document.getElementById('epp_lcstatus').value;
+  p.notes    = document.getElementById('epp_notes').value.trim();
+  save();
+  closeModal('editPurchasePlanModal');
+  renderPurchasePlanTable();
+  showToast('Order plan entry updated.');
+}
+
 function renderPurchasePlanTable() {
   updatePurchasePlanDropdowns();
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
@@ -2071,7 +2162,10 @@ function renderPurchasePlanTable() {
       </select>
     </td>
     <td>${p.notes || '-'}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
+    </td>
   </tr>`).join('');
 }
 
