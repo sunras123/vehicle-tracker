@@ -317,29 +317,33 @@
   <!-- KPI summary cards -->
   <div class="cards-grid" id="summaryCards"></div>
 
-  <!-- Charts in 2-col grid -->
-  <div class="summary-grid">
-    <div class="panel" style="grid-column:1/-1">
-      <h3>&#128176; Monthly Vehicle Sales (Units)</h3>
-      <div id="dashModelSalesChart" style="min-height:40px"></div>
-    </div>
-    <div class="panel">
+  <!-- Charts: full-width monthly bar, then pairs side by side -->
+  <div class="panel">
+    <h3>&#128176; Monthly Vehicle Sales (Units)</h3>
+    <div id="dashModelSalesChart" style="min-height:40px"></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+    <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
       <h3>&#128666; Purchases</h3>
       <div id="dashPurchasesChart"></div>
     </div>
-    <div class="panel">
+    <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
       <h3>&#128176; Sales</h3>
       <div id="dashSalesChart"></div>
     </div>
-    <div class="panel">
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+    <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
       <h3>&#128197; Bookings</h3>
       <div id="dashBookingsChart"></div>
     </div>
-    <div class="panel">
+    <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
       <h3>&#128218; Stock (Available by Period)</h3>
       <div id="dashStockChart"></div>
     </div>
-    <div class="panel">
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+    <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
       <h3>&#128200; Gross Profit (Nu.)</h3>
       <div id="dashProfitChart"></div>
     </div>
