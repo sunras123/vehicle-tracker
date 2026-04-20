@@ -2012,7 +2012,7 @@ function addPurchasePlan() {
   };
   purchasePlans.push(entry);
   save();
-  if (lcstatus === 'closed') convertPlanToPurchases(entry);
+  if (['closed', 'delivered'].includes(lcstatus)) convertPlanToPurchases(entry);
   showToast(`Purchase plan added: ${model} (${colour})`);
   clearPurchasePlanForm();
   renderPurchasePlanTable();
@@ -2029,11 +2029,12 @@ function clearPurchasePlanForm() {
 function updatePlanLcStatus(id, newStatus) {
   const entry = purchasePlans.find(p => p.id === id);
   if (!entry) return;
+  const oldStatus = entry.lcstatus;
   entry.lcstatus = newStatus;
   save();
-  if (newStatus === 'closed') {
+  if (['closed', 'delivered'].includes(newStatus) && !['closed', 'delivered'].includes(oldStatus)) {
     convertPlanToPurchases(entry);
-    showToast(`LC closed — ${entry.qty} × ${entry.model} moved to Purchases.`, 'success');
+    showToast(`${entry.qty} × ${entry.model} moved to Purchases.`, 'success');
   }
   renderPurchasePlanTable();
 }
@@ -2117,6 +2118,7 @@ function saveEditPurchasePlan() {
   const model  = document.getElementById('epp_model').value;
   const colour = document.getElementById('epp_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+  const oldStatus = p.lcstatus;
   p.date     = document.getElementById('epp_date').value;
   p.model    = model;
   p.variant  = document.getElementById('epp_variant').value;
@@ -2127,6 +2129,9 @@ function saveEditPurchasePlan() {
   p.lcstatus = document.getElementById('epp_lcstatus').value;
   p.notes    = document.getElementById('epp_notes').value.trim();
   save();
+  if (['closed', 'delivered'].includes(p.lcstatus) && !['closed', 'delivered'].includes(oldStatus)) {
+    convertPlanToPurchases(p);
+  }
   closeModal('editPurchasePlanModal');
   renderPurchasePlanTable();
   showToast('Order plan entry updated.');
