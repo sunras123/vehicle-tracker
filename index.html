@@ -2742,6 +2742,10 @@ function renderPurchasesTable() {
       av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
       return purchaseSortDir === 'asc' ? av - bv : bv - av;
     }
+    if (purchaseSortCol === 'po') {
+      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      return purchaseSortDir === 'asc' ? av - bv : bv - av;
+    }
     av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
     return purchaseSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
   });
