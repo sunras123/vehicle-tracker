@@ -3588,20 +3588,26 @@ function renderSummary() {
              revenue: rev, bookings: bk.length, stock: stk, profit: gp };
   });
 
-  // KPI cards (all-time)
+  // KPI cards — filtered by period
+  const periodPrefix = mode === 'monthly' ? year : null;
+  const filtPurchases = periodPrefix ? purchases.filter(p => p.date && p.date.startsWith(periodPrefix)) : purchases;
+  const filtSales     = periodPrefix ? sales.filter(s => s.date && s.date.startsWith(periodPrefix))     : sales;
+  const filtBookings  = periodPrefix ? bookings.filter(b => b.date && b.date.startsWith(periodPrefix))  : bookings;
+  const periodLabel   = periodPrefix ? year : 'All time';
+
   const allStock   = purchases.filter(p => p.status === 'available');
   const allBooked  = purchases.filter(p => p.status === 'booked');
-  const allRev     = sales.reduce((s,x) => s + (x.netPrice||0), 0);
-  const allProfit  = sales.reduce((s,x) => s + (x.profit||0), 0);
-  const allDeposit = bookings.reduce((s,b) => s + (b.deposit||0), 0);
+  const filtRev     = filtSales.reduce((s,x) => s + (x.netPrice||0), 0);
+  const filtProfit  = filtSales.reduce((s,x) => s + (x.profit||0), 0);
+  const filtDeposit = filtBookings.reduce((s,b) => s + (b.deposit||0), 0);
 
   const sc = document.getElementById('summaryCards');
   if (sc) sc.innerHTML = `
-    <div class="card blue"><div class="card-label">Total Purchases</div><div class="card-value">${purchases.length}</div><div class="card-sub">All time</div></div>
-    <div class="card green"><div class="card-label">Total Sales</div><div class="card-value">${sales.length}</div><div class="card-sub">${fmt(allRev)} revenue</div></div>
-    <div class="card orange"><div class="card-label">Bookings</div><div class="card-value">${bookings.length}</div><div class="card-sub">${fmt(allDeposit)} deposits held</div></div>
+    <div class="card blue"><div class="card-label">Total Purchases</div><div class="card-value">${filtPurchases.length}</div><div class="card-sub">${periodLabel}</div></div>
+    <div class="card green"><div class="card-label">Total Sales</div><div class="card-value">${filtSales.length}</div><div class="card-sub">${fmt(filtRev)} revenue</div></div>
+    <div class="card orange"><div class="card-label">Bookings</div><div class="card-value">${filtBookings.length}</div><div class="card-sub">${fmt(filtDeposit)} deposits held</div></div>
     <div class="card purple"><div class="card-label">Available Stock</div><div class="card-value">${allStock.length}</div><div class="card-sub">${allBooked.length} booked</div></div>
-    <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.3rem;color:${allProfit>=0?'#27ae60':'#e74c3c'}">${fmt(allProfit)}</div><div class="card-sub">All time</div></div>
+    <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.3rem;color:${filtProfit>=0?'#27ae60':'#e74c3c'}">${fmt(filtProfit)}</div><div class="card-sub">${periodLabel}</div></div>
   `;
 
   // Helper: render a count bar chart
