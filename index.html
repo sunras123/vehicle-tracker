@@ -771,8 +771,6 @@
             <th class="sortable-th" onclick="setSaleSort('netPrice')" data-col="netPrice">Sale Price</th>
             <th class="sortable-th" onclick="setSaleSort('amountPaid')" data-col="amountPaid">Paid</th>
             <th class="sortable-th" onclick="setSaleSort('pendingAmount')" data-col="pendingAmount">Balance Payable</th>
-            <th class="sortable-th" onclick="setSaleSort('totalCost')" data-col="totalCost">Cost</th>
-            <th class="sortable-th" onclick="setSaleSort('profit')" data-col="profit">Profit</th>
             <th class="sortable-th" onclick="setSaleSort('payment')" data-col="payment">Payment</th>
             <th>Ref. No.</th><th>CA No.</th>
             <th class="sortable-th" onclick="setSaleSort('salesperson')" data-col="salesperson">Salesperson</th>
@@ -3015,8 +3013,6 @@ function renderSalesTable() {
       <td><strong>${fmtNum(s.netPrice)}</strong></td>
       <td style="color:#27ae60;font-weight:600">${fmtNum(s.amountPaid || 0)}</td>
       <td style="color:${(s.pendingAmount||0) > 0 ? '#e74c3c' : '#27ae60'};font-weight:600">${(s.pendingAmount||0) > 0 ? fmtNum(s.pendingAmount) : '&#10003; Cleared'}</td>
-      <td>${fmtNum(veh ? veh.totalCost : 0)}</td>
-      <td class="${pCls}">${fmtNum(s.profit)}</td>
       <td><span class="badge badge-new">${s.payment}</span></td>
       <td style="font-size:0.78rem">${s.payment === 'Cash' ? (s.journalNumber || '-') : s.payment === 'Cheque' ? (s.chequeNumber || '-') : '-'}</td>
       <td style="font-size:0.78rem">${s.caNumber ? s.caNumber + (s.caDate ? '<br><small>' + s.caDate + '</small>' : '') : '-'}</td>
