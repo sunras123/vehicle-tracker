@@ -761,6 +761,7 @@
           <tr>
             <th>#</th>
             <th class="sortable-th" onclick="setSaleSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setSaleSort('po')" data-col="po">PO</th>
             <th class="sortable-th" onclick="setSaleSort('model')" data-col="model">Vehicle</th>
             <th class="sortable-th" onclick="setSaleSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th" onclick="setSaleSort('buyer')" data-col="buyer">Buyer</th>
@@ -2955,7 +2956,12 @@ function renderSalesTable() {
   const numCols = ['salePrice','discount','netPrice','amountPaid','pendingAmount','totalCost','profit'];
   data.sort((a, b) => {
     let av, bv;
-    if (salesSortCol === 'model') {
+    if (salesSortCol === 'po') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = parseFloat(va ? va.po : 0) || 0;
+      bv = parseFloat(vb ? vb.po : 0) || 0;
+      return salesSortDir === 'asc' ? av - bv : bv - av;
+    } else if (salesSortCol === 'model') {
       const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
       av = (va ? va.model + ' ' + (va.variant||'') : '').trim();
       bv = (vb ? vb.model + ' ' + (vb.variant||'') : '').trim();
@@ -2996,6 +3002,7 @@ function renderSalesTable() {
     return `<tr>
       <td>${i+1}</td>
       <td>${s.date}</td>
+      <td>${veh ? veh.po || '-' : '-'}</td>
       <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''} ${veh.year||''}</small>` : 'N/A'}</td>
       <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
       <td>${s.buyer}</td>
