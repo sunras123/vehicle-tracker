@@ -907,11 +907,22 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
+        <thead id="bookingsThead">
           <tr>
-            <th>Convert to Sale</th><th>#</th><th>Booking Date</th><th>Vehicle</th><th>Colour</th>
-            <th>Customer</th><th>CID No.</th><th>Phone</th><th>Address</th><th>Advance Paid (Nu.)</th><th>List Price</th><th>Discount</th><th>Sale Price</th>
-            <th>Balance Due</th><th>Expected Delivery</th><th>Notes</th><th>Actions</th>
+            <th>Convert to Sale</th><th>#</th>
+            <th class="sortable-th" onclick="setBookingSort('date')" data-col="date">Booking Date</th>
+            <th class="sortable-th" onclick="setBookingSort('po')" data-col="po">PO No.</th>
+            <th class="sortable-th" onclick="setBookingSort('model')" data-col="model">Vehicle</th>
+            <th class="sortable-th" onclick="setBookingSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setBookingSort('customer')" data-col="customer">Customer</th>
+            <th>CID No.</th><th>Phone</th><th>Address</th>
+            <th class="sortable-th" onclick="setBookingSort('deposit')" data-col="deposit">Advance Paid (Nu.)</th>
+            <th class="sortable-th" onclick="setBookingSort('agreedPrice')" data-col="agreedPrice">List Price</th>
+            <th class="sortable-th" onclick="setBookingSort('discount')" data-col="discount">Discount</th>
+            <th class="sortable-th" onclick="setBookingSort('salePrice')" data-col="salePrice">Sale Price</th>
+            <th class="sortable-th" onclick="setBookingSort('balance')" data-col="balance">Balance Due</th>
+            <th class="sortable-th" onclick="setBookingSort('delivery')" data-col="delivery">Expected Delivery</th>
+            <th>Notes</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="bookingsTableBody"></tbody>
@@ -2733,6 +2744,20 @@ let purchaseSortDir = 'desc';
 let salesSortCol = 'date';
 let salesSortDir = 'desc';
 
+let bookingSortCol = 'date';
+let bookingSortDir = 'desc';
+
+function setBookingSort(col) {
+  if (bookingSortCol === col) {
+    bookingSortDir = bookingSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    bookingSortCol = col;
+    const numCols = ['deposit','agreedPrice','discount','salePrice','balance'];
+    bookingSortDir = numCols.includes(col) ? 'desc' : 'asc';
+  }
+  renderBookingsTable();
+}
+
 function setSaleSort(col) {
   if (salesSortCol === col) {
     salesSortDir = salesSortDir === 'asc' ? 'desc' : 'asc';
@@ -3223,9 +3248,42 @@ function renderBookingsTable() {
   const search = document.getElementById('bookingsSearch').value.toLowerCase();
   let data = bookings.filter(b => {
     const veh = getPurchase(b.vehicleId);
-    const label = veh ? `${veh.model} ${veh.colour}` : '';
+    const label = veh ? `${veh.model} ${veh.colour} ${veh.po||''}` : '';
     return [b.customer, b.phone, label].join(' ').toLowerCase().includes(search);
-  }).sort((a,b) => a.delivery ? a.delivery.localeCompare(b.delivery||'') : 1);
+  });
+
+  const numCols = ['deposit','agreedPrice','discount','salePrice','balance'];
+  data.sort((a, b) => {
+    let av, bv;
+    if (bookingSortCol === 'po') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = parseFloat(va ? va.po : 0) || 0;
+      bv = parseFloat(vb ? vb.po : 0) || 0;
+      return bookingSortDir === 'asc' ? av - bv : bv - av;
+    } else if (bookingSortCol === 'model') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = (va ? va.model + ' ' + (va.variant||'') : '').trim();
+      bv = (vb ? vb.model + ' ' + (vb.variant||'') : '').trim();
+    } else if (bookingSortCol === 'colour') {
+      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      av = va ? va.colour : '';
+      bv = vb ? vb.colour : '';
+    } else {
+      av = a[bookingSortCol] ?? '';
+      bv = b[bookingSortCol] ?? '';
+    }
+    if (numCols.includes(bookingSortCol)) {
+      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      return bookingSortDir === 'asc' ? av - bv : bv - av;
+    }
+    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+    return bookingSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  document.querySelectorAll('#bookingsThead .sortable-th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === bookingSortCol) th.classList.add('sort-' + bookingSortDir);
+  });
 
   const tbody = document.getElementById('bookingsTableBody');
   const empty = document.getElementById('bookingsEmpty');
@@ -3241,6 +3299,7 @@ function renderBookingsTable() {
       <td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}"></td>
       <td>${i+1}</td>
       <td>${b.date}</td>
+      <td style="font-size:0.78rem;font-family:monospace">${veh ? veh.po || '-' : '-'}</td>
       <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''}</small>` : 'N/A'}</td>
       <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
       <td>${b.customer}</td>
