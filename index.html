@@ -1699,15 +1699,17 @@ async function save() {
 async function saveOne(table, record, mapFn) {
   const row = mapFn ? mapFn(record) : record;
   const { error } = await sb.from(table).upsert([row], { onConflict: 'id' });
-  if (error) { console.error('[saveOne]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); }
+  if (error) { console.error('[saveOne]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); return false; }
+  return true;
 }
 
 // ---- Targeted batch save ----
 async function saveMany(table, records, mapFn) {
-  if (!records.length) return;
+  if (!records.length) return true;
   const rows = mapFn ? records.map(mapFn) : records;
   const { error } = await sb.from(table).upsert(rows, { onConflict: 'id' });
-  if (error) { console.error('[saveMany]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); }
+  if (error) { console.error('[saveMany]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); return false; }
+  return true;
 }
 
 // ---- Delete helper ----
@@ -2136,7 +2138,7 @@ function updateEditPurchasePlanVariantSelect() {
     variants.map(v => `<option value="${v}">${v}</option>`).join('');
 }
 
-function saveEditPurchasePlan() {
+async function saveEditPurchasePlan() {
   const id = document.getElementById('epp_id').value;
   const p  = purchasePlans.find(x => x.id === id);
   if (!p) return;
@@ -2153,7 +2155,8 @@ function saveEditPurchasePlan() {
   p.fob      = parseFloat((document.getElementById('epp_fob').value || '').replace(/,/g,'')) || 0;
   p.lcstatus = document.getElementById('epp_lcstatus').value;
   p.notes    = document.getElementById('epp_notes').value.trim();
-  saveOne('purchase_plans', p);
+  const ok = await saveOne('purchase_plans', p);
+  if (!ok) return;
   if (['closed', 'delivered'].includes(p.lcstatus) && !['closed', 'delivered'].includes(oldStatus)) {
     convertPlanToPurchases(p);
   }
@@ -4191,7 +4194,7 @@ function openEditPurchase(id) {
   openModal('editPurchaseModal');
 }
 
-function saveEditPurchase() {
+async function saveEditPurchase() {
   const id = document.getElementById('ep_id').value;
   const p  = getPurchase(id);
   if (!p) return;
@@ -4238,7 +4241,8 @@ function saveEditPurchase() {
   p.pi        = document.getElementById('ep_pi').value.trim();
   p.po        = document.getElementById('ep_po').value.trim();
   p.notes     = document.getElementById('ep_notes').value.trim();
-  saveOne('purchases', p, purchaseToDB);
+  const ok = await saveOne('purchases', p, purchaseToDB);
+  if (!ok) return;
   closeModal('editPurchaseModal');
   showToast('Purchase record updated.');
   renderPurchasesTable();
@@ -4290,7 +4294,7 @@ function openEditSale(id) {
   openModal('editSaleModal');
 }
 
-function saveEditSale() {
+async function saveEditSale() {
   const id = document.getElementById('es_id').value;
   const s  = sales.find(x => x.id === id);
   if (!s) return;
@@ -4326,7 +4330,8 @@ function saveEditSale() {
   s.salesperson   = document.getElementById('es_salesperson').value.trim();
   s.notes         = document.getElementById('es_notes').value.trim();
   s.profit        = netPrice - (veh ? veh.totalCost : 0);
-  saveOne('sales', s, saleToDB);
+  const ok = await saveOne('sales', s, saleToDB);
+  if (!ok) return;
   closeModal('editSaleModal');
   showToast('Sale record updated.');
   renderSalesTable();
@@ -4360,7 +4365,7 @@ function openEditBooking(id) {
   openModal('editBookingModal');
 }
 
-function saveEditBooking() {
+async function saveEditBooking() {
   const id = document.getElementById('eb_id').value;
   const b  = bookings.find(x => x.id === id);
   if (!b) return;
@@ -4387,7 +4392,8 @@ function saveEditBooking() {
   b.balance     = salePrice - deposit;
   b.delivery    = document.getElementById('eb_delivery').value;
   b.notes       = document.getElementById('eb_notes').value.trim();
-  saveOne('bookings', b, bookingToDB);
+  const ok = await saveOne('bookings', b, bookingToDB);
+  if (!ok) return;
   closeModal('editBookingModal');
   showToast('Booking record updated.');
   renderBookingsTable();
