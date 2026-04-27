@@ -1684,6 +1684,21 @@ async function save() {
   await Promise.all(tasks);
 }
 
+// ---- Targeted single-record save ----
+async function saveOne(table, record, mapFn) {
+  const row = mapFn ? mapFn(record) : record;
+  const { error } = await sb.from(table).upsert([row], { onConflict: 'id' });
+  if (error) { console.error('[saveOne]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); }
+}
+
+// ---- Targeted batch save ----
+async function saveMany(table, records, mapFn) {
+  if (!records.length) return;
+  const rows = mapFn ? records.map(mapFn) : records;
+  const { error } = await sb.from(table).upsert(rows, { onConflict: 'id' });
+  if (error) { console.error('[saveMany]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); }
+}
+
 // ---- Delete helper ----
 function sbDelete(table, id) {
   sb.from(table).delete().eq('id', id)
@@ -1864,8 +1879,9 @@ function addCatModel() {
   if (catModels.find(m => m.name.toLowerCase() === name.toLowerCase() && m.variant.toLowerCase() === variant.toLowerCase())) {
     showToast('Model already exists.', 'error'); return;
   }
-  catModels.push({ id: genId(), name, variant });
-  save();
+  const newModel = { id: genId(), name, variant };
+  catModels.push(newModel);
+  saveOne('cat_models', newModel);
   document.getElementById('cat_model_name').value = '';
   document.getElementById('cat_model_variant').value = '';
   showToast(`Model "${name}" added.`);
@@ -1881,7 +1897,6 @@ function deleteCatModel(id) {
   if (!confirm(`Delete model "${m.name}"?`)) return;
   sbDelete('cat_models', id);
   catModels = catModels.filter(x => x.id !== id);
-  save();
   showToast('Model deleted.');
   renderCatalogue();
   updatePurchaseDropdowns();
@@ -1897,8 +1912,9 @@ function addCatColour() {
   if (catColours.find(c => c.name.toLowerCase() === name.toLowerCase())) {
     showToast('Colour already exists.', 'error'); return;
   }
-  catColours.push({ id: genId(), name, hex });
-  save();
+  const newColour = { id: genId(), name, hex };
+  catColours.push(newColour);
+  saveOne('cat_colours', newColour);
   document.getElementById('cat_colour_name').value = '';
   document.getElementById('cat_colour_hex').value = '#ffffff';
   showToast(`Colour "${name}" added.`);
@@ -1914,7 +1930,6 @@ function deleteCatColour(id) {
   if (!confirm(`Delete colour "${c.name}"?`)) return;
   sbDelete('cat_colours', id);
   catColours = catColours.filter(x => x.id !== id);
-  save();
   showToast('Colour deleted.');
   renderCatalogue();
   updatePurchaseDropdowns();
@@ -2008,7 +2023,7 @@ function addPurchasePlan() {
     notes:    document.getElementById('pp_notes').value.trim()
   };
   purchasePlans.push(entry);
-  save();
+  saveOne('purchase_plans', entry);
   if (['closed', 'delivered'].includes(lcstatus)) convertPlanToPurchases(entry);
   showToast(`Purchase plan added: ${model} (${colour})`);
   clearPurchasePlanForm();
@@ -2028,7 +2043,7 @@ function updatePlanLcStatus(id, newStatus) {
   if (!entry) return;
   const oldStatus = entry.lcstatus;
   entry.lcstatus = newStatus;
-  save();
+  saveOne('purchase_plans', entry);
   if (['closed', 'delivered'].includes(newStatus) && !['closed', 'delivered'].includes(oldStatus)) {
     convertPlanToPurchases(entry);
     showToast(`${entry.qty} × ${entry.model} moved to Purchases.`, 'success');
@@ -2037,8 +2052,9 @@ function updatePlanLcStatus(id, newStatus) {
 }
 
 function convertPlanToPurchases(entry) {
+  const newPurchases = [];
   for (let i = 0; i < (entry.qty || 1); i++) {
-    purchases.push({
+    const p = {
       id:        genId(),
       date:      today(),
       make:      'BYD',
@@ -2052,9 +2068,11 @@ function convertPlanToPurchases(entry) {
       totalCost: 0,
       pi: '', po: '', notes: `From purchase plan (LC closed)`,
       status: 'available'
-    });
+    };
+    newPurchases.push(p);
+    purchases.push(p);
   }
-  save();
+  saveMany('purchases', newPurchases, purchaseToDB);
   updateVehicleSelects();
   renderPurchasesTable();
   showToast(`${entry.qty} × ${entry.model} (${entry.colour}) added to Purchases — fill in cost details.`, 'success');
@@ -2064,7 +2082,6 @@ function deletePurchasePlan(id) {
   if (!confirm('Delete this purchase plan entry?')) return;
   sbDelete('purchase_plans', id);
   purchasePlans = purchasePlans.filter(p => p.id !== id);
-  save();
   renderPurchasePlanTable();
   showToast('Purchase plan entry deleted.');
 }
@@ -2125,7 +2142,7 @@ function saveEditPurchasePlan() {
   p.fob      = parseFloat((document.getElementById('epp_fob').value || '').replace(/,/g,'')) || 0;
   p.lcstatus = document.getElementById('epp_lcstatus').value;
   p.notes    = document.getElementById('epp_notes').value.trim();
-  save();
+  saveOne('purchase_plans', p);
   if (['closed', 'delivered'].includes(p.lcstatus) && !['closed', 'delivered'].includes(oldStatus)) {
     convertPlanToPurchases(p);
   }
@@ -2291,6 +2308,7 @@ function handleExcelImport(event) {
     // raw:true keeps numbers as numbers; no cellDates so date-formatted cells stay as serials
     const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
     let imported = 0, skipped = 0;
+    const newPurchasesBatch = [];
 
     // Convert Excel date serial to YYYY-MM-DD
     const serialToDate = s => {
@@ -2367,7 +2385,7 @@ function handleExcelImport(event) {
         const cost = num(row, 'cost');
         const addcost = num(row, 'addcost');
 
-        purchases.push({
+        const np = {
           id: genId(),
           date: dateStr,
           make: 'BYD',
@@ -2395,13 +2413,15 @@ function handleExcelImport(event) {
           po:     (sheetName.match(/^([\d.]+)/) || [])[1] || sheetName,
           notes:  str(row, 'notes'),
           status: 'available'
-        });
+        };
+        purchases.push(np);
+        newPurchasesBatch.push(np);
         imported++;
       }
     }
 
     if (imported > 0) {
-      save();
+      saveMany('purchases', newPurchasesBatch, purchaseToDB);
       renderPurchasesTable();
       updateVehicleSelects();
       showToast(`Imported ${imported} purchase records${skipped ? ` (${skipped} rows skipped)` : ''}.`);
@@ -2430,6 +2450,8 @@ function handleSalesExcelImport(event) {
     try {
     const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
     let imported = 0, skipped = 0, unmatched = 0;
+    const newSalesBatch = [];
+    const soldVehicles = [];
 
     const serialToDate = s => {
       const d = new Date(Math.round((s - 25569) * 86400 * 1000));
@@ -2547,8 +2569,9 @@ function handleSalesExcelImport(event) {
         const pending    = num(row, 'pending') !== 0 ? num(row, 'pending') : Math.max(0, netPrice - amountPaid);
 
         veh.status = 'sold';
+        soldVehicles.push(veh);
         const payment = normalizePayment(str(row, 'payment'));
-        sales.push({
+        const ns = {
           id: genId(), date: dateStr,
           vehicleId: veh.id,
           buyer,
@@ -2562,14 +2585,17 @@ function handleSalesExcelImport(event) {
           pi, salesperson: str(row, 'salesperson'),
           notes: str(row, 'notes'),
           profit: netPrice - (veh.totalCost || 0)
-        });
+        };
+        sales.push(ns);
+        newSalesBatch.push(ns);
         if (pi) existingPIs.add(pi);
         imported++;
       }
     }
 
     if (imported > 0) {
-      save();
+      saveMany('sales', newSalesBatch, saleToDB);
+      saveMany('purchases', soldVehicles, purchaseToDB);
       renderSalesTable();
       updateVehicleSelects();
       showToast(`Imported ${imported} sale record${imported > 1 ? 's' : ''}` +
@@ -2644,7 +2670,7 @@ function addPurchase() {
     notes: document.getElementById('p_notes').value.trim(),
     status: 'available'
   });
-  save();
+  saveOne('purchases', purchases[purchases.length - 1], purchaseToDB);
   showToast(`Vehicle added: ${model} (${colour})`);
   clearPurchaseForm();
   renderPurchasesTable();
@@ -2696,7 +2722,6 @@ function deletePurchase(id) {
   if (!confirm('Delete this purchase record?')) return;
   sbDelete('purchases', id);
   purchases = purchases.filter(p => p.id !== id);
-  save();
   showToast('Purchase deleted.');
   renderPurchasesTable();
   updateVehicleSelects();
@@ -2891,7 +2916,7 @@ function addSale() {
   bookings = bookings.filter(b => b.vehicleId !== vehicleId);
   veh.status = 'sold';
   const payment = document.getElementById('s_payment').value;
-  sales.push({
+  const newSale = {
     id: genId(), date, vehicleId, buyer,
     cid: document.getElementById('s_cid').value.trim(),
     phone: document.getElementById('s_phone').value.trim(),
@@ -2907,8 +2932,10 @@ function addSale() {
     salesperson: document.getElementById('s_salesperson').value.trim(),
     notes: document.getElementById('s_notes').value.trim(),
     profit: netPrice - (veh.totalCost || 0)
-  });
-  save();
+  };
+  sales.push(newSale);
+  saveOne('sales', newSale, saleToDB);
+  saveOne('purchases', veh, purchaseToDB);
   showToast(`Sale recorded: ${veh.model} to ${buyer}`);
   clearSaleForm();
   renderSalesTable();
@@ -2931,10 +2958,9 @@ function deleteSale(id) {
   const s = sales.find(x => x.id === id);
   if (s) {
     const veh = getPurchase(s.vehicleId);
-    if (veh) veh.status = 'available';
+    if (veh) { veh.status = 'available'; saveOne('purchases', veh, purchaseToDB); }
     sbDelete('sales', id);
     sales = sales.filter(x => x.id !== id);
-    save();
     showToast('Sale deleted. Vehicle returned to stock.');
     renderSalesTable();
     updateVehicleSelects();
@@ -3122,7 +3148,7 @@ function addBooking() {
   const salePrice   = agreedPrice - discount;
 
   veh.status = 'booked';
-  bookings.push({
+  const newBooking = {
     id: genId(), date, vehicleId, customer,
     cid: document.getElementById('b_cid').value.trim(),
     phone: document.getElementById('b_phone').value.trim(),
@@ -3130,8 +3156,10 @@ function addBooking() {
     deposit, agreedPrice, discount, salePrice, balance: salePrice - deposit,
     delivery: document.getElementById('b_delivery').value,
     notes: document.getElementById('b_notes').value.trim()
-  });
-  save();
+  };
+  bookings.push(newBooking);
+  saveOne('bookings', newBooking, bookingToDB);
+  saveOne('purchases', veh, purchaseToDB);
   showToast(`Booking added for ${customer}`);
   clearBookingForm();
   renderBookingsTable();
@@ -3150,10 +3178,9 @@ function cancelBooking(id) {
   const b = bookings.find(x => x.id === id);
   if (b) {
     const veh = getPurchase(b.vehicleId);
-    if (veh && veh.status === 'booked') veh.status = 'available';
+    if (veh && veh.status === 'booked') { veh.status = 'available'; saveOne('purchases', veh, purchaseToDB); }
     sbDelete('bookings', id);
     bookings = bookings.filter(x => x.id !== id);
-    save();
     showToast('Booking cancelled.');
     renderBookingsTable();
     renderPurchasesTable();
@@ -3704,10 +3731,12 @@ function addPriceListEntry() {
   const existing = priceLists.find(pl => pl.model === model && pl.variant === (variant || ''));
   if (existing) {
     existing.listPrice = listPrice;
+    saveOne('price_list', existing, priceListToDB);
   } else {
-    priceLists.push({ id: genId(), model, variant: variant || '', listPrice });
+    const newPl = { id: genId(), model, variant: variant || '', listPrice };
+    priceLists.push(newPl);
+    saveOne('price_list', newPl, priceListToDB);
   }
-  save();
   showToast('List price saved.');
   clearPriceListForm();
   renderPriceList();
@@ -3877,7 +3906,7 @@ async function credDelete(id) {
   return true;
 }
 
-function changeCredential() {
+async function changeCredential() {
   const username = document.getElementById('cred_username').value.trim();
   const current  = document.getElementById('cred_current').value;
   const newPw    = document.getElementById('cred_new').value;
@@ -3899,7 +3928,8 @@ function changeCredential() {
   }
 
   users[idx].passwordHash = hashPassword(newPw);
-  credSave(users);
+  const ok = await credUpsert(users[idx]);
+  if (!ok) { users[idx].passwordHash = currentHash; return; }
   showToast('Password updated successfully.');
   clearCredentialForm();
   renderCredUsers();
@@ -4149,7 +4179,7 @@ function saveEditPurchase() {
   p.pi        = document.getElementById('ep_pi').value.trim();
   p.po        = document.getElementById('ep_po').value.trim();
   p.notes     = document.getElementById('ep_notes').value.trim();
-  save();
+  saveOne('purchases', p, purchaseToDB);
   closeModal('editPurchaseModal');
   showToast('Purchase record updated.');
   renderPurchasesTable();
@@ -4237,7 +4267,7 @@ function saveEditSale() {
   s.salesperson   = document.getElementById('es_salesperson').value.trim();
   s.notes         = document.getElementById('es_notes').value.trim();
   s.profit        = netPrice - (veh ? veh.totalCost : 0);
-  save();
+  saveOne('sales', s, saleToDB);
   closeModal('editSaleModal');
   showToast('Sale record updated.');
   renderSalesTable();
@@ -4298,7 +4328,7 @@ function saveEditBooking() {
   b.balance     = salePrice - deposit;
   b.delivery    = document.getElementById('eb_delivery').value;
   b.notes       = document.getElementById('eb_notes').value.trim();
-  save();
+  saveOne('bookings', b, bookingToDB);
   closeModal('editBookingModal');
   showToast('Booking record updated.');
   renderBookingsTable();
