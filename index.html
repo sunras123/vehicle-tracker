@@ -399,15 +399,10 @@
           <button class="btn btn-primary" onclick="addCatColour()">&#10133; Add Colour</button>
         </div>
       </div>
-      <div class="panel">
-        <h3>&#127774; Colour List</h3>
-        <div class="cat-list" id="catColourList">
-          <div class="empty-state" style="padding:20px"><div class="empty-icon">&#127774;</div><div>No colours added yet.</div></div>
-        </div>
-      </div>
     </div>
 
   </div>
+
 </div>
 
 <!-- PURCHASE PLAN TAB -->
@@ -1949,43 +1944,40 @@ function deleteCatColour(id) {
 }
 
 function renderCatalogue() {
-  // Models list
   const ml = document.getElementById('catModelList');
   if (catModels.length === 0) {
     ml.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-icon">&#128663;</div><div>No models added yet.</div></div>';
-  } else {
-    ml.innerHTML = catModels.map(m => `
-      <div class="cat-item">
-        <div class="cat-item-info">
-          <span style="font-size:1.2rem">&#128663;</span>
-          <div>
-            <div class="cat-item-name">${m.name}</div>
-            ${m.variant ? `<div class="cat-item-sub">${m.variant}</div>` : ''}
-          </div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteCatModel('${m.id}')">Remove</button>
-      </div>
-    `).join('');
+    return;
   }
-
-  // Colours list
-  const cl = document.getElementById('catColourList');
-  if (catColours.length === 0) {
-    cl.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-icon">&#127774;</div><div>No colours added yet.</div></div>';
-  } else {
-    cl.innerHTML = catColours.map(c => `
-      <div class="cat-item">
-        <div class="cat-item-info">
-          <div class="colour-preview" style="background:${c.hex}"></div>
-          <div>
-            <div class="cat-item-name">${c.name}</div>
-            <div class="cat-item-sub">${c.hex}</div>
+  const avail = purchases.filter(p => p.status === 'available');
+  ml.innerHTML = catModels.map(m => {
+    const rows = avail.filter(p => p.model === m.name && (p.variant||'') === (m.variant||''));
+    const counts = {};
+    rows.forEach(p => { counts[p.colour] = (counts[p.colour]||0) + 1; });
+    const chips = Object.entries(counts).map(([col, cnt]) => {
+      const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
+      return `<span class="color-chip">` +
+        `<span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>` +
+        `${col}` +
+        (cnt > 1 ? `<span style="font-size:0.68rem;background:#e0e0e0;border-radius:8px;padding:1px 5px;font-weight:600">${cnt}</span>` : '') +
+        `</span>`;
+    }).join('');
+    return `
+      <div class="cat-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+          <div class="cat-item-info">
+            <span style="font-size:1.2rem">&#128663;</span>
+            <div>
+              <div class="cat-item-name">${m.name}</div>
+              ${m.variant ? `<div class="cat-item-sub">${m.variant}</div>` : ''}
+            </div>
           </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteCatModel('${m.id}')">Remove</button>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteCatColour('${c.id}')">Remove</button>
+        ${chips ? `<div class="color-chips" style="margin:0 0 0 34px">${chips}</div>` : ''}
       </div>
-    `).join('');
-  }
+    `;
+  }).join('');
 }
 
 // ============================================================
