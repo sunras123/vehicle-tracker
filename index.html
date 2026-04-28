@@ -2034,11 +2034,20 @@ function renderCatalogue() {
 // PURCHASE PLAN
 // ============================================================
 function colourOptionsForModel(modelName, variant, currentColour) {
+  const mName = (modelName||'').trim().toLowerCase();
+  const mVar  = (variant||'').trim().toLowerCase();
   const m = catModels.find(x =>
-    x.name.toLowerCase() === (modelName||'').toLowerCase() &&
-    (x.variant||'').toLowerCase() === (variant||'').toLowerCase()
+    x.name.toLowerCase() === mName &&
+    (x.variant||'').toLowerCase() === mVar
   );
-  const names = (m && m.colours && m.colours.length > 0) ? m.colours : catColours.map(c => c.name);
+  const purColours = [...new Set(
+    purchases
+      .filter(p => (p.model||'').trim().toLowerCase() === mName && (p.variant||'').trim().toLowerCase() === mVar && p.colour)
+      .map(p => p.colour)
+  )];
+  const manColours = (m && m.colours) ? m.colours : [];
+  const combined = [...new Set([...purColours, ...manColours])];
+  const names = combined.length > 0 ? combined : catColours.map(c => c.name);
   return '<option value="">-- Select Colour --</option>' +
     names.map(n => `<option value="${n}"${n===currentColour?' selected':''}>${n}</option>`).join('');
 }
