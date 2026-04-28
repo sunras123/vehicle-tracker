@@ -1662,7 +1662,7 @@ async function loadAll() {
           sb.from('cat_colours').select('*')
         ]);
       purchases = (pur2||[]).map(purchaseFromDB); sales = (sal2||[]).map(saleFromDB);
-      bookings  = (bok2||[]).map(bookingFromDB);  catModels = mod2||[]; catColours = col2||[];
+      bookings  = (bok2||[]).map(bookingFromDB);  catModels = (mod2||[]).map(normCatModel); catColours = col2||[];
       showLoader(false); refreshAll();
       showToast('Local data migrated to Supabase ✓', 'success');
       return;
@@ -1670,7 +1670,7 @@ async function loadAll() {
   }
 
   purchases     = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
-  bookings      = (bok||[]).map(bookingFromDB);  catModels = mod||[]; catColours = col||[];
+  bookings      = (bok||[]).map(bookingFromDB);  catModels = (mod||[]).map(normCatModel); catColours = col||[];
   purchasePlans = ppl||[]; priceLists = (prl||[]).map(priceListFromDB);
   showLoader(false);
   refreshAll();
@@ -1747,7 +1747,7 @@ function setupRealtime() {
   sb.channel('rt-cat-models')
     .on('postgres_changes', {event:'*', schema:'public', table:'cat_models'}, async () => {
       const { data } = await sb.from('cat_models').select('*');
-      catModels = data||[]; renderCatalogue(); updateVehicleSelects();
+      catModels = (data||[]).map(normCatModel); renderCatalogue(); updateVehicleSelects();
     })
     .subscribe(onStatus('cat_models'));
 
@@ -1880,6 +1880,27 @@ function showTab(name) {
 // ============================================================
 // CATALOGUE — MODELS
 // ============================================================
+function normCatModel(m) {
+  return { ...m, colours: Array.isArray(m.colours) ? m.colours : [] };
+}
+
+function addModelColour(modelId, colourName) {
+  if (!colourName) return;
+  const m = catModels.find(x => x.id === modelId);
+  if (!m || m.colours.includes(colourName)) return;
+  m.colours = [...m.colours, colourName];
+  saveOne('cat_models', m);
+  renderCatalogue();
+}
+
+function removeModelColour(modelId, colourName) {
+  const m = catModels.find(x => x.id === modelId);
+  if (!m) return;
+  m.colours = m.colours.filter(c => c !== colourName);
+  saveOne('cat_models', m);
+  renderCatalogue();
+}
+
 function addCatModel() {
   const name = document.getElementById('cat_model_name').value.trim();
   if (!name) { showToast('Model name is required.', 'error'); return; }
@@ -1887,7 +1908,7 @@ function addCatModel() {
   if (catModels.find(m => m.name.toLowerCase() === name.toLowerCase() && m.variant.toLowerCase() === variant.toLowerCase())) {
     showToast('Model already exists.', 'error'); return;
   }
-  const newModel = { id: genId(), name, variant };
+  const newModel = { id: genId(), name, variant, colours: [] };
   catModels.push(newModel);
   saveOne('cat_models', newModel);
   document.getElementById('cat_model_name').value = '';
@@ -1949,21 +1970,26 @@ function renderCatalogue() {
     ml.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-icon">&#128663;</div><div>No models added yet.</div></div>';
     return;
   }
-ml.innerHTML = catModels.map(m => {
+  ml.innerHTML = catModels.map(m => {
     const mName = (m.name||'').trim().toLowerCase();
     const mVar  = (m.variant||'').trim().toLowerCase();
-    const rows  = purchases.filter(p =>
-      (p.model||'').trim().toLowerCase() === mName &&
-      (p.variant||'').trim().toLowerCase() === mVar
-    );
-    const counts = {};
-    rows.forEach(p => { if (p.colour) counts[p.colour] = (counts[p.colour]||0) + 1; });
-    const chips = Object.keys(counts).map(col => {
+    const purColours = [...new Set(
+      purchases
+        .filter(p => (p.model||'').trim().toLowerCase() === mName && (p.variant||'').trim().toLowerCase() === mVar && p.colour)
+        .map(p => p.colour)
+    )];
+    const manualColours = m.colours || [];
+    const allShown = new Set([...purColours, ...manualColours]);
+    const purChips = purColours.map(col => {
       const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
-      return `<span class="color-chip">` +
-        `<span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>` +
-        `${col}</span>`;
+      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}</span>`;
     }).join('');
+    const manChips = manualColours.filter(col => !purColours.includes(col)).map(col => {
+      const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
+      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="removeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Remove">&times;</span></span>`;
+    }).join('');
+    const addOptions = catColours.filter(c => !allShown.has(c.name)).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">+ colour</option>${addOptions}</select>`;
     return `
       <div class="cat-item" style="flex-direction:column;align-items:flex-start;gap:6px">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
@@ -1976,7 +2002,7 @@ ml.innerHTML = catModels.map(m => {
           </div>
           <button class="btn btn-danger btn-sm" onclick="deleteCatModel('${m.id}')">Remove</button>
         </div>
-        ${chips ? `<div class="color-chips" style="margin:0 0 0 34px">${chips}</div>` : ''}
+        <div class="color-chips" style="margin:0 0 0 34px">${purChips}${manChips}${addDropdown}</div>
       </div>
     `;
   }).join('');
