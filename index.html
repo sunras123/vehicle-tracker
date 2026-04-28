@@ -1968,13 +1968,21 @@ function addCatColour() {
 
 function deleteCatColour(id) {
   const c = catColours.find(x => x.id === id);
-  if (purchases.some(p => p.colour === c.name)) {
-    showToast('Cannot delete — colour is used in purchase records.', 'error'); return;
-  }
-  if (!confirm(`Delete colour "${c.name}"?`)) return;
-  sbDelete('cat_colours', id);
-  catColours = catColours.filter(x => x.id !== id);
-  showToast('Colour deleted.');
+  if (!c) return;
+  deleteColourGlobally(c.name);
+}
+
+function deleteColourGlobally(colourName) {
+  const inPurchases = purchases.some(p => p.colour === colourName);
+  const msg = inPurchases
+    ? `"${colourName}" is used in purchase records. Delete from the colour catalogue and all model lists anyway?`
+    : `Delete colour "${colourName}" globally from the catalogue and all model lists?`;
+  if (!confirm(msg)) return;
+  const c = catColours.find(x => x.name === colourName);
+  if (c) { sbDelete('cat_colours', c.id); catColours = catColours.filter(x => x.id !== c.id); }
+  const affected = catModels.filter(m => (m.colours||[]).includes(colourName));
+  affected.forEach(m => { m.colours = m.colours.filter(n => n !== colourName); saveOne('cat_models', m); });
+  showToast(`Colour "${colourName}" deleted.`);
   renderCatalogue();
   updatePurchaseDropdowns();
 }
@@ -1997,11 +2005,11 @@ function renderCatalogue() {
     const allShown = new Set([...purColours, ...manualColours]);
     const purChips = purColours.map(col => {
       const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
-      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}</span>`;
+      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="deleteColourGlobally('${col}')" style="margin-left:4px;cursor:pointer;color:#ccc;font-size:0.7rem" title="Delete globally">&#128465;</span></span>`;
     }).join('');
     const manChips = manualColours.filter(col => !purColours.includes(col)).map(col => {
       const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
-      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="removeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Remove">&times;</span></span>`;
+      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="removeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Remove from model">&times;</span><span onclick="deleteColourGlobally('${col}')" style="margin-left:2px;cursor:pointer;color:#ccc;font-size:0.7rem" title="Delete globally">&#128465;</span></span>`;
     }).join('');
     const addOptions = catColours.filter(c => !allShown.has(c.name)).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
     const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">+ existing</option>${addOptions}</select>`;
