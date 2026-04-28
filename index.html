@@ -956,7 +956,7 @@
         <thead>
           <tr>
             <th>#</th><th>Date In</th><th>Model</th><th>Variant</th>
-            <th>Year</th><th>Colour</th><th>Cost (Nu.)</th><th>Days in Stock</th><th>Status</th>
+            <th>Year</th><th>Colour</th><th>Days in Stock</th><th>Status</th>
           </tr>
         </thead>
         <tbody id="stockTableBody"></tbody>
@@ -3479,7 +3479,6 @@ function renderStockTable() {
       <td>${p.variant || '-'}</td>
       <td>${p.year || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td>${fmtNum(p.totalCost)}</td>
       <td style="color:${daysColor};font-weight:600">${days}</td>
       <td><span class="badge badge-${p.status}">${p.status}</span></td>
     </tr>`;
