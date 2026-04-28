@@ -421,7 +421,7 @@
       </div>
       <div class="form-group">
         <label>Variant</label>
-        <select id="pp_variant"><option value="">-- Select Model First --</option></select>
+        <select id="pp_variant" onchange="updatePurchasePlanColourSelect()"><option value="">-- Select Model First --</option></select>
       </div>
       <div class="form-group">
         <label>Colour</label>
@@ -504,7 +504,7 @@
       </div>
       <div class="form-group">
         <label>Variant</label>
-        <select id="p_variant"><option value="">-- Select Model First --</option></select>
+        <select id="p_variant" onchange="updatePurchaseColourSelect()"><option value="">-- Select Model First --</option></select>
       </div>
       <div class="form-group">
         <label>Colour</label>
@@ -2033,6 +2033,16 @@ function renderCatalogue() {
 // ============================================================
 // PURCHASE PLAN
 // ============================================================
+function colourOptionsForModel(modelName, variant, currentColour) {
+  const m = catModels.find(x =>
+    x.name.toLowerCase() === (modelName||'').toLowerCase() &&
+    (x.variant||'').toLowerCase() === (variant||'').toLowerCase()
+  );
+  const names = (m && m.colours && m.colours.length > 0) ? m.colours : catColours.map(c => c.name);
+  return '<option value="">-- Select Colour --</option>' +
+    names.map(n => `<option value="${n}"${n===currentColour?' selected':''}>${n}</option>`).join('');
+}
+
 function updatePurchasePlanDropdowns() {
   const pm = document.getElementById('pp_model');
   const pc = document.getElementById('pp_colour');
@@ -2042,8 +2052,6 @@ function updatePurchasePlanDropdowns() {
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   pm.innerHTML = '<option value="">-- Select Model --</option>' +
     uniqueModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}</option>`).join('');
-  pc.innerHTML = '<option value="">-- Select Colour --</option>' +
-    catColours.map(c => `<option value="${c.name}" ${c.name===curColour?'selected':''}>${c.name}</option>`).join('');
   updatePurchasePlanVariantSelect();
 }
 
@@ -2055,6 +2063,14 @@ function updatePurchasePlanVariantSelect() {
   const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
   if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
   sel.innerHTML = variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
+  updatePurchasePlanColourSelect();
+}
+
+function updatePurchasePlanColourSelect() {
+  const model   = document.getElementById('pp_model').value;
+  const variant = document.getElementById('pp_variant').value;
+  const pc = document.getElementById('pp_colour');
+  if (pc) pc.innerHTML = colourOptionsForModel(model, variant, pc.value);
 }
 
 function addPurchasePlan() {
@@ -2163,8 +2179,7 @@ function openEditPurchasePlan(id) {
 
   // Populate colour select
   const colSel = document.getElementById('epp_colour');
-  colSel.innerHTML = '<option value="">-- Select Colour --</option>' +
-    catColours.map(c => `<option value="${c.name}" ${c.name===p.colour?'selected':''}>${c.name}</option>`).join('');
+  colSel.innerHTML = colourOptionsForModel(p.model, p.variant, p.colour);
 
   document.getElementById('editPurchasePlanModal').classList.add('open');
 }
@@ -2175,6 +2190,8 @@ function updateEditPurchasePlanVariantSelect() {
   const varSel = document.getElementById('epp_variant');
   varSel.innerHTML = '<option value="">-- None --</option>' +
     variants.map(v => `<option value="${v}">${v}</option>`).join('');
+  const colSel = document.getElementById('epp_colour');
+  if (colSel) colSel.innerHTML = colourOptionsForModel(model, varSel.value, colSel.value);
 }
 
 async function saveEditPurchasePlan() {
@@ -2251,14 +2268,10 @@ function updatePurchaseDropdowns() {
   if (!pm || !pc) return;
 
   const curModel  = pm.value;
-  const curColour = pc.value;
 
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   pm.innerHTML = '<option value="">-- Select Model --</option>' +
     uniqueModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}</option>`).join('');
-
-  pc.innerHTML = '<option value="">-- Select Colour --</option>' +
-    catColours.map(c => `<option value="${c.name}" ${c.name===curColour?'selected':''}>${c.name}</option>`).join('');
 
   updatePurchaseVariantSelect();
 
@@ -2279,6 +2292,14 @@ function updatePurchaseVariantSelect() {
   const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
   if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
   sel.innerHTML = variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
+  updatePurchaseColourSelect();
+}
+
+function updatePurchaseColourSelect() {
+  const model   = document.getElementById('p_model').value;
+  const variant = document.getElementById('p_variant').value;
+  const pc = document.getElementById('p_colour');
+  if (pc) pc.innerHTML = colourOptionsForModel(model, variant, pc.value);
 }
 
 function updateEditPurchaseVariantSelect(currentVariant) {
@@ -4227,8 +4248,7 @@ function openEditPurchase(id) {
 
   // Populate colour select
   const cs = document.getElementById('ep_colour');
-  cs.innerHTML = '<option value="">-- Select Colour --</option>' +
-    catColours.map(c => `<option value="${c.name}"${c.name===p.colour?' selected':''}>${c.name}</option>`).join('');
+  cs.innerHTML = colourOptionsForModel(p.model, p.variant, p.colour);
 
   openModal('editPurchaseModal');
 }
