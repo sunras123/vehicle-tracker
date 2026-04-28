@@ -384,7 +384,7 @@
     <!-- Colours -->
     <div>
       <div class="panel">
-        <h3>&#127774; Add Colour</h3>
+        <h3>&#127774; Add / Delete Colour</h3>
         <div class="form-grid">
           <div class="form-group">
             <label>Colour Name</label>
@@ -398,6 +398,7 @@
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addCatColour()">&#10133; Add Colour</button>
         </div>
+        <div class="cat-list" id="catColourList" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -2006,6 +2007,24 @@ function renderCatalogue() {
       </div>
     `;
   }).join('');
+
+  // Colour list with delete buttons
+  const cl = document.getElementById('catColourList');
+  if (cl) {
+    if (catColours.length === 0) {
+      cl.innerHTML = '<div class="empty-state" style="padding:16px 0 0"><div>No colours added yet.</div></div>';
+    } else {
+      cl.innerHTML = catColours.map(c => `
+        <div class="cat-item">
+          <div class="cat-item-info">
+            <div class="colour-preview" style="background:${c.hex}"></div>
+            <div class="cat-item-name">${c.name}</div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteCatColour('${c.id}')">Delete</button>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 // ============================================================
