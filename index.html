@@ -955,8 +955,14 @@
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Date In</th><th>Model</th><th>Variant</th>
-            <th>Year</th><th>Colour</th><th>Days in Stock</th><th>Status</th>
+            <th>#</th>
+            <th class="sortable-th" onclick="setStockSort('date')" data-col="date">Date In</th>
+            <th class="sortable-th" onclick="setStockSort('model')" data-col="model">Model</th>
+            <th class="sortable-th" onclick="setStockSort('variant')" data-col="variant">Variant</th>
+            <th class="sortable-th" onclick="setStockSort('year')" data-col="year">Year</th>
+            <th class="sortable-th" onclick="setStockSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setStockSort('days')" data-col="days">Days in Stock</th>
+            <th class="sortable-th" onclick="setStockSort('status')" data-col="status">Status</th>
           </tr>
         </thead>
         <tbody id="stockTableBody"></tbody>
@@ -2817,6 +2823,19 @@ function deletePurchase(id) {
   updateVehicleSelects();
 }
 
+let stockSortCol = 'date';
+let stockSortDir = 'desc';
+
+function setStockSort(col) {
+  if (stockSortCol === col) {
+    stockSortDir = stockSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    stockSortCol = col;
+    stockSortDir = 'asc';
+  }
+  renderStockTable();
+}
+
 let purchaseSortCol = 'date';
 let purchaseSortDir = 'desc';
 
@@ -3455,11 +3474,27 @@ function renderStockTable() {
   const modelF = document.getElementById('stockModelFilter')?.value || '';
   const colF   = document.getElementById('stockColourFilter')?.value || '';
 
-  const stock = purchases.filter(p => {
+  const todayStrSort = today();
+  let stock = purchases.filter(p => {
     if (p.status === 'sold') return false;
     const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
     return match && (!modelF || p.model === modelF) && (!colF || p.colour === colF);
-  }).sort((a,b) => a.date.localeCompare(b.date));
+  });
+  stock.sort((a, b) => {
+    let av, bv;
+    if (stockSortCol === 'days') {
+      av = daysBetween(a.date, todayStrSort); bv = daysBetween(b.date, todayStrSort);
+    } else {
+      av = (a[stockSortCol] ?? ''); bv = (b[stockSortCol] ?? '');
+    }
+    if (av < bv) return stockSortDir === 'asc' ? -1 : 1;
+    if (av > bv) return stockSortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  document.querySelectorAll('#tab-stock .sortable-th').forEach(th => {
+    th.classList.toggle('sort-asc',  th.dataset.col === stockSortCol && stockSortDir === 'asc');
+    th.classList.toggle('sort-desc', th.dataset.col === stockSortCol && stockSortDir === 'desc');
+  });
 
   const tbody = document.getElementById('stockTableBody');
   const empty = document.getElementById('stockEmpty');
@@ -3467,10 +3502,9 @@ function renderStockTable() {
   if (stock.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  const todayStr = today();
   tbody.innerHTML = stock.map((p, i) => {
     const hex  = getColourHex(p.colour);
-    const days = daysBetween(p.date, todayStr);
+    const days = daysBetween(p.date, todayStrSort);
     const daysColor = days > 90 ? '#e74c3c' : days > 60 ? '#e67e22' : '#27ae60';
     return `<tr>
       <td>${i+1}</td>
