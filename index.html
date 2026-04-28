@@ -1901,21 +1901,6 @@ function removeModelColour(modelId, colourName) {
   renderCatalogue();
 }
 
-function addCustomModelColour(modelId) {
-  const nameEl = document.getElementById('cname_' + modelId);
-  const hexEl  = document.getElementById('chex_'  + modelId);
-  const name = nameEl ? nameEl.value.trim() : '';
-  const hex  = hexEl  ? hexEl.value        : '#cccccc';
-  if (!name) { showToast('Enter a colour name.', 'error'); return; }
-  if (!catColours.find(c => c.name.toLowerCase() === name.toLowerCase())) {
-    const newColour = { id: genId(), name, hex };
-    catColours.push(newColour);
-    saveOne('cat_colours', newColour);
-  }
-  addModelColour(modelId, name);
-  if (nameEl) nameEl.value = '';
-}
-
 function addCatModel() {
   const name = document.getElementById('cat_model_name').value.trim();
   if (!name) { showToast('Model name is required.', 'error'); return; }
@@ -2004,12 +1989,7 @@ function renderCatalogue() {
       return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="removeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Remove">&times;</span></span>`;
     }).join('');
     const addOptions = catColours.filter(c => !allShown.has(c.name)).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">+ existing</option>${addOptions}</select>`;
-    const customInput = `<span style="display:inline-flex;align-items:center;gap:3px">
-      <input id="cname_${m.id}" type="text" placeholder="Custom colour" style="font-size:0.75rem;padding:2px 6px;border:1px dashed #bbb;border-radius:10px;width:110px;background:#fafafa;color:#555">
-      <input id="chex_${m.id}" type="color" value="#cccccc" style="width:22px;height:22px;padding:1px;border:1px solid #ddd;border-radius:4px;cursor:pointer">
-      <button onclick="addCustomModelColour('${m.id}')" style="font-size:0.72rem;padding:2px 7px;border:none;border-radius:10px;background:#e94560;color:white;cursor:pointer;font-weight:600">+</button>
-    </span>`;
+    const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">+ colour</option>${addOptions}</select>`;
     return `
       <div class="cat-item" style="flex-direction:column;align-items:flex-start;gap:6px">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
@@ -2022,7 +2002,7 @@ function renderCatalogue() {
           </div>
           <button class="btn btn-danger btn-sm" onclick="deleteCatModel('${m.id}')">Remove</button>
         </div>
-        <div class="color-chips" style="margin:0 0 0 34px;flex-wrap:wrap">${purChips}${manChips}${addDropdown}${customInput}</div>
+        <div class="color-chips" style="margin:0 0 0 34px">${purChips}${manChips}${addDropdown}</div>
       </div>
     `;
   }).join('');
