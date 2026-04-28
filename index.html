@@ -1949,11 +1949,15 @@ function renderCatalogue() {
     ml.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-icon">&#128663;</div><div>No models added yet.</div></div>';
     return;
   }
-  const avail = purchases.filter(p => p.status === 'available');
-  ml.innerHTML = catModels.map(m => {
-    const rows = avail.filter(p => p.model === m.name && (p.variant||'') === (m.variant||''));
+ml.innerHTML = catModels.map(m => {
+    const mName = (m.name||'').trim().toLowerCase();
+    const mVar  = (m.variant||'').trim().toLowerCase();
+    const rows  = purchases.filter(p =>
+      (p.model||'').trim().toLowerCase() === mName &&
+      (p.variant||'').trim().toLowerCase() === mVar
+    );
     const counts = {};
-    rows.forEach(p => { counts[p.colour] = (counts[p.colour]||0) + 1; });
+    rows.forEach(p => { if (p.colour) counts[p.colour] = (counts[p.colour]||0) + 1; });
     const chips = Object.entries(counts).map(([col, cnt]) => {
       const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
       return `<span class="color-chip">` +
@@ -5120,9 +5124,12 @@ function exportExcel() {
   // Live reload — only active when served via watch.js (not file://)
   (function () {
     if (location.protocol === 'file:') return;
-    var src = new EventSource('/__livereload');
-    src.onmessage = function (e) { if (e.data === 'reload') location.reload(); };
-    src.onerror   = function () { src.close(); };
+    function connect() {
+      var src = new EventSource('/__livereload');
+      src.onmessage = function (e) { if (e.data === 'reload') location.reload(); };
+      src.onerror   = function () { src.close(); setTimeout(connect, 2000); };
+    }
+    connect();
   }());
 </script>
 </body>
