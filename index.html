@@ -1811,6 +1811,7 @@ let credUsers     = [];
 let catColours    = [];
 let purchasePlans = [];
 let priceLists    = [];
+let currentRole   = '';
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
@@ -3945,7 +3946,7 @@ function renderPriceList() {
     <td><strong>${pl.model}</strong></td>
     <td>${pl.variant || '-'}</td>
     <td style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button></td>
+    <td>${currentRole === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>` : ''}</td>
   </tr>`).join('');
 }
 
@@ -3993,13 +3994,14 @@ function attemptLogin() {
 }
 
 function applyRoleAccess(role) {
+  currentRole = role;
   const allowed = role === 'admin' ? ADMIN_TABS : VIEW_TABS;
   const allBtns = document.querySelectorAll('.tab-btn');
   TAB_NAMES.forEach((name, idx) => {
     if (allBtns[idx]) allBtns[idx].style.display = allowed.includes(name) ? '' : 'none';
   });
   const plPanel = document.getElementById('pl_add_panel');
-  if (plPanel) plPanel.style.display = allowed.includes('pricelist') ? '' : 'none';
+  if (plPanel) plPanel.style.display = role === 'admin' ? '' : 'none';
   showTab(allowed[0]);
 }
 
