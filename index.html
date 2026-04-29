@@ -3920,6 +3920,17 @@ function clearPriceListForm() {
   document.getElementById('pl_price').value = '';
 }
 
+function editPriceListEntry(id) {
+  const pl = priceLists.find(p => p.id === id);
+  if (!pl) return;
+  updatePriceListModelSelect();
+  document.getElementById('pl_model').value = pl.model;
+  updatePriceListVariantSelect();
+  document.getElementById('pl_variant').value = pl.variant || '';
+  document.getElementById('pl_price').value = fmtNum(pl.listPrice);
+  document.getElementById('pl_add_panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function deletePriceListEntry(id) {
   if (!confirm('Delete this price entry?')) return;
   sbDelete('price_list', id);
@@ -3946,7 +3957,7 @@ function renderPriceList() {
     <td><strong>${pl.model}</strong></td>
     <td>${pl.variant || '-'}</td>
     <td style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</td>
-    <td>${currentRole === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>` : ''}</td>
+    <td>${currentRole === 'admin' ? `<button class="btn btn-sm" style="background:#e8f0fe;color:#1a73e8;margin-right:4px" onclick="editPriceListEntry('${pl.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>` : ''}</td>
   </tr>`).join('');
 }
 
