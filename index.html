@@ -3395,7 +3395,7 @@ function renderBookingsTable() {
     const hex     = getColourHex(veh ? veh.colour : '');
     const overdue = b.delivery && b.delivery < todayStr;
     return `<tr class="${overdue ? 'highlight-row' : ''}">
-      <td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}"></td>
+      <td style="text-align:center">${currentRole === 'admin' ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
       <td>${i+1}</td>
       <td>${b.date}</td>
       <td style="font-size:0.78rem;font-family:monospace">${veh ? veh.po || '-' : '-'}</td>
