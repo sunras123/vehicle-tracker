@@ -3998,9 +3998,8 @@ function applyRoleAccess(role) {
   TAB_NAMES.forEach((name, idx) => {
     if (allBtns[idx]) allBtns[idx].style.display = allowed.includes(name) ? '' : 'none';
   });
-  // Show add-price panel only for admin
   const plPanel = document.getElementById('pl_add_panel');
-  if (plPanel) plPanel.style.display = role === 'admin' ? '' : 'none';
+  if (plPanel) plPanel.style.display = allowed.includes('pricelist') ? '' : 'none';
   showTab(allowed[0]);
 }
 
