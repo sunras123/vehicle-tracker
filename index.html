@@ -786,7 +786,7 @@
 <!-- BOOKINGS TAB -->
 <div id="tab-pricelist" class="tab-content">
   <div class="panel" id="pl_add_panel">
-    <h3>&#10133; Add List Price</h3>
+    <h3 id="pl_form_heading">&#10133; Add List Price</h3>
     <div class="form-grid">
       <div class="form-group">
         <label>Model</label>
@@ -802,7 +802,7 @@
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" onclick="addPriceListEntry()">&#127991; Save Price</button>
+      <button class="btn btn-primary" id="pl_save_btn" onclick="addPriceListEntry()">&#127991; Save Price</button>
       <button class="btn" onclick="clearPriceListForm()" style="background:#f0f2f5;color:#555;">Clear</button>
     </div>
   </div>
@@ -3918,17 +3918,22 @@ function clearPriceListForm() {
   document.getElementById('pl_model').value = '';
   document.getElementById('pl_variant').innerHTML = '<option value="">-- Select Model First --</option>';
   document.getElementById('pl_price').value = '';
+  document.getElementById('pl_form_heading').textContent = '➕ Add List Price';
+  document.getElementById('pl_save_btn').textContent = '🏷️ Save Price';
 }
 
 function editPriceListEntry(id) {
-  const pl = priceLists.find(p => p.id === id);
-  if (!pl) return;
+  const pl = priceLists.find(p => String(p.id) === String(id));
+  if (!pl) { showToast('Entry not found. Try refreshing the page.', 'error'); return; }
   updatePriceListModelSelect();
   document.getElementById('pl_model').value = pl.model;
   updatePriceListVariantSelect();
   document.getElementById('pl_variant').value = pl.variant || '';
   document.getElementById('pl_price').value = fmtNum(pl.listPrice);
+  document.getElementById('pl_form_heading').textContent = '✏️ Editing: ' + pl.model + (pl.variant ? ' ' + pl.variant : '');
+  document.getElementById('pl_save_btn').textContent = '✓ Update Price';
   document.getElementById('pl_add_panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('pl_price').focus();
 }
 
 function deletePriceListEntry(id) {
