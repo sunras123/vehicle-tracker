@@ -905,7 +905,7 @@
       <table>
         <thead id="bookingsThead">
           <tr>
-            <th>Convert to Sale</th><th>#</th>
+            <th id="bookings_convert_th">Convert to Sale</th><th>#</th>
             <th class="sortable-th" onclick="setBookingSort('date')" data-col="date">Booking Date</th>
             <th class="sortable-th" onclick="setBookingSort('po')" data-col="po">PO No.</th>
             <th class="sortable-th" onclick="setBookingSort('model')" data-col="model">Vehicle</th>
@@ -4018,6 +4018,8 @@ function applyRoleAccess(role) {
   });
   const plPanel = document.getElementById('pl_add_panel');
   if (plPanel) plPanel.style.display = role === 'admin' ? '' : 'none';
+  const convertTh = document.getElementById('bookings_convert_th');
+  if (convertTh) convertTh.style.display = role === 'admin' ? '' : 'none';
   showTab(allowed[0]);
 }
 
