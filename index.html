@@ -2394,15 +2394,6 @@ function lookupListPrice(vehicleId) {
 }
 
 function autoFillSaleListPrice() {
-  const vehicleId = document.getElementById('s_vehicle').value;
-  if (!vehicleId) return;
-  const pl = lookupListPrice(vehicleId);
-  if (pl) {
-    const el = document.getElementById('s_price');
-    el.value = pl.listPrice;
-    fmtInput(el);
-    calcSalePending();
-  }
 }
 
 function autoFillBookingListPrice() {
@@ -2410,14 +2401,6 @@ function autoFillBookingListPrice() {
   const veh = getPurchase(vehicleId);
   const varEl = document.getElementById('b_variant');
   if (varEl) varEl.value = (veh && veh.variant) ? veh.variant : '';
-  if (!vehicleId) return;
-  const pl = lookupListPrice(vehicleId);
-  if (pl) {
-    const el = document.getElementById('b_agreedprice');
-    el.value = pl.listPrice;
-    fmtInput(el);
-    calcBookingSalePrice();
-  }
 }
 
 function updateVehicleSelects() {
