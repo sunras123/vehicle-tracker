@@ -1366,6 +1366,7 @@
         <label>Role</label>
         <select id="au_role">
           <option value="sales">Sales</option>
+          <option value="accounts">Accounts</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -1400,6 +1401,7 @@
         <label>Role</label>
         <select id="eu_role">
           <option value="sales">Sales</option>
+          <option value="accounts">Accounts</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -4036,8 +4038,9 @@ function renderPriceList() {
 // ============================================================
 // LOGIN / SESSION
 // ============================================================
-const VIEW_TABS  = ['pricelist','bookings','stock'];
-const ADMIN_TABS = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports','credentials'];
+const VIEW_TABS     = ['pricelist','bookings','stock'];
+const ACCOUNTS_TABS = ['summary','purchases','sales','bookings','financials','reports'];
+const ADMIN_TABS    = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports','credentials'];
 
 function attemptLogin() {
   try {
@@ -4078,7 +4081,7 @@ function attemptLogin() {
 
 function applyRoleAccess(role) {
   currentRole = role;
-  const allowed = role === 'admin' ? ADMIN_TABS : VIEW_TABS;
+  const allowed = role === 'admin' ? ADMIN_TABS : role === 'accounts' ? ACCOUNTS_TABS : VIEW_TABS;
   const allBtns = document.querySelectorAll('.tab-btn');
   TAB_NAMES.forEach((name, idx) => {
     if (allBtns[idx]) allBtns[idx].style.display = allowed.includes(name) ? '' : 'none';
@@ -4275,7 +4278,7 @@ async function saveEditUser() {
   renderCredUsers();
 }
 
-const ROLE_COLORS = { admin:'#e94560', sales:'#2980b9' };
+const ROLE_COLORS = { admin:'#e94560', sales:'#2980b9', accounts:'#27ae60' };
 
 function renderCredUsers() {
   loadLoginLogs();
