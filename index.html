@@ -474,7 +474,7 @@
         <thead>
           <tr>
             <th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th>
-            <th>Qty</th><th>PO No.</th><th>FOB Price (USD)</th><th>LC Status</th><th>Notes</th><th>Action</th>
+            <th>Qty</th><th>PO No.</th><th>FOB Price (USD)</th><th>LC Status</th><th>Booking</th><th>Notes</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="ppTableBody"></tbody>
@@ -1557,6 +1557,34 @@
   </div>
 </div>
 
+<!-- BOOK ORDER PLAN MODAL -->
+<div class="modal-overlay" id="bookPlanModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('bookPlanModal')">&times;</button>
+    <h3>&#128197; Book Order Plan Vehicle</h3>
+    <div id="bookPlanInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="bp_plan_id">
+    <div class="form-grid">
+      <div class="form-group"><label>Booking Date</label><input type="date" id="bp_date"></div>
+      <div class="form-group"><label>Customer Name</label><input type="text" id="bp_customer" placeholder="Full name"></div>
+      <div class="form-group"><label>CID Number</label><input type="text" id="bp_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11"></div>
+      <div class="form-group"><label>Customer Phone</label><input type="text" id="bp_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
+      <div class="form-group"><label>Customer Address</label><input type="text" id="bp_address" placeholder="Address"></div>
+      <div class="form-group"><label>Advance Paid (Nu.)</label><input type="text" inputmode="decimal" id="bp_deposit" placeholder="0.00" oninput="fmtInput(this);calcPlanBookingBalance()"></div>
+      <div class="form-group"><label>List Price (Nu.)</label><input type="text" inputmode="decimal" id="bp_agreedprice" placeholder="0.00" oninput="fmtInput(this);calcPlanBookingSalePrice()"></div>
+      <div class="form-group"><label>Discount (Nu.)</label><input type="text" inputmode="decimal" id="bp_discount" placeholder="0.00" oninput="fmtInput(this);calcPlanBookingSalePrice()"></div>
+      <div class="form-group"><label>Sale Price (Nu.)</label><input type="text" id="bp_saleprice" readonly placeholder="0.00" style="background:#f8f9fa;font-weight:600;color:#1a1a2e;cursor:not-allowed;"></div>
+      <div class="form-group"><label>Balance Payable (Nu.)</label><input type="text" id="bp_balance" readonly placeholder="0.00" style="background:#f8f9fa;font-weight:700;color:#e74c3c;cursor:not-allowed;"></div>
+      <div class="form-group"><label>Expected Delivery Date</label><input type="date" id="bp_delivery"></div>
+      <div class="form-group"><label>Notes</label><input type="text" id="bp_notes" placeholder="Any notes"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="savePlanBooking()">&#128197; Save Booking</button>
+      <button class="btn" onclick="closeModal('bookPlanModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1602,14 +1630,24 @@ function saleFromDB(r) {
 }
 function bookingToDB(b) {
   const r = {...b};
-  r.vehicle_id  = b.vehicleId;    delete r.vehicleId;
+  r.vehicle_id   = b.planId ? 'plan:' + b.planId : (b.vehicleId || null);
+  delete r.vehicleId; delete r.planId; delete r.source;
   r.agreed_price = b.agreedPrice; delete r.agreedPrice;
-  r.sale_price  = b.salePrice;    delete r.salePrice;
+  r.sale_price   = b.salePrice;   delete r.salePrice;
   return r;
 }
 function bookingFromDB(r) {
   const b = {...r};
-  b.vehicleId   = r.vehicle_id;   delete b.vehicle_id;
+  if (r.vehicle_id && String(r.vehicle_id).startsWith('plan:')) {
+    b.planId    = r.vehicle_id.slice(5);
+    b.vehicleId = null;
+    b.source    = 'plan';
+  } else {
+    b.vehicleId = r.vehicle_id;
+    b.planId    = null;
+    b.source    = 'purchase';
+  }
+  delete b.vehicle_id;
   b.agreedPrice = r.agreed_price; delete b.agreed_price;
   b.salePrice   = r.sale_price;   delete b.sale_price;
   return b;
@@ -2256,7 +2294,15 @@ function renderPurchasePlanTable() {
   empty.style.display = 'none';
 
   const lcBadge = { opened: '#2980b9', pending: '#e67e22', closed: '#27ae60', delivered: '#8e44ad' };
-  tbody.innerHTML = data.map((p, i) => `<tr>
+  tbody.innerHTML = data.map((p, i) => {
+    const pb = bookings.find(b => b.planId === p.id);
+    const bookingCell = pb
+      ? `<span style="color:#27ae60;font-weight:600;font-size:0.85rem;">&#10003; ${pb.customer}</span>`
+      : `<span style="color:#aaa;">&#8212;</span>`;
+    const bookBtn = pb
+      ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
+      : `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`;
+    return `<tr>
     <td>${i+1}</td>
     <td>${p.date}</td>
     <td><strong>${p.model}</strong></td>
@@ -2273,12 +2319,15 @@ function renderPurchasePlanTable() {
         <option value="closed"    ${p.lcstatus==='closed'    ?'selected':''}>Closed</option>
       </select>
     </td>
+    <td>${bookingCell}</td>
     <td>${p.notes || '-'}</td>
     <td style="white-space:nowrap">
+      ${bookBtn}
       <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
       <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
     </td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 
 function updatePurchaseDropdowns() {
@@ -3303,6 +3352,7 @@ function cancelBooking(id) {
     bookings = bookings.filter(x => x.id !== id);
     showToast('Booking cancelled.');
     renderBookingsTable();
+    renderPurchasePlanTable();
     renderPurchasesTable();
     renderStockCards();
     renderStockTable();
@@ -3339,11 +3389,17 @@ function convertBookingToSale(id) {
   }, 100);
 }
 
+function getPlanSrc(b) {
+  if (b.vehicleId) return getPurchase(b.vehicleId);
+  if (b.planId) return purchasePlans.find(p => p.id === b.planId) || null;
+  return null;
+}
+
 function renderBookingsTable() {
   const search = document.getElementById('bookingsSearch').value.toLowerCase();
   let data = bookings.filter(b => {
-    const veh = getPurchase(b.vehicleId);
-    const label = veh ? `${veh.model} ${veh.colour} ${veh.po||''}` : '';
+    const src = getPlanSrc(b);
+    const label = src ? `${src.model} ${src.colour} ${src.po||''}` : '';
     return [b.customer, b.phone, label].join(' ').toLowerCase().includes(search);
   });
 
@@ -3351,16 +3407,16 @@ function renderBookingsTable() {
   data.sort((a, b) => {
     let av, bv;
     if (bookingSortCol === 'po') {
-      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      const va = getPlanSrc(a), vb = getPlanSrc(b);
       av = parseFloat(va ? va.po : 0) || 0;
       bv = parseFloat(vb ? vb.po : 0) || 0;
       return bookingSortDir === 'asc' ? av - bv : bv - av;
     } else if (bookingSortCol === 'model') {
-      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      const va = getPlanSrc(a), vb = getPlanSrc(b);
       av = (va ? va.model + ' ' + (va.variant||'') : '').trim();
       bv = (vb ? vb.model + ' ' + (vb.variant||'') : '').trim();
     } else if (bookingSortCol === 'colour') {
-      const va = getPurchase(a.vehicleId), vb = getPurchase(b.vehicleId);
+      const va = getPlanSrc(a), vb = getPlanSrc(b);
       av = va ? va.colour : '';
       bv = vb ? vb.colour : '';
     } else {
@@ -3387,16 +3443,20 @@ function renderBookingsTable() {
 
   const todayStr = today();
   tbody.innerHTML = data.map((b, i) => {
-    const veh     = getPurchase(b.vehicleId);
-    const hex     = getColourHex(veh ? veh.colour : '');
+    const src     = getPlanSrc(b);
+    const isPlan  = !!b.planId;
+    const hex     = getColourHex(src ? src.colour : '');
     const overdue = b.delivery && b.delivery < todayStr;
+    const vehicleCell = src
+      ? `<strong>${src.model}</strong><br><small>${src.variant||''}</small>${isPlan ? ' <span style="font-size:0.7rem;background:#8e44ad;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">ORDER PLAN</span>' : ''}`
+      : 'N/A';
     return `<tr class="${overdue ? 'highlight-row' : ''}">
-      <td style="text-align:center">${currentRole === 'admin' ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
+      <td style="text-align:center">${(currentRole === 'admin' && !isPlan) ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
       <td>${i+1}</td>
       <td>${b.date}</td>
-      <td style="font-size:0.78rem;font-family:monospace">${veh ? veh.po || '-' : '-'}</td>
-      <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''}</small>` : 'N/A'}</td>
-      <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
+      <td style="font-size:0.78rem;font-family:monospace">${src ? src.po || '-' : '-'}</td>
+      <td>${vehicleCell}</td>
+      <td>${src ? `<span class="color-dot" style="background:${hex}"></span>${src.colour}` : '-'}</td>
       <td>${b.customer}</td>
       <td>${b.cid || '-'}</td>
       <td>${b.phone || '-'}</td>
@@ -4467,6 +4527,7 @@ async function saveEditSale() {
 function openEditBooking(id) {
   const b = bookings.find(x => x.id === id);
   if (!b) return;
+  if (b.planId) { openBookPlanModal(b.planId); return; }
   document.getElementById('eb_id').value = id;
   document.getElementById('eb_date').value = b.date || '';
   document.getElementById('eb_customer').value = b.customer || '';
@@ -4519,6 +4580,93 @@ async function saveEditBooking() {
   if (!ok) return;
   closeModal('editBookingModal');
   showToast('Booking record updated.');
+  renderBookingsTable();
+}
+
+function openBookPlanModal(planId) {
+  const p = purchasePlans.find(x => x.id === planId);
+  if (!p) return;
+  const existing = bookings.find(b => b.planId === planId);
+  document.getElementById('bp_plan_id').value = planId;
+  document.getElementById('bookPlanInfo').innerHTML =
+    `<strong>${p.model}${p.variant ? ' ' + p.variant : ''}</strong> &nbsp;|&nbsp; ${p.colour} &nbsp;|&nbsp; Qty: ${p.qty || 1} &nbsp;|&nbsp; PO: ${p.po || '&#8212;'}`;
+  document.getElementById('bp_date').value     = existing ? existing.date     : today();
+  document.getElementById('bp_customer').value = existing ? (existing.customer || '') : '';
+  document.getElementById('bp_cid').value      = existing ? (existing.cid      || '') : '';
+  document.getElementById('bp_phone').value    = existing ? (existing.phone    || '') : '';
+  document.getElementById('bp_address').value  = existing ? (existing.address  || '') : '';
+  document.getElementById('bp_delivery').value = existing ? (existing.delivery || '') : '';
+  document.getElementById('bp_notes').value    = existing ? (existing.notes    || '') : '';
+  const depEl  = document.getElementById('bp_deposit');
+  const agEl   = document.getElementById('bp_agreedprice');
+  const discEl = document.getElementById('bp_discount');
+  depEl.value  = existing ? (existing.deposit     || '') : ''; fmtInput(depEl);
+  agEl.value   = existing ? (existing.agreedPrice || '') : ''; fmtInput(agEl);
+  discEl.value = existing ? (existing.discount    || '') : ''; fmtInput(discEl);
+  document.getElementById('bp_saleprice').value = existing ? fmtNum(existing.salePrice != null ? existing.salePrice : existing.agreedPrice) : '';
+  document.getElementById('bp_balance').value   = existing ? fmtNum(existing.balance || 0) : '';
+  openModal('bookPlanModal');
+}
+
+function calcPlanBookingSalePrice() {
+  const ag   = parseFloat((document.getElementById('bp_agreedprice').value||'').replace(/,/g,'')) || 0;
+  const disc = parseFloat((document.getElementById('bp_discount').value||'').replace(/,/g,''))    || 0;
+  document.getElementById('bp_saleprice').value = fmtNum(ag - disc);
+  calcPlanBookingBalance();
+}
+
+function calcPlanBookingBalance() {
+  const sp  = parseFloat((document.getElementById('bp_saleprice').value||'').replace(/,/g,'')) || 0;
+  const dep = parseFloat((document.getElementById('bp_deposit').value||'').replace(/,/g,''))   || 0;
+  document.getElementById('bp_balance').value = fmtNum(sp - dep);
+}
+
+async function savePlanBooking() {
+  const planId   = document.getElementById('bp_plan_id').value;
+  const date     = document.getElementById('bp_date').value;
+  const customer = document.getElementById('bp_customer').value.trim();
+  if (!date || !customer) { showToast('Date and Customer are required.', 'error'); return; }
+  const cid_bp = document.getElementById('bp_cid').value.trim();
+  if (!/^\d{11}$/.test(cid_bp)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  const phone_bp = document.getElementById('bp_phone').value.trim();
+  if (!/^\d{8}$/.test(phone_bp)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
+  const pn = id => parseFloat((document.getElementById(id).value||'').replace(/,/g,'')) || 0;
+  const deposit     = pn('bp_deposit');
+  const agreedPrice = pn('bp_agreedprice');
+  const discount    = pn('bp_discount');
+  const salePrice   = agreedPrice - discount;
+  const existing = bookings.find(b => b.planId === planId);
+  if (existing) {
+    existing.date        = date;
+    existing.customer    = customer;
+    existing.cid         = cid_bp;
+    existing.phone       = phone_bp;
+    existing.address     = document.getElementById('bp_address').value.trim();
+    existing.deposit     = deposit;
+    existing.agreedPrice = agreedPrice;
+    existing.discount    = discount;
+    existing.salePrice   = salePrice;
+    existing.balance     = salePrice - deposit;
+    existing.delivery    = document.getElementById('bp_delivery').value;
+    existing.notes       = document.getElementById('bp_notes').value.trim();
+    const ok = await saveOne('bookings', existing, bookingToDB);
+    if (!ok) return;
+    showToast('Booking updated.');
+  } else {
+    const newBooking = {
+      id: genId(), date, planId, vehicleId: null, source: 'plan',
+      customer, cid: cid_bp, phone: phone_bp,
+      address:  document.getElementById('bp_address').value.trim(),
+      deposit, agreedPrice, discount, salePrice, balance: salePrice - deposit,
+      delivery: document.getElementById('bp_delivery').value,
+      notes:    document.getElementById('bp_notes').value.trim()
+    };
+    bookings.push(newBooking);
+    saveOne('bookings', newBooking, bookingToDB);
+    showToast(`Booking added for ${customer}`);
+  }
+  closeModal('bookPlanModal');
+  renderPurchasePlanTable();
   renderBookingsTable();
 }
 
