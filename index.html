@@ -3366,6 +3366,30 @@ function convertBookingToSale(id) {
   const b = bookings.find(x => x.id === id);
   if (!b) return;
   if (!confirm(`Convert booking for "${b.customer}" to a sale?`)) return;
+
+  if (b.planId) {
+    const plan = purchasePlans.find(p => p.id === b.planId);
+    if (!plan) { showToast('Order plan entry not found.', 'error'); return; }
+    const newPurchase = {
+      id: genId(), date: today(), make: 'BYD',
+      model: plan.model, variant: plan.variant || '',
+      year: new Date().getFullYear().toString(),
+      colour: plan.colour, cost: 0, exrate: 0, shipping: 0, transport: 0,
+      customs: 0, excise: 0, gst: 0, dv: 0, permit: 0, loading: 0,
+      service: 0, driver: 0, fuel: 0, insurance: 0, addcost: 0, totalCost: 0,
+      pi: '', po: plan.po || '', notes: `From order plan booking — ${b.customer}`,
+      status: 'booked'
+    };
+    purchases.push(newPurchase);
+    saveOne('purchases', newPurchase, purchaseToDB);
+    b.vehicleId = newPurchase.id;
+    b.planId    = null;
+    b.source    = 'purchase';
+    saveOne('bookings', b, bookingToDB);
+    updateVehicleSelects();
+    renderPurchasePlanTable();
+  }
+
   showTab('sales');
   setTimeout(() => {
     document.getElementById('s_date').value = today();
@@ -3451,7 +3475,7 @@ function renderBookingsTable() {
       ? `<strong>${src.model}</strong><br><small>${src.variant||''}</small>${isPlan ? ' <span style="font-size:0.7rem;background:#8e44ad;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">ORDER PLAN</span>' : ''}`
       : 'N/A';
     return `<tr class="${overdue ? 'highlight-row' : ''}">
-      <td style="text-align:center">${(currentRole === 'admin' && !isPlan) ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
+      <td style="text-align:center">${currentRole === 'admin' ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
       <td>${i+1}</td>
       <td>${b.date}</td>
       <td style="font-size:0.78rem;font-family:monospace">${src ? src.po || '-' : '-'}</td>
