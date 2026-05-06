@@ -4625,11 +4625,11 @@ async function savePlanBooking() {
   const planId   = document.getElementById('bp_plan_id').value;
   const date     = document.getElementById('bp_date').value;
   const customer = document.getElementById('bp_customer').value.trim();
-  if (!date || !customer) { showToast('Date and Customer are required.', 'error'); return; }
-  const cid_bp = document.getElementById('bp_cid').value.trim();
-  if (!/^\d{11}$/.test(cid_bp)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  if (!customer) { showToast('Customer name is required.', 'error'); return; }
+  const cid_bp   = document.getElementById('bp_cid').value.trim();
   const phone_bp = document.getElementById('bp_phone').value.trim();
-  if (!/^\d{8}$/.test(phone_bp)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
+  if (cid_bp   && !/^\d{11}$/.test(cid_bp))   { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
+  if (phone_bp && !/^\d{8}$/.test(phone_bp))   { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
   const pn = id => parseFloat((document.getElementById(id).value||'').replace(/,/g,'')) || 0;
   const deposit     = pn('bp_deposit');
   const agreedPrice = pn('bp_agreedprice');
