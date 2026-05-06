@@ -795,7 +795,7 @@
         <select id="pl_variant"><option value="">-- Select Model First --</option></select>
       </div>
       <div class="form-group">
-        <label>List Price (Nu.)</label>
+        <label>List Price (USD)</label>
         <input type="text" inputmode="decimal" id="pl_price" placeholder="0.00" oninput="fmtInput(this)">
       </div>
     </div>
@@ -814,7 +814,7 @@
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Model</th><th>Variant</th><th>List Price (Nu.)</th><th>Actions</th>
+            <th>#</th><th>Model</th><th>Variant</th><th>List Price (USD)</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="pricelistTableBody"></tbody>
@@ -5228,7 +5228,7 @@ function renderRptStock() {
 
 function renderRptPriceList() {
   const rptPLThead = document.getElementById('rptPLThead');
-  if (rptPLThead) rptPLThead.innerHTML = `<tr><th>#</th>${rptTh('pricelist','model','Model')}${rptTh('pricelist','variant','Variant')}${rptTh('pricelist','listPrice','List Price (Nu.)','text-align:right')}</tr>`;
+  if (rptPLThead) rptPLThead.innerHTML = `<tr><th>#</th>${rptTh('pricelist','model','Model')}${rptTh('pricelist','variant','Variant')}${rptTh('pricelist','listPrice','List Price (USD)','text-align:right')}</tr>`;
 
   const tbody = document.getElementById('rptPLBody');
   if (!tbody) return;
