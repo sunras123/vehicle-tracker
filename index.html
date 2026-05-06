@@ -1365,7 +1365,7 @@
       <div class="form-group">
         <label>Role</label>
         <select id="au_role">
-          <option value="view">View</option>
+          <option value="sales">Sales</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -1399,7 +1399,7 @@
       <div class="form-group">
         <label>Role</label>
         <select id="eu_role">
-          <option value="view">View</option>
+          <option value="sales">Sales</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -4275,7 +4275,7 @@ async function saveEditUser() {
   renderCredUsers();
 }
 
-const ROLE_COLORS = { admin:'#e94560', view:'#2980b9' };
+const ROLE_COLORS = { admin:'#e94560', sales:'#2980b9' };
 
 function renderCredUsers() {
   loadLoginLogs();
