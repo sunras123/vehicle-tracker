@@ -471,10 +471,18 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
+        <thead id="ppThead">
           <tr>
-            <th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th>
-            <th>Qty</th><th>PO No.</th><th>FOB Price (USD)</th><th>LC Status</th><th>Booking</th><th>Notes</th><th>Action</th>
+            <th>#</th>
+            <th class="sortable-th" onclick="setPlanSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setPlanSort('model')" data-col="model">Model</th>
+            <th class="sortable-th" onclick="setPlanSort('variant')" data-col="variant">Variant</th>
+            <th class="sortable-th" onclick="setPlanSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setPlanSort('qty')" data-col="qty">Qty</th>
+            <th class="sortable-th" onclick="setPlanSort('po')" data-col="po">PO No.</th>
+            <th class="sortable-th" onclick="setPlanSort('fob')" data-col="fob">FOB Price (USD)</th>
+            <th class="sortable-th" onclick="setPlanSort('lcstatus')" data-col="lcstatus">LC Status</th>
+            <th>Booking</th><th>Notes</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="ppTableBody"></tbody>
@@ -2289,9 +2297,23 @@ function renderPurchasePlanTable() {
   updatePurchasePlanDropdowns();
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
   const lcf    = document.getElementById('ppLcFilter')?.value || '';
-  const data   = purchasePlans
+  const numCols = ['qty','fob'];
+  const data = purchasePlans
     .filter(p => [p.model, p.colour, p.variant].join(' ').toLowerCase().includes(search) && (!lcf || p.lcstatus === lcf))
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => {
+      let av = a[ppSortCol] ?? '', bv = b[ppSortCol] ?? '';
+      if (numCols.includes(ppSortCol)) {
+        av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+        return ppSortDir === 'asc' ? av - bv : bv - av;
+      }
+      av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+      return ppSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+  document.querySelectorAll('#ppThead .sortable-th').forEach(th => {
+    th.classList.remove('sort-asc','sort-desc');
+    if (th.dataset.col === ppSortCol) th.classList.add('sort-' + ppSortDir);
+  });
 
   const tbody = document.getElementById('ppTableBody');
   const empty = document.getElementById('ppEmpty');
@@ -2876,6 +2898,19 @@ let purchaseSortDir = 'desc';
 
 let salesSortCol = 'date';
 let salesSortDir = 'desc';
+
+let ppSortCol = 'date';
+let ppSortDir = 'desc';
+
+function setPlanSort(col) {
+  if (ppSortCol === col) {
+    ppSortDir = ppSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    ppSortCol = col;
+    ppSortDir = ['qty','fob'].includes(col) ? 'desc' : 'asc';
+  }
+  renderPurchasePlanTable();
+}
 
 let bookingSortCol = 'date';
 let bookingSortDir = 'desc';
