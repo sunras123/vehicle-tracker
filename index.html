@@ -2208,7 +2208,11 @@ function deletePurchasePlan(id) {
   if (!confirm('Delete this purchase plan entry?')) return;
   sbDelete('purchase_plans', id);
   purchasePlans = purchasePlans.filter(p => p.id !== id);
+  const planBookings = bookings.filter(b => b.planId === id);
+  planBookings.forEach(b => sbDelete('bookings', b.id));
+  bookings = bookings.filter(b => b.planId !== id);
   renderPurchasePlanTable();
+  renderBookingsTable();
   showToast('Purchase plan entry deleted.');
 }
 
