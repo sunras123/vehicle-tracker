@@ -3643,9 +3643,23 @@ function renderStockTable() {
       <td>${p.variant || '-'}</td>
       <td>${p.year || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td><span class="badge badge-${p.status}">${p.status}</span></td>
+      <td>
+        <span class="badge badge-${p.status}">${p.status}</span>
+        ${p.status === 'available' ? `<button class="btn btn-sm" style="margin-left:6px;background:#8e44ad;color:white;padding:2px 8px;font-size:0.75rem" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>` : ''}
+      </td>
     </tr>`;
   }).join('');
+}
+
+function openBookingForVehicle(vehicleId) {
+  showTab('bookings');
+  setTimeout(() => {
+    const sel = document.getElementById('b_vehicle');
+    if (sel) { sel.value = vehicleId; autoFillBookingListPrice(); }
+    document.getElementById('b_date').value = today();
+    document.getElementById('tab-bookings').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Vehicle pre-selected — fill in booking details and save.', 'success');
+  }, 100);
 }
 
 function renderOrderPlanStock() {
