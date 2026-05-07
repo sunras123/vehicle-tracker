@@ -3707,7 +3707,11 @@ function renderOrderPlanStock() {
       <td>${p.variant || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-      <td>${booking ? `<span style="color:#27ae60;font-weight:600">&#10003; ${booking.customer}</span>` : '<span style="color:#aaa">&#8212;</span>'}</td>
+      <td>
+        ${booking
+          ? `<span style="color:#27ae60;font-weight:600">&#10003; ${booking.customer}</span>`
+          : `<span style="color:#aaa">&#8212;</span><button class="btn btn-sm" style="margin-left:6px;background:#8e44ad;color:white;padding:2px 8px;font-size:0.75rem" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button>`}
+      </td>
     </tr>`;
   }).join('');
 }
