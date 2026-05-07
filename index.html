@@ -3655,11 +3655,10 @@ function renderStockTable() {
 }
 
 function renderOrderPlanStock() {
-  const allPlans    = purchasePlans.filter(p => p.lcstatus === 'opened');
-  const unbookedPlans = allPlans.filter(p => !bookings.find(b => b.planId === p.id));
+  const plans = purchasePlans.filter(p => p.lcstatus === 'opened' && !bookings.find(b => b.planId === p.id));
 
   const grid = {};
-  unbookedPlans.forEach(p => {
+  plans.forEach(p => {
     if (!grid[p.model]) grid[p.model] = {};
     const col = p.colour || 'Unspecified';
     grid[p.model][col] = (grid[p.model][col] || 0) + 1;
@@ -3687,10 +3686,10 @@ function renderOrderPlanStock() {
   const tbody = document.getElementById('orderPlanStockBody');
   const empty = document.getElementById('orderPlanStockEmpty');
   if (!tbody) return;
-  if (allPlans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  if (plans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  tbody.innerHTML = allPlans.map((p, i) => {
+  tbody.innerHTML = plans.map((p, i) => {
     const hex     = getColourHex(p.colour);
     const booking = bookings.find(b => b.planId === p.id);
     return `<tr>
