@@ -2343,7 +2343,13 @@ function renderPurchasePlanTable() {
   tbody.innerHTML = data.map((p, i) => {
     const pb = bookings.find(b => b.planId === p.id);
     const bookingCell = pb
-      ? `<span style="color:#27ae60;font-weight:600;font-size:0.85rem;">&#10003; ${pb.customer}</span>`
+      ? `<div style="font-size:0.82rem;line-height:1.6">
+           <span style="color:#27ae60;font-weight:700">&#10003; ${pb.customer}</span><br>
+           ${pb.phone    ? `<span style="color:#555">&#128222; ${pb.phone}</span><br>` : ''}
+           ${pb.cid      ? `<span style="color:#555">ID: ${pb.cid}</span><br>` : ''}
+           ${pb.delivery ? `<span style="color:#e67e22">Delivery: ${pb.delivery}</span><br>` : ''}
+           ${pb.deposit  ? `<span style="color:#2980b9">Deposit: ${fmt(pb.deposit)}</span>` : ''}
+         </div>`
       : `<span style="color:#aaa;">&#8212;</span>`;
     const bookBtn = pb
       ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
