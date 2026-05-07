@@ -965,7 +965,6 @@
             <th class="sortable-th" onclick="setStockSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th" onclick="setStockSort('year')" data-col="year">Year</th>
             <th class="sortable-th" onclick="setStockSort('colour')" data-col="colour">Colour</th>
-            <th class="sortable-th" onclick="setStockSort('days')" data-col="days">Days in Stock</th>
             <th class="sortable-th" onclick="setStockSort('status')" data-col="status">Status</th>
           </tr>
         </thead>
@@ -3639,8 +3638,6 @@ function renderStockTable() {
 
   tbody.innerHTML = stock.map((p, i) => {
     const hex  = getColourHex(p.colour);
-    const days = daysBetween(p.date, todayStrSort);
-    const daysColor = days > 90 ? '#e74c3c' : days > 60 ? '#e67e22' : '#27ae60';
     return `<tr>
       <td>${i+1}</td>
       <td>${p.date}</td>
@@ -3648,7 +3645,6 @@ function renderStockTable() {
       <td>${p.variant || '-'}</td>
       <td>${p.year || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td style="color:${daysColor};font-weight:600">${days}</td>
       <td><span class="badge badge-${p.status}">${p.status}</span></td>
     </tr>`;
   }).join('');
