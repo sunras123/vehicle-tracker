@@ -972,6 +972,34 @@
       <div>No vehicles in stock.</div>
     </div>
   </div>
+
+  <!-- ORDER PLAN STOCK -->
+  <div class="panel" style="margin-top:20px">
+    <h3>&#128203; Vehicles on Order (Order Plan)</h3>
+    <div class="model-stock-grid" id="orderPlanStockGrid"></div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Model</th>
+            <th>Variant</th>
+            <th>Colour</th>
+            <th>PO No.</th>
+            <th style="text-align:right">FOB (USD)</th>
+            <th>LC Status</th>
+            <th>Booked By</th>
+          </tr>
+        </thead>
+        <tbody id="orderPlanStockBody"></tbody>
+      </table>
+    </div>
+    <div id="orderPlanStockEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#128203;</div>
+      <div>No vehicles on order.</div>
+    </div>
+  </div>
 </div>
 
 <!-- FINANCIALS TAB -->
@@ -1760,7 +1788,7 @@ function setupRealtime() {
     .on('postgres_changes', {event:'*', schema:'public', table:'purchases'}, async () => {
       const { data } = await sb.from('purchases').select('*');
       purchases = (data||[]).map(purchaseFromDB);
-      renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderSummary(); renderFinancials(); renderPriceList();
+      renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock(); renderSummary(); renderFinancials(); renderPriceList();
     })
     .subscribe(onStatus('purchases'));
 
@@ -3526,9 +3554,10 @@ function renderBookingsTable() {
 // STOCK
 // ============================================================
 function renderStockCards() {
-  const stock  = purchases.filter(p => p.status === 'available');
-  const booked = purchases.filter(p => p.status === 'booked');
-  const sold   = purchases.filter(p => p.status === 'sold');
+  const stock    = purchases.filter(p => p.status === 'available');
+  const booked   = purchases.filter(p => p.status === 'booked');
+  const sold     = purchases.filter(p => p.status === 'sold');
+  const onOrder  = purchasePlans.filter(p => p.lcstatus === 'opened');
   const stockValue = stock.reduce((s,p) => s + (p.totalCost||0), 0);
 
   const container = document.getElementById('stockCards');
@@ -3536,6 +3565,7 @@ function renderStockCards() {
   container.innerHTML = `
     <div class="card green"><div class="card-label">Available Stock</div><div class="card-value">${stock.length}</div><div class="card-sub">${fmt(stockValue)} total cost</div></div>
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery</div></div>
+    <div class="card purple"><div class="card-label">On Order</div><div class="card-value">${onOrder.length}</div><div class="card-sub">Order Plan (LC Opened)</div></div>
     <div class="card red"><div class="card-label">Sold</div><div class="card-value">${sold.length}</div><div class="card-sub">All time</div></div>
     <div class="card blue"><div class="card-label">Total Acquired</div><div class="card-value">${purchases.length}</div><div class="card-sub">All vehicles</div></div>
   `;
@@ -3616,6 +3646,58 @@ function renderStockTable() {
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
       <td style="color:${daysColor};font-weight:600">${days}</td>
       <td><span class="badge badge-${p.status}">${p.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderOrderPlanStock() {
+  const plans = purchasePlans.filter(p => p.lcstatus === 'opened');
+
+  const grid = {};
+  plans.forEach(p => {
+    if (!grid[p.model]) grid[p.model] = {};
+    const col = p.colour || 'Unspecified';
+    grid[p.model][col] = (grid[p.model][col] || 0) + 1;
+  });
+
+  const gridEl = document.getElementById('orderPlanStockGrid');
+  if (gridEl) {
+    if (Object.keys(grid).length === 0) {
+      gridEl.innerHTML = '';
+    } else {
+      gridEl.innerHTML = Object.entries(grid).map(([model, colours]) => {
+        const total = Object.values(colours).reduce((a,b) => a+b, 0);
+        const chips = Object.entries(colours).map(([col, cnt]) => {
+          const hex = getColourHex(col);
+          return `<div class="color-chip"><span class="color-dot" style="background:${hex};width:10px;height:10px;min-width:10px"></span>${col} (${cnt})</div>`;
+        }).join('');
+        return `<div class="model-card">
+          <h4>${model} <span style="background:#8e44ad;color:white;border-radius:12px;padding:1px 8px;font-size:0.72rem;margin-left:4px">${total}</span></h4>
+          <div class="color-chips">${chips}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  const tbody = document.getElementById('orderPlanStockBody');
+  const empty = document.getElementById('orderPlanStockEmpty');
+  if (!tbody) return;
+  if (plans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = plans.map((p, i) => {
+    const hex     = getColourHex(p.colour);
+    const booking = bookings.find(b => b.planId === p.id);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${p.date}</td>
+      <td><strong>${p.model}</strong></td>
+      <td>${p.variant || '-'}</td>
+      <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
+      <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
+      <td style="text-align:right">${p.fob ? fmtNum(p.fob) : '-'}</td>
+      <td><span style="color:#2980b9;font-weight:600">Opened</span></td>
+      <td>${booking ? `<span style="color:#27ae60;font-weight:600">&#10003; ${booking.customer}</span>` : '<span style="color:#aaa">&#8212;</span>'}</td>
     </tr>`;
   }).join('');
 }
@@ -4377,6 +4459,7 @@ function refreshAll() {
   renderStockCards();
   renderModelStockGrid();
   renderStockTable();
+  renderOrderPlanStock();
   renderFinancials();
   initDashControls();
   renderSummary();
@@ -4504,7 +4587,7 @@ async function saveEditPurchase() {
   closeModal('editPurchaseModal');
   showToast('Purchase record updated.');
   renderPurchasesTable();
-  renderStockCards(); renderStockTable();
+  renderStockCards(); renderStockTable(); renderOrderPlanStock();
   updateVehicleSelects();
 }
 
