@@ -428,10 +428,6 @@
         <select id="pp_colour"><option value="">-- Select Colour --</option></select>
       </div>
       <div class="form-group">
-        <label>Quantity</label>
-        <input type="number" id="pp_qty" placeholder="1" min="1" value="1">
-      </div>
-      <div class="form-group">
         <label>PO Number</label>
         <input type="text" id="pp_po" placeholder="Purchase Order number">
       </div>
@@ -476,7 +472,6 @@
             <th class="sortable-th" onclick="setPlanSort('model')" data-col="model">Model</th>
             <th class="sortable-th" onclick="setPlanSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th" onclick="setPlanSort('colour')" data-col="colour">Colour</th>
-            <th class="sortable-th" onclick="setPlanSort('qty')" data-col="qty">Qty</th>
             <th class="sortable-th" onclick="setPlanSort('po')" data-col="po">PO No.</th>
             <th class="sortable-th" onclick="setPlanSort('fob')" data-col="fob">FOB Price (USD)</th>
             <th class="sortable-th" onclick="setPlanSort('lcstatus')" data-col="lcstatus">LC Status</th>
@@ -1539,7 +1534,6 @@
       <div class="form-group"><label>Model</label><select id="epp_model" onchange="updateEditPurchasePlanVariantSelect()"><option value="">-- Select Model --</option></select></div>
       <div class="form-group"><label>Variant</label><select id="epp_variant"><option value="">-- None --</option></select></div>
       <div class="form-group"><label>Colour</label><select id="epp_colour"><option value="">-- Select Colour --</option></select></div>
-      <div class="form-group"><label>Quantity</label><input type="number" id="epp_qty" min="1" value="1"></div>
       <div class="form-group"><label>PO Number</label><input type="text" id="epp_po" placeholder="Purchase Order number"></div>
       <div class="form-group"><label>FOB Price (USD)</label><input type="text" inputmode="decimal" id="epp_fob" placeholder="0.00" oninput="fmtInput(this)"></div>
       <div class="form-group"><label>LC Status</label>
@@ -2142,7 +2136,7 @@ function addPurchasePlan() {
     model,
     variant:  document.getElementById('pp_variant').value,
     colour,
-    qty:      parseInt(document.getElementById('pp_qty').value) || 1,
+    qty:      1,
     po:       document.getElementById('pp_po').value.trim(),
     fob:      parseFloat((document.getElementById('pp_fob').value || '').replace(/,/g,'')) || 0,
     lcstatus,
@@ -2160,7 +2154,6 @@ function clearPurchasePlanForm() {
   ['pp_model','pp_colour','pp_po','pp_fob','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   document.getElementById('pp_variant').innerHTML = '<option value="">-- Select Model First --</option>';
   document.getElementById('pp_date').value = today();
-  document.getElementById('pp_qty').value  = '1';
   document.getElementById('pp_lcstatus').value = 'opened';
 }
 
@@ -2170,9 +2163,7 @@ function updatePlanLcStatus(id, newStatus) {
   const oldStatus = entry.lcstatus;
 
   if (newStatus === 'closed' && oldStatus !== 'closed') {
-    const qty = entry.qty || 1;
-    const qtyNote = qty > 1 ? `\n\nThis plan has qty ${qty} — you will need to add ${qty} separate purchase records.` : '';
-    const confirmed = confirm(`Transfer to Purchases?\n\n${qty} × ${entry.model} ${entry.variant || ''} (${entry.colour}) will be moved to the Purchases tab.\n\nThe purchase form will open pre-filled. Please fill in all cost details and save.${qtyNote}`);
+    const confirmed = confirm(`Transfer to Purchases?\n\n${entry.model} ${entry.variant || ''} (${entry.colour}) will be moved to the Purchases tab.\n\nThe purchase form will open pre-filled. Please fill in all cost details and save.`);
     if (!confirmed) {
       renderPurchasePlanTable();
       return;
@@ -2205,12 +2196,7 @@ function prefillPurchaseFromPlan(entry) {
   }
   document.getElementById('p_po').value   = entry.po || '';
   document.getElementById('p_notes').value = 'From Order Plan (LC closed)';
-  const qty = entry.qty || 1;
-  if (qty > 1) {
-    showToast(`Qty is ${qty} — add ${qty} purchase records one by one.`, 'info');
-  } else {
-    showToast('Purchase form pre-filled. Fill in cost details and save.', 'success');
-  }
+  showToast('Purchase form pre-filled. Fill in cost details and save.', 'success');
   document.getElementById('tab-purchases').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -2231,7 +2217,6 @@ function openEditPurchasePlan(id) {
   if (!p) return;
   document.getElementById('epp_id').value       = p.id;
   document.getElementById('epp_date').value     = p.date || '';
-  document.getElementById('epp_qty').value      = p.qty || 1;
   document.getElementById('epp_po').value       = p.po || '';
   document.getElementById('epp_fob').value      = p.fob ? fmtNum(p.fob) : '';
   document.getElementById('epp_lcstatus').value = p.lcstatus || 'opened';
@@ -2278,7 +2263,7 @@ async function saveEditPurchasePlan() {
   p.model    = model;
   p.variant  = document.getElementById('epp_variant').value;
   p.colour   = colour;
-  p.qty      = parseInt(document.getElementById('epp_qty').value) || 1;
+  p.qty      = 1;
   p.po       = document.getElementById('epp_po').value.trim();
   p.fob      = parseFloat((document.getElementById('epp_fob').value || '').replace(/,/g,'')) || 0;
   p.lcstatus = document.getElementById('epp_lcstatus').value;
@@ -2297,7 +2282,7 @@ function renderPurchasePlanTable() {
   updatePurchasePlanDropdowns();
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
   const lcf    = document.getElementById('ppLcFilter')?.value || '';
-  const numCols = ['qty','fob'];
+  const numCols = ['fob'];
   const data = purchasePlans
     .filter(p => [p.model, p.colour, p.variant].join(' ').toLowerCase().includes(search) && (!lcf || p.lcstatus === lcf))
     .sort((a, b) => {
@@ -2336,7 +2321,6 @@ function renderPurchasePlanTable() {
     <td><strong>${p.model}</strong></td>
     <td>${p.variant || '-'}</td>
     <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
-    <td style="text-align:center">${p.qty || 1}</td>
     <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
     <td style="text-align:right">${p.fob ? fmtNum(p.fob) : '-'}</td>
     <td>
@@ -2906,7 +2890,7 @@ function setPlanSort(col) {
     ppSortDir = ppSortDir === 'asc' ? 'desc' : 'asc';
   } else {
     ppSortCol = col;
-    ppSortDir = ['qty','fob'].includes(col) ? 'desc' : 'asc';
+    ppSortDir = col === 'fob' ? 'desc' : 'asc';
   }
   renderPurchasePlanTable();
 }
@@ -4667,7 +4651,7 @@ function openBookPlanModal(planId) {
   const existing = bookings.find(b => b.planId === planId);
   document.getElementById('bp_plan_id').value = planId;
   document.getElementById('bookPlanInfo').innerHTML =
-    `<strong>${p.model}${p.variant ? ' ' + p.variant : ''}</strong> &nbsp;|&nbsp; ${p.colour} &nbsp;|&nbsp; Qty: ${p.qty || 1} &nbsp;|&nbsp; PO: ${p.po || '&#8212;'}`;
+    `<strong>${p.model}${p.variant ? ' ' + p.variant : ''}</strong> &nbsp;|&nbsp; ${p.colour} &nbsp;|&nbsp; PO: ${p.po || '&#8212;'}`;
   document.getElementById('bp_date').value     = existing ? existing.date     : today();
   document.getElementById('bp_customer').value = existing ? (existing.customer || '') : '';
   document.getElementById('bp_cid').value      = existing ? (existing.cid      || '') : '';
@@ -5156,12 +5140,11 @@ function renderRptOrderPlan() {
 
   const cards = document.getElementById('rptPPCards');
   if (cards) {
-    const totalQty = data.reduce((s,p) => s + (p.qty||0), 0);
     const totalFob = data.reduce((s,p) => s + (p.fob||0), 0);
     const byLC = {};
     data.forEach(p => { byLC[p.lcstatus] = (byLC[p.lcstatus]||0) + 1; });
     cards.innerHTML = `
-      <div class="card blue"><div class="card-label">Plan Entries</div><div class="card-value">${data.length}</div><div class="card-sub">${totalQty} units total</div></div>
+      <div class="card blue"><div class="card-label">Plan Entries</div><div class="card-value">${data.length}</div></div>
       <div class="card green"><div class="card-label">LC Opened</div><div class="card-value">${byLC.opened||0}</div></div>
       <div class="card orange"><div class="card-label">LC Pending</div><div class="card-value">${byLC.pending||0}</div></div>
       <div class="card"><div class="card-label">LC Closed</div><div class="card-value">${byLC.closed||0}</div></div>
@@ -5170,18 +5153,18 @@ function renderRptOrderPlan() {
   }
 
   const rptPPThead = document.getElementById('rptPPThead');
-  if (rptPPThead) rptPPThead.innerHTML = `<tr><th>#</th>${rptTh('orderplan','date','Date')}${rptTh('orderplan','model','Model')}${rptTh('orderplan','variant','Variant')}${rptTh('orderplan','colour','Colour')}${rptTh('orderplan','qty','Qty','text-align:right')}${rptTh('orderplan','po','PO No.')}${rptTh('orderplan','fob','FOB (USD)','text-align:right')}${rptTh('orderplan','lcstatus','LC Status')}${rptTh('orderplan','notes','Notes')}</tr>`;
+  if (rptPPThead) rptPPThead.innerHTML = `<tr><th>#</th>${rptTh('orderplan','date','Date')}${rptTh('orderplan','model','Model')}${rptTh('orderplan','variant','Variant')}${rptTh('orderplan','colour','Colour')}${rptTh('orderplan','po','PO No.')}${rptTh('orderplan','fob','FOB (USD)','text-align:right')}${rptTh('orderplan','lcstatus','LC Status')}${rptTh('orderplan','notes','Notes')}</tr>`;
 
   const tbody = document.getElementById('rptPPBody');
   if (!tbody) return;
   if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No order plans in this period</td></tr>'; return; }
-  const ppGetVal = (p, col) => (col === 'qty' || col === 'fob') ? (p[col]||0) : (p[col]||'');
+  const ppGetVal = (p, col) => col === 'fob' ? (p[col]||0) : (p[col]||'');
   tbody.innerHTML = [...data].sort(rptCmp('orderplan', ppGetVal, ['qty','fob'])).map((p,i) => {
     const lcCls = p.lcstatus==='closed'?'#27ae60':p.lcstatus==='opened'?'#2980b9':'#e67e22';
     return `<tr>
       <td>${i+1}</td><td>${p.date}</td>
       <td><strong>${p.model}</strong></td><td>${p.variant||'-'}</td>
-      <td>${p.colour||'-'}</td><td style="text-align:right">${p.qty||1}</td>
+      <td>${p.colour||'-'}</td>
       <td>${p.po||'-'}</td><td style="text-align:right">${fmtNum(p.fob||0)}</td>
       <td><span style="color:${lcCls};font-weight:600;text-transform:capitalize">${p.lcstatus}</span></td>
       <td>${p.notes||'-'}</td>
