@@ -2168,40 +2168,50 @@ function updatePlanLcStatus(id, newStatus) {
   const entry = purchasePlans.find(p => p.id === id);
   if (!entry) return;
   const oldStatus = entry.lcstatus;
+
+  if (newStatus === 'closed' && oldStatus !== 'closed') {
+    const qty = entry.qty || 1;
+    const qtyNote = qty > 1 ? `\n\nThis plan has qty ${qty} — you will need to add ${qty} separate purchase records.` : '';
+    const confirmed = confirm(`Transfer to Purchases?\n\n${qty} × ${entry.model} ${entry.variant || ''} (${entry.colour}) will be moved to the Purchases tab.\n\nThe purchase form will open pre-filled. Please fill in all cost details and save.${qtyNote}`);
+    if (!confirmed) {
+      renderPurchasePlanTable();
+      return;
+    }
+  }
+
   entry.lcstatus = newStatus;
   saveOne('purchase_plans', entry);
-  if (['closed', 'delivered'].includes(newStatus) && !['closed', 'delivered'].includes(oldStatus)) {
-    convertPlanToPurchases(entry);
-    showToast(`${entry.qty} × ${entry.model} moved to Purchases.`, 'success');
+
+  if (newStatus === 'closed' && oldStatus !== 'closed') {
+    prefillPurchaseFromPlan(entry);
   }
+
   renderPurchasePlanTable();
 }
 
-function convertPlanToPurchases(entry) {
-  const newPurchases = [];
-  for (let i = 0; i < (entry.qty || 1); i++) {
-    const p = {
-      id:        genId(),
-      date:      today(),
-      make:      'BYD',
-      model:     entry.model,
-      variant:   entry.variant || '',
-      year:      new Date().getFullYear().toString(),
-      colour:    entry.colour,
-      cost: 0, exrate: 0, shipping: 0, transport: 0, customs: 0,
-      excise: 0, gst: 0, dv: 0, permit: 0, loading: 0,
-      service: 0, driver: 0, fuel: 0, insurance: 0, addcost: 0,
-      totalCost: 0,
-      pi: '', po: '', notes: `From purchase plan (LC closed)`,
-      status: 'available'
-    };
-    newPurchases.push(p);
-    purchases.push(p);
+function prefillPurchaseFromPlan(entry) {
+  clearPurchaseForm();
+  showTab('purchases');
+  document.getElementById('p_date').value = today();
+  const modelSel = document.getElementById('p_model');
+  modelSel.value = entry.model;
+  updatePurchaseVariantSelect();
+  document.getElementById('p_variant').value = entry.variant || '';
+  updatePurchaseColourSelect();
+  document.getElementById('p_colour').value = entry.colour || '';
+  if (entry.fob) {
+    document.getElementById('p_cost').value = fmtNum(entry.fob);
+    calcFobNu();
   }
-  saveMany('purchases', newPurchases, purchaseToDB);
-  updateVehicleSelects();
-  renderPurchasesTable();
-  showToast(`${entry.qty} × ${entry.model} (${entry.colour}) added to Purchases — fill in cost details.`, 'success');
+  document.getElementById('p_po').value   = entry.po || '';
+  document.getElementById('p_notes').value = 'From Order Plan (LC closed)';
+  const qty = entry.qty || 1;
+  if (qty > 1) {
+    showToast(`Qty is ${qty} — add ${qty} purchase records one by one.`, 'info');
+  } else {
+    showToast('Purchase form pre-filled. Fill in cost details and save.', 'success');
+  }
+  document.getElementById('tab-purchases').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function deletePurchasePlan(id) {
