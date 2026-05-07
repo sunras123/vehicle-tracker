@@ -1326,8 +1326,16 @@
           <tr>
             <th>#</th>
             <th>Username</th>
-            <th>Role</th>
-            <th>Created</th>
+            <th style="text-align:center">Dashboard</th>
+            <th style="text-align:center">Price List</th>
+            <th style="text-align:center">Catalogue</th>
+            <th style="text-align:center">Order Plan</th>
+            <th style="text-align:center">Purchases</th>
+            <th style="text-align:center">Sales</th>
+            <th style="text-align:center">Bookings</th>
+            <th style="text-align:center">Stock</th>
+            <th style="text-align:center">Financials</th>
+            <th style="text-align:center">Reports</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -1371,14 +1379,6 @@
         <input type="text" id="au_username" placeholder="Enter username" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Role</label>
-        <select id="au_role">
-          <option value="sales">Sales</option>
-          <option value="accounts">Accounts</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>
-      <div class="form-group">
         <label>Password</label>
         <input type="password" id="au_password" placeholder="Set password" autocomplete="new-password">
       </div>
@@ -1387,6 +1387,7 @@
         <input type="password" id="au_confirm" placeholder="Confirm password" autocomplete="new-password">
       </div>
     </div>
+    <p style="font-size:0.82rem;color:#888;margin:4px 0 0">Tab access can be configured after creating the user.</p>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveNewUser()">&#10003; Create User</button>
       <button class="btn" onclick="closeModal('addUserModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
@@ -1404,14 +1405,6 @@
       <div class="form-group">
         <label>Username</label>
         <input type="text" id="eu_username" placeholder="Username" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label>Role</label>
-        <select id="eu_role">
-          <option value="sales">Sales</option>
-          <option value="accounts">Accounts</option>
-          <option value="admin">Admin</option>
-        </select>
       </div>
       <div class="form-group">
         <label>New Password <span style="font-size:0.78rem;color:#aaa;font-weight:400">(leave blank to keep current)</span></label>
@@ -1690,7 +1683,7 @@ async function loadAll() {
       sb.from('price_list').select('*'),
       sb.from('users').select('*'),
     ]);
-  credUsers = (usr || []).map(u => ({ id: u.id, username: u.username, role: u.role, passwordHash: u.password_hash, created: u.created }));
+  credUsers = (usr || []).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], passwordHash: u.password_hash, created: u.created }));
 
   // First-run migration: if Supabase is empty, seed from localStorage
   if (!pur || pur.length === 0) {
@@ -1827,7 +1820,7 @@ function setupRealtime() {
   sb.channel('rt-users')
     .on('postgres_changes', {event:'*', schema:'public', table:'users'}, async () => {
       const { data } = await sb.from('users').select('*');
-      credUsers = (data||[]).map(u => ({ id: u.id, username: u.username, role: u.role, passwordHash: u.password_hash, created: u.created }));
+      credUsers = (data||[]).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], passwordHash: u.password_hash, created: u.created }));
       renderCredUsers();
     })
     .subscribe(onStatus('users'));
@@ -1856,7 +1849,7 @@ let credUsers     = [];
 let catColours    = [];
 let purchasePlans = [];
 let priceLists    = [];
-let currentRole   = '';
+let currentUser   = null;
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
@@ -3499,7 +3492,7 @@ function renderBookingsTable() {
       ? `<strong>${src.model}</strong><br><small>${src.variant||''}</small>${isPlan ? ' <span style="font-size:0.7rem;background:#8e44ad;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">ORDER PLAN</span>' : ''}`
       : 'N/A';
     return `<tr class="${overdue ? 'highlight-row' : ''}">
-      <td style="text-align:center">${currentRole === 'admin' ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
+      <td style="text-align:center">${isSuperAdmin() ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
       <td>${i+1}</td>
       <td>${b.date}</td>
       <td style="font-size:0.78rem;font-family:monospace">${src ? src.po || '-' : '-'}</td>
@@ -4066,16 +4059,18 @@ function renderPriceList() {
     <td><strong>${pl.model}</strong></td>
     <td>${pl.variant || '-'}</td>
     <td style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</td>
-    <td>${currentRole === 'admin' ? `<button class="btn btn-sm" style="background:#e8f0fe;color:#1a73e8;margin-right:4px" onclick="editPriceListEntry('${pl.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>` : ''}</td>
+    <td>${isSuperAdmin() ? `<button class="btn btn-sm" style="background:#e8f0fe;color:#1a73e8;margin-right:4px" onclick="editPriceListEntry('${pl.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>` : ''}</td>
   </tr>`).join('');
 }
 
 // ============================================================
 // LOGIN / SESSION
 // ============================================================
-const VIEW_TABS     = ['pricelist','bookings','stock'];
-const ACCOUNTS_TABS = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock'];
-const ADMIN_TABS    = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports','credentials'];
+const SUPER_ADMINS  = ['thinley','sunil'];
+
+function isSuperAdmin() {
+  return currentUser && SUPER_ADMINS.includes(currentUser.username.toLowerCase());
+}
 
 function attemptLogin() {
   try {
@@ -4106,33 +4101,34 @@ function attemptLogin() {
     document.getElementById('login-screen').style.display = 'none';
     const sess = document.getElementById('header_session');
     sess.style.display = 'flex';
-    document.getElementById('header_user_label').textContent = user.username + ' (' + user.role + ')';
+    document.getElementById('header_user_label').textContent = user.username;
 
-    applyRoleAccess(user.role);
+    applyTabAccess(user);
   } catch(e) {
     document.getElementById('login_error').textContent = 'Error: ' + e.message;
   }
 }
 
-function applyRoleAccess(role) {
-  currentRole = role;
-  const allowed = role === 'admin' ? ADMIN_TABS : role === 'accounts' ? ACCOUNTS_TABS : VIEW_TABS;
+function applyTabAccess(user) {
+  currentUser = user;
+  const isAdmin = SUPER_ADMINS.includes(user.username.toLowerCase());
+  const allowed = isAdmin ? TAB_NAMES : (user.allowedTabs || []);
   const allBtns = document.querySelectorAll('.tab-btn');
   TAB_NAMES.forEach((name, idx) => {
-    if (allBtns[idx]) allBtns[idx].style.display = allowed.includes(name) ? '' : 'none';
+    if (allBtns[idx]) allBtns[idx].style.display = (isAdmin || allowed.includes(name)) ? '' : 'none';
   });
   const plPanel = document.getElementById('pl_add_panel');
-  if (plPanel) plPanel.style.display = role === 'admin' ? '' : 'none';
+  if (plPanel) plPanel.style.display = isAdmin ? '' : 'none';
   const convertTh = document.getElementById('bookings_convert_th');
-  if (convertTh) convertTh.style.display = role === 'admin' ? '' : 'none';
-  showTab(allowed[0]);
+  if (convertTh) convertTh.style.display = isAdmin ? '' : 'none';
+  const firstTab = isAdmin ? 'summary' : (TAB_NAMES.find(t => allowed.includes(t)) || 'summary');
+  showTab(firstTab);
 }
 
 function logout() {
-  // Log logout event before clearing session
-  const label = document.getElementById('header_user_label').textContent;
-  const username = label ? label.split(' (')[0] : 'Unknown';
+  const username = currentUser ? currentUser.username : 'Unknown';
   writeLoginLog(username, 'Logout');
+  currentUser = null;
 
   document.getElementById('login_username').value = '';
   document.getElementById('login_password').value = '';
@@ -4188,7 +4184,8 @@ function credLoad() { return credUsers; }
 
 async function credUpsert(user) {
   const { error } = await sb.from('users').upsert({
-    id: user.id, username: user.username, role: user.role,
+    id: user.id, username: user.username,
+    allowed_tabs: user.allowedTabs || [],
     password_hash: user.passwordHash, created: user.created,
   }, { onConflict: 'id' });
   if (error) { showToast('Save failed: ' + error.message, 'error'); return false; }
@@ -4238,13 +4235,11 @@ function clearCredentialForm() {
 
 function openAddUserModal() {
   ['au_username','au_password','au_confirm'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('au_role').value = 'staff';
   document.getElementById('addUserModal').classList.add('open');
 }
 
 async function saveNewUser() {
   const username = document.getElementById('au_username').value.trim();
-  const role     = document.getElementById('au_role').value;
   const pw       = document.getElementById('au_password').value;
   const confirm  = document.getElementById('au_confirm').value;
 
@@ -4256,7 +4251,7 @@ async function saveNewUser() {
     showToast('Username already exists.', 'error'); return;
   }
 
-  const newUser = { id: genId(), username, role, passwordHash: hashPassword(pw), created: new Date().toISOString().substr(0,10) };
+  const newUser = { id: genId(), username, allowedTabs: [], passwordHash: hashPassword(pw), created: new Date().toISOString().substr(0,10) };
   const ok = await credUpsert(newUser);
   if (!ok) return;
   credUsers.push(newUser);
@@ -4278,7 +4273,6 @@ function openEditUserModal(id) {
   if (!user) return;
   document.getElementById('eu_id').value       = id;
   document.getElementById('eu_username').value = user.username;
-  document.getElementById('eu_role').value     = user.role;
   document.getElementById('eu_password').value = '';
   document.getElementById('eu_confirm').value  = '';
   document.getElementById('editUserModal').classList.add('open');
@@ -4287,7 +4281,6 @@ function openEditUserModal(id) {
 async function saveEditUser() {
   const id       = document.getElementById('eu_id').value;
   const username = document.getElementById('eu_username').value.trim();
-  const role     = document.getElementById('eu_role').value;
   const pw       = document.getElementById('eu_password').value;
   const confirm  = document.getElementById('eu_confirm').value;
 
@@ -4303,7 +4296,6 @@ async function saveEditUser() {
   }
 
   credUsers[idx].username = username;
-  credUsers[idx].role     = role;
   if (pw) credUsers[idx].passwordHash = hashPassword(pw);
 
   const ok = await credUpsert(credUsers[idx]);
@@ -4313,7 +4305,29 @@ async function saveEditUser() {
   renderCredUsers();
 }
 
-const ROLE_COLORS = { admin:'#e94560', sales:'#2980b9', accounts:'#27ae60' };
+const MANAGEABLE_TABS = [
+  { id: 'summary',      label: 'Dashboard'   },
+  { id: 'pricelist',    label: 'Price List'  },
+  { id: 'catalogue',    label: 'Catalogue'   },
+  { id: 'purchaseplan', label: 'Order Plan'  },
+  { id: 'purchases',    label: 'Purchases'   },
+  { id: 'sales',        label: 'Sales'       },
+  { id: 'bookings',     label: 'Bookings'    },
+  { id: 'stock',        label: 'Stock'       },
+  { id: 'financials',   label: 'Financials'  },
+  { id: 'reports',      label: 'Reports'     },
+];
+
+async function toggleUserTab(userId, tabId, checked) {
+  const user = credUsers.find(u => u.id === userId);
+  if (!user) return;
+  const tabs = [...(user.allowedTabs || [])];
+  if (checked) { if (!tabs.includes(tabId)) tabs.push(tabId); }
+  else { const i = tabs.indexOf(tabId); if (i > -1) tabs.splice(i, 1); }
+  user.allowedTabs = tabs;
+  const ok = await credUpsert(user);
+  if (!ok) { user.allowedTabs = user.allowedTabs; renderCredUsers(); }
+}
 
 function renderCredUsers() {
   loadLoginLogs();
@@ -4321,20 +4335,29 @@ function renderCredUsers() {
   const tbody = document.getElementById('credUsersBody');
   if (!tbody) return;
   if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa">No users yet. Add one above.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${MANAGEABLE_TABS.length + 3}" style="text-align:center;color:#aaa">No users yet. Add one above.</td></tr>`;
     return;
   }
-  tbody.innerHTML = users.map((u, i) => `
+  tbody.innerHTML = users.map((u, i) => {
+    const isSuper = SUPER_ADMINS.includes(u.username.toLowerCase());
+    const tabs = u.allowedTabs || [];
+    const cells = MANAGEABLE_TABS.map(t => {
+      const checked = isSuper || tabs.includes(t.id);
+      const disabled = isSuper ? 'disabled title="Super-admin always has full access"' : '';
+      return `<td style="text-align:center"><input type="checkbox" style="width:16px;height:16px;accent-color:#e94560;cursor:${isSuper?'default':'pointer'}" ${checked?'checked':''} ${disabled} onchange="toggleUserTab('${u.id}','${t.id}',this.checked)"></td>`;
+    }).join('');
+    const adminBadge = isSuper ? `<span style="font-size:0.72rem;background:#e9456022;color:#e94560;border-radius:4px;padding:2px 6px;margin-left:6px">super-admin</span>` : '';
+    return `
     <tr>
       <td>${i+1}</td>
-      <td><strong>${u.username}</strong></td>
-      <td><span class="badge" style="background:${(ROLE_COLORS[u.role]||'#888')}22;color:${ROLE_COLORS[u.role]||'#888'}">${u.role}</span></td>
-      <td>${u.created || '-'}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap">
+      <td><strong>${u.username}</strong>${adminBadge}</td>
+      ${cells}
+      <td style="display:flex;gap:4px;flex-wrap:wrap;min-width:120px">
         <button class="btn btn-warning btn-sm" onclick="openEditUserModal('${u.id}')">&#9998; Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteCredUser('${u.id}')">Delete</button>
+        ${!isSuper ? `<button class="btn btn-danger btn-sm" onclick="deleteCredUser('${u.id}')">Delete</button>` : ''}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ============================================================
