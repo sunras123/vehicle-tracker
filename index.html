@@ -3557,7 +3557,7 @@ function renderStockCards() {
   const stock    = purchases.filter(p => p.status === 'available');
   const booked   = purchases.filter(p => p.status === 'booked');
   const sold     = purchases.filter(p => p.status === 'sold');
-  const onOrder  = purchasePlans.filter(p => p.lcstatus === 'opened');
+  const onOrder  = purchasePlans.filter(p => p.lcstatus === 'opened' && !bookings.find(b => b.planId === p.id));
   const stockValue = stock.reduce((s,p) => s + (p.totalCost||0), 0);
 
   const container = document.getElementById('stockCards');
@@ -3651,7 +3651,7 @@ function renderStockTable() {
 }
 
 function renderOrderPlanStock() {
-  const plans = purchasePlans.filter(p => p.lcstatus === 'opened');
+  const plans = purchasePlans.filter(p => p.lcstatus === 'opened' && !bookings.find(b => b.planId === p.id));
 
   const grid = {};
   plans.forEach(p => {
