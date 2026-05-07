@@ -990,8 +990,6 @@
             <th>Variant</th>
             <th>Colour</th>
             <th>PO No.</th>
-            <th style="text-align:right">FOB (USD)</th>
-            <th>LC Status</th>
             <th>Booked By</th>
           </tr>
         </thead>
@@ -3695,8 +3693,6 @@ function renderOrderPlanStock() {
       <td>${p.variant || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-      <td style="text-align:right">${p.fob ? fmtNum(p.fob) : '-'}</td>
-      <td><span style="color:#2980b9;font-weight:600">Opened</span></td>
       <td>${booking ? `<span style="color:#27ae60;font-weight:600">&#10003; ${booking.customer}</span>` : '<span style="color:#aaa">&#8212;</span>'}</td>
     </tr>`;
   }).join('');
