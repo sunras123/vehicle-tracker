@@ -2333,7 +2333,6 @@ function renderPurchasePlanTable() {
       <select onchange="updatePlanLcStatus('${p.id}', this.value)"
         style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
         <option value="opened"    ${p.lcstatus==='opened'    ?'selected':''}>Opened</option>
-        <option value="pending"   ${p.lcstatus==='pending'   ?'selected':''}>Pending</option>
         <option value="closed"    ${p.lcstatus==='closed'    ?'selected':''}>Closed</option>
       </select>
     </td>
