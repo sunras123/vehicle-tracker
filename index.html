@@ -1957,8 +1957,10 @@ function normCatModel(m) {
 function addModelColour(modelId, colourName) {
   if (!colourName) return;
   const m = catModels.find(x => x.id === modelId);
-  if (!m || m.colours.includes(colourName)) return;
-  m.colours = [...m.colours, colourName];
+  if (!m) return;
+  // Remove any exclusion entry and skip if already active
+  m.colours = m.colours.filter(c => c !== '!' + colourName);
+  if (!m.colours.includes(colourName)) m.colours = [...m.colours, colourName];
   saveOne('cat_models', m);
   renderCatalogue();
 }
@@ -1967,6 +1969,22 @@ function removeModelColour(modelId, colourName) {
   const m = catModels.find(x => x.id === modelId);
   if (!m) return;
   m.colours = m.colours.filter(c => c !== colourName);
+  saveOne('cat_models', m);
+  renderCatalogue();
+}
+
+function excludeModelColour(modelId, colourName) {
+  const m = catModels.find(x => x.id === modelId);
+  if (!m || m.colours.includes('!' + colourName)) return;
+  m.colours = [...m.colours.filter(c => c !== colourName), '!' + colourName];
+  saveOne('cat_models', m);
+  renderCatalogue();
+}
+
+function restoreModelColour(modelId, colourName) {
+  const m = catModels.find(x => x.id === modelId);
+  if (!m) return;
+  m.colours = m.colours.filter(c => c !== '!' + colourName);
   saveOne('cat_models', m);
   renderCatalogue();
 }
@@ -2050,18 +2068,25 @@ function renderCatalogue() {
         .filter(p => (p.model||'').trim().toLowerCase() === mName && (p.variant||'').trim().toLowerCase() === mVar && p.colour)
         .map(p => p.colour)
     )];
-    const manualColours = m.colours || [];
-    const allShown = new Set([...purColours, ...manualColours]);
-    const purChips = purColours.map(col => {
+    const allColours = m.colours || [];
+    const manualColours = allColours.filter(c => !c.startsWith('!'));
+    const excludedColours = new Set(allColours.filter(c => c.startsWith('!')).map(c => c.slice(1)));
+    const activePurColours = purColours.filter(col => !excludedColours.has(col));
+    const hiddenPurColours = purColours.filter(col => excludedColours.has(col));
+    const allShown = new Set([...activePurColours, ...manualColours]);
+    const purChips = activePurColours.map(col => {
       const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
-      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}</span>`;
+      return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="excludeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Hide this colour for model">&times;</span></span>`;
     }).join('');
-    const manChips = manualColours.filter(col => !purColours.includes(col)).map(col => {
+    const manChips = manualColours.filter(col => !activePurColours.includes(col)).map(col => {
       const hex = (catColours.find(c => c.name === col) || {}).hex || '#ccc';
       return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="removeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Remove">&times;</span></span>`;
     }).join('');
-    const addOptions = catColours.filter(c => !allShown.has(c.name)).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    const addOptions = catColours.filter(c => !allShown.has(c.name) && !excludedColours.has(c.name)).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
     const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">Add colour</option>${addOptions}</select>`;
+    const hiddenSection = hiddenPurColours.length > 0
+      ? `<div style="margin:2px 0 0 34px;font-size:0.72rem;color:#bbb">Hidden: ${hiddenPurColours.map(col => `<span onclick="restoreModelColour('${m.id}','${col}')" style="cursor:pointer;text-decoration:underline dotted;margin-right:6px" title="Restore">${col}</span>`).join('')}</div>`
+      : '';
     return `
       <div class="cat-item" style="flex-direction:column;align-items:flex-start;gap:6px">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
@@ -2075,6 +2100,7 @@ function renderCatalogue() {
           <button class="btn btn-danger btn-sm" onclick="deleteCatModel('${m.id}')">Remove</button>
         </div>
         <div class="color-chips" style="margin:0 0 0 34px">${purChips}${manChips}${addDropdown}</div>
+        ${hiddenSection}
       </div>
     `;
   }).join('');
@@ -2123,9 +2149,12 @@ function colourOptionsForModel(modelName, variant, currentColour) {
       .filter(p => (p.model||'').trim().toLowerCase() === mName && (p.variant||'').trim().toLowerCase() === mVar && p.colour)
       .map(p => p.colour)
   )];
-  const manColours = (m && m.colours) ? m.colours : [];
-  const combined = [...new Set([...purColours, ...manColours])];
-  const names = combined.length > 0 ? combined : catColours.map(c => c.name);
+  const allColours = (m && m.colours) ? m.colours : [];
+  const excludedColours = new Set(allColours.filter(c => c.startsWith('!')).map(c => c.slice(1)));
+  const manColours = allColours.filter(c => !c.startsWith('!'));
+  const activePur = purColours.filter(col => !excludedColours.has(col));
+  const combined = [...new Set([...activePur, ...manColours])];
+  const names = combined.length > 0 ? combined : catColours.map(c => c.name).filter(n => !excludedColours.has(n));
   return '<option value="">-- Select Colour --</option>' +
     names.map(n => `<option value="${n}"${n===currentColour?' selected':''}>${n}</option>`).join('');
 }
