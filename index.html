@@ -1968,6 +1968,7 @@ function addModelColour(modelId, colourName) {
 function removeModelColour(modelId, colourName) {
   const m = catModels.find(x => x.id === modelId);
   if (!m) return;
+  if (!confirm(`Remove "${colourName}" from ${m.name}${m.variant ? ' ' + m.variant : ''}?`)) return;
   m.colours = m.colours.filter(c => c !== colourName);
   saveOne('cat_models', m);
   renderCatalogue();
@@ -1976,6 +1977,7 @@ function removeModelColour(modelId, colourName) {
 function excludeModelColour(modelId, colourName) {
   const m = catModels.find(x => x.id === modelId);
   if (!m || m.colours.includes('!' + colourName)) return;
+  if (!confirm(`Hide "${colourName}" from ${m.name}${m.variant ? ' ' + m.variant : ''}?\n\nIt will no longer appear in colour dropdowns for this model. You can restore it later.`)) return;
   m.colours = [...m.colours.filter(c => c !== colourName), '!' + colourName];
   saveOne('cat_models', m);
   renderCatalogue();
