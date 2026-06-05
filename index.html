@@ -940,7 +940,12 @@
   </div>
 
   <div class="panel">
-    <h3>&#128203; Stock by Model &amp; Colour for Vehicles on Order (Order Plan)</h3>
+    <h3>&#128674; Stock by Model &amp; Colour — In Transit (Unbooked)</h3>
+    <div class="model-stock-grid" id="inTransitStockGrid"></div>
+  </div>
+
+  <div class="panel">
+    <h3>&#128203; Stock by Model &amp; Colour — LC Opened (Unbooked)</h3>
     <div class="model-stock-grid" id="orderPlanStockGrid"></div>
   </div>
 
@@ -977,9 +982,9 @@
     </div>
   </div>
 
-  <!-- ORDER PLAN STOCK RECORDS -->
+  <!-- ORDER PLAN STOCK RECORDS (unbooked, both In Transit and LC Opened) -->
   <div class="panel">
-    <h3>&#128203; List of Vehicles on Order (Order Plan)</h3>
+    <h3>&#128203; Unbooked Vehicles on Order</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -990,7 +995,7 @@
             <th class="sortable-th op-sortable-th" onclick="setOpSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('po')" data-col="po">PO No.</th>
-            <th class="sortable-th op-sortable-th" onclick="setOpSort('status')" data-col="status">Status</th>
+            <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstatus')" data-col="lcstatus">LC Status</th>
           </tr>
         </thead>
         <tbody id="orderPlanStockBody"></tbody>
@@ -998,7 +1003,7 @@
     </div>
     <div id="orderPlanStockEmpty" class="empty-state" style="display:none">
       <div class="empty-icon">&#128203;</div>
-      <div>No vehicles on order.</div>
+      <div>No unbooked vehicles on order.</div>
     </div>
   </div>
 </div>
@@ -3620,48 +3625,31 @@ function renderBookingsTable() {
 // STOCK
 // ============================================================
 function renderStockCards() {
-  const stock    = purchases.filter(p => p.status === 'available');
-  const booked   = purchases.filter(p => p.status === 'booked');
-  const sold     = purchases.filter(p => p.status === 'sold');
-  const onOrder  = purchasePlans.filter(p => p.lcstatus === 'opened' && !bookings.find(b => b.planId === p.id));
+  const stock      = purchases.filter(p => p.status === 'available');
+  const booked     = purchases.filter(p => p.status === 'booked');
+  const inTransit  = purchasePlans.filter(p => p.lcstatus === 'in_transit' && !bookings.find(b => b.planId === p.id));
+  const onOrder    = purchasePlans.filter(p => p.lcstatus === 'opened'     && !bookings.find(b => b.planId === p.id));
   const stockValue = stock.reduce((s,p) => s + (p.totalCost||0), 0);
 
   const container = document.getElementById('stockCards');
   if (!container) return;
   container.innerHTML = `
-    <div class="card green"><div class="card-label">Available Stock in Showroom for Booking</div><div class="card-value">${stock.length}</div><div class="card-sub">${fmt(stockValue)} total cost</div></div>
+    <div class="card green"><div class="card-label">Available Stock in Showroom</div><div class="card-value">${stock.length}</div><div class="card-sub">${fmt(stockValue)} total cost</div></div>
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery</div></div>
-    <div class="card purple"><div class="card-label">Available for Booking from Orders Made</div><div class="card-value">${onOrder.length}</div><div class="card-sub">Order Plan (LC Opened)</div></div>
+    <div class="card blue"><div class="card-label">In Transit (Unbooked)</div><div class="card-value">${inTransit.length}</div><div class="card-sub">Order Plan — LC In Transit</div></div>
+    <div class="card purple"><div class="card-label">LC Opened (Unbooked)</div><div class="card-value">${onOrder.length}</div><div class="card-sub">Order Plan — LC Opened</div></div>
   `;
 }
 
 function renderModelStockGrid() {
   const stock = purchases.filter(p => p.status === 'available');
-  const grid  = {};
-  stock.forEach(p => {
-    const key = p.model;
-    if (!grid[key]) grid[key] = {};
-    const col = p.colour || 'Unspecified';
-    grid[key][col] = (grid[key][col] || 0) + 1;
-  });
-
   const container = document.getElementById('modelStockGrid');
   if (!container) return;
-  if (Object.keys(grid).length === 0) {
+  if (stock.length === 0) {
     container.innerHTML = '<div class="empty-state" style="width:100%"><div class="empty-icon">&#128218;</div><div>No stock available</div></div>';
     return;
   }
-  container.innerHTML = Object.entries(grid).map(([model, colours]) => {
-    const total = Object.values(colours).reduce((a,b)=>a+b,0);
-    const chips = Object.entries(colours).map(([col, cnt]) => {
-      const hex = getColourHex(col);
-      return `<div class="color-chip"><span class="color-dot" style="background:${hex};width:10px;height:10px;min-width:10px"></span>${col} (${cnt})</div>`;
-    }).join('');
-    return `<div class="model-card">
-      <h4>${model} <span style="background:#e94560;color:white;border-radius:12px;padding:1px 8px;font-size:0.72rem;margin-left:4px">${total}</span></h4>
-      <div class="color-chips">${chips}</div>
-    </div>`;
-  }).join('');
+  renderModelGrid('modelStockGrid', stock, '#e94560');
 }
 
 function renderStockTable() {
@@ -3725,46 +3713,49 @@ function openBookingForVehicle(vehicleId) {
   }, 100);
 }
 
-function renderOrderPlanStock() {
-  const plans = purchasePlans.filter(p => p.lcstatus === 'opened' && !bookings.find(b => b.planId === p.id));
-
+function renderModelGrid(elId, plans, badgeColour) {
+  const el = document.getElementById(elId);
+  if (!el) return;
   const grid = {};
   plans.forEach(p => {
     if (!grid[p.model]) grid[p.model] = {};
     const col = p.colour || 'Unspecified';
     grid[p.model][col] = (grid[p.model][col] || 0) + 1;
   });
+  if (Object.keys(grid).length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = Object.entries(grid).map(([model, colours]) => {
+    const total = Object.values(colours).reduce((a,b) => a+b, 0);
+    const chips = Object.entries(colours).map(([col, cnt]) => {
+      const hex = getColourHex(col);
+      return `<div class="color-chip"><span class="color-dot" style="background:${hex};width:10px;height:10px;min-width:10px"></span>${col} (${cnt})</div>`;
+    }).join('');
+    return `<div class="model-card">
+      <h4>${model} <span style="background:${badgeColour};color:white;border-radius:12px;padding:1px 8px;font-size:0.72rem;margin-left:4px">${total}</span></h4>
+      <div class="color-chips">${chips}</div>
+    </div>`;
+  }).join('');
+}
 
-  const gridEl = document.getElementById('orderPlanStockGrid');
-  if (gridEl) {
-    if (Object.keys(grid).length === 0) {
-      gridEl.innerHTML = '';
-    } else {
-      gridEl.innerHTML = Object.entries(grid).map(([model, colours]) => {
-        const total = Object.values(colours).reduce((a,b) => a+b, 0);
-        const chips = Object.entries(colours).map(([col, cnt]) => {
-          const hex = getColourHex(col);
-          return `<div class="color-chip"><span class="color-dot" style="background:${hex};width:10px;height:10px;min-width:10px"></span>${col} (${cnt})</div>`;
-        }).join('');
-        return `<div class="model-card">
-          <h4>${model} <span style="background:#8e44ad;color:white;border-radius:12px;padding:1px 8px;font-size:0.72rem;margin-left:4px">${total}</span></h4>
-          <div class="color-chips">${chips}</div>
-        </div>`;
-      }).join('');
-    }
-  }
+function renderOrderPlanStock() {
+  const unbooked  = p => !bookings.find(b => b.planId === p.id);
+  const inTransit = purchasePlans.filter(p => p.lcstatus === 'in_transit' && unbooked(p));
+  const opened    = purchasePlans.filter(p => p.lcstatus === 'opened'     && unbooked(p));
+  const allPlans  = [...inTransit, ...opened];
+
+  renderModelGrid('inTransitStockGrid', inTransit, '#e67e22');
+  renderModelGrid('orderPlanStockGrid', opened,    '#8e44ad');
 
   const tbody = document.getElementById('orderPlanStockBody');
   const empty = document.getElementById('orderPlanStockEmpty');
   if (!tbody) return;
-  if (plans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  if (allPlans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  plans.sort((a, b) => {
-    const bkA = bookings.find(x => x.planId === a.id);
-    const bkB = bookings.find(x => x.planId === b.id);
-    let av = opSortCol === 'status' ? (bkA ? 'booked' : 'available') : (a[opSortCol] ?? '');
-    let bv = opSortCol === 'status' ? (bkB ? 'booked' : 'available') : (b[opSortCol] ?? '');
+  const lcColour = { in_transit: '#e67e22', opened: '#2980b9' };
+  const lcLabel  = { in_transit: 'In Transit', opened: 'Opened' };
+
+  allPlans.sort((a, b) => {
+    let av = a[opSortCol] ?? '', bv = b[opSortCol] ?? '';
     if (av < bv) return opSortDir === 'asc' ? -1 : 1;
     if (av > bv) return opSortDir === 'asc' ? 1 : -1;
     return 0;
@@ -3775,9 +3766,10 @@ function renderOrderPlanStock() {
     th.classList.toggle('sort-desc', th.dataset.col === opSortCol && opSortDir === 'desc');
   });
 
-  tbody.innerHTML = plans.map((p, i) => {
-    const hex     = getColourHex(p.colour);
-    const booking = bookings.find(b => b.planId === p.id);
+  tbody.innerHTML = allPlans.map((p, i) => {
+    const hex   = getColourHex(p.colour);
+    const lcc   = lcColour[p.lcstatus] || '#888';
+    const lcl   = lcLabel[p.lcstatus]  || p.lcstatus;
     return `<tr>
       <td>${i+1}</td>
       <td>${p.date}</td>
@@ -3785,11 +3777,7 @@ function renderOrderPlanStock() {
       <td>${p.variant || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-      <td>
-        ${booking
-          ? `<span style="color:#27ae60;font-weight:600">&#10003; ${booking.customer}</span>`
-          : `<span style="color:#aaa">&#8212;</span><button class="btn btn-sm" style="margin-left:6px;background:#8e44ad;color:white;padding:2px 8px;font-size:0.75rem" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button>`}
-      </td>
+      <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${lcc};color:${lcc};font-weight:600;font-size:0.82rem;background:${lcc}18">${lcl}</span></td>
     </tr>`;
   }).join('');
 }
