@@ -439,6 +439,7 @@
         <label>LC Status</label>
         <select id="pp_lcstatus">
           <option value="opened">Opened</option>
+          <option value="in_transit">In Transit</option>
         </select>
       </div>
       <div class="form-group">
@@ -459,6 +460,7 @@
       <select id="ppLcFilter" onchange="renderPurchasePlanTable()">
         <option value="">All LC Status</option>
         <option value="opened">Opened</option>
+        <option value="in_transit">In Transit</option>
       </select>
     </div>
     <div class="table-wrap">
@@ -1567,6 +1569,7 @@
       <div class="form-group"><label>LC Status</label>
         <select id="epp_lcstatus">
           <option value="opened">Opened</option>
+          <option value="in_transit">In Transit</option>
           <option value="closed">Closed</option>
         </select>
       </div>
@@ -2387,7 +2390,7 @@ function renderPurchasePlanTable() {
   if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  const lcBadge = { opened: '#2980b9', pending: '#e67e22', closed: '#27ae60', delivered: '#8e44ad' };
+  const lcBadge = { opened: '#2980b9', in_transit: '#e67e22', pending: '#e67e22', closed: '#27ae60', delivered: '#8e44ad' };
   tbody.innerHTML = data.map((p, i) => {
     const pb = bookings.find(b => b.planId === p.id);
     const bookingCell = pb
@@ -2413,8 +2416,9 @@ function renderPurchasePlanTable() {
     <td>
       <select onchange="updatePlanLcStatus('${p.id}', this.value)"
         style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
-        <option value="opened"    ${p.lcstatus==='opened'    ?'selected':''}>Opened</option>
-        <option value="closed"    ${p.lcstatus==='closed'    ?'selected':''}>Closed</option>
+        <option value="opened"     ${p.lcstatus==='opened'     ?'selected':''}>Opened</option>
+        <option value="in_transit" ${p.lcstatus==='in_transit' ?'selected':''}>In Transit</option>
+        <option value="closed"     ${p.lcstatus==='closed'     ?'selected':''}>Closed</option>
       </select>
     </td>
     <td>${bookingCell}</td>
