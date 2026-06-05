@@ -3542,7 +3542,6 @@ function getPlanSrc(b) {
 function renderBookingsTable() {
   const search = document.getElementById('bookingsSearch').value.toLowerCase();
   let data = bookings.filter(b => {
-    if (!b.planId) return false;
     const src = getPlanSrc(b);
     const label = src ? `${src.model} ${src.colour} ${src.po||''}` : '';
     return [b.customer, b.phone, label].join(' ').toLowerCase().includes(search);
