@@ -439,7 +439,6 @@
         <label>LC Status</label>
         <select id="pp_lcstatus">
           <option value="opened">Opened</option>
-          <option value="closed">Closed</option>
         </select>
       </div>
       <div class="form-group">
@@ -460,7 +459,6 @@
       <select id="ppLcFilter" onchange="renderPurchasePlanTable()">
         <option value="">All LC Status</option>
         <option value="opened">Opened</option>
-        <option value="closed">Closed</option>
       </select>
     </div>
     <div class="table-wrap">
@@ -2208,9 +2206,17 @@ function addPurchasePlan() {
     lcstatus,
     notes:    document.getElementById('pp_notes').value.trim()
   };
+  if (lcstatus === 'closed') {
+    autoCreatePurchaseFromPlan(entry);
+    showToast(`Purchase created: ${model} (${colour}). Edit to add full cost details.`, 'success');
+    trackActivity('added purchase from order plan');
+    clearPurchasePlanForm();
+    showTab('purchases');
+    renderPurchasesTable();
+    return;
+  }
   purchasePlans.push(entry);
   saveOne('purchase_plans', entry);
-  if (['closed', 'delivered'].includes(lcstatus)) convertPlanToPurchases(entry);
   showToast(`Purchase plan added: ${model} (${colour})`);
   trackActivity('edited order plan');
   clearPurchasePlanForm();
@@ -2227,20 +2233,21 @@ function clearPurchasePlanForm() {
 function updatePlanLcStatus(id, newStatus) {
   const entry = purchasePlans.find(p => p.id === id);
   if (!entry) return;
-  const oldStatus = entry.lcstatus;
 
-  if (newStatus === 'closed' && oldStatus !== 'closed') {
-    const confirmed = confirm(`Transfer to Purchases?\n\n${entry.model} ${entry.variant || ''} (${entry.colour}) will be moved to the Purchases tab.\n\nThe purchase form will open pre-filled. Please fill in all cost details and save.`);
-    if (!confirmed) {
+  if (newStatus === 'closed' && entry.lcstatus !== 'closed') {
+    const label = `${entry.model}${entry.variant ? ' ' + entry.variant : ''} (${entry.colour})`;
+    if (!confirm(`Move to Purchases?\n\n${label} will be added to the Purchases tab and removed from Order Plan.\n\nYou can edit the purchase entry to add full cost details.`)) {
       renderPurchasePlanTable();
       return;
     }
-  }
-
-  if (newStatus === 'closed' && oldStatus !== 'closed') {
-    prefillPurchaseFromPlan(entry);   // calls clearPurchaseForm internally, so set flag after
-    pendingPlanClose = entry.id;
+    autoCreatePurchaseFromPlan(entry);
+    sbDelete('purchase_plans', id);
+    purchasePlans = purchasePlans.filter(p => p.id !== id);
     renderPurchasePlanTable();
+    renderPurchasesTable();
+    showTab('purchases');
+    showToast(`${entry.model} moved to Purchases. Edit to add full cost details.`, 'success');
+    trackActivity('moved order plan to purchases');
     return;
   }
 
@@ -2249,24 +2256,19 @@ function updatePlanLcStatus(id, newStatus) {
   renderPurchasePlanTable();
 }
 
-function prefillPurchaseFromPlan(entry) {
-  clearPurchaseForm();
-  showTab('purchases');
-  document.getElementById('p_date').value = today();
-  const modelSel = document.getElementById('p_model');
-  modelSel.value = entry.model;
-  updatePurchaseVariantSelect();
-  document.getElementById('p_variant').value = entry.variant || '';
-  updatePurchaseColourSelect();
-  document.getElementById('p_colour').value = entry.colour || '';
-  if (entry.fob) {
-    document.getElementById('p_cost').value = fmtNum(entry.fob);
-    calcFobNu();
-  }
-  document.getElementById('p_po').value   = entry.po || '';
-  document.getElementById('p_notes').value = 'From Order Plan (LC closed)';
-  showToast('Purchase form pre-filled. Fill in cost details and save.', 'success');
-  document.getElementById('tab-purchases').scrollIntoView({ behavior: 'smooth', block: 'start' });
+function autoCreatePurchaseFromPlan(plan) {
+  const cost = plan.fob || 0;
+  const entry = {
+    id: genId(), date: today(), make: 'BYD',
+    model: plan.model, variant: plan.variant || '', year: '', colour: plan.colour,
+    cost, exrate: 0, shipping: 0, transport: 0, customs: 0, excise: 0,
+    gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
+    fuel: 0, insurance: 0, addcost: 0, totalCost: cost,
+    pi: '', po: plan.po || '', notes: 'From Order Plan (LC closed)', status: 'available'
+  };
+  purchases.push(entry);
+  saveOne('purchases', entry, purchaseToDB);
+  return entry;
 }
 
 function deletePurchasePlan(id) {
@@ -2337,11 +2339,20 @@ async function saveEditPurchasePlan() {
   p.fob      = parseFloat((document.getElementById('epp_fob').value || '').replace(/,/g,'')) || 0;
   p.lcstatus = document.getElementById('epp_lcstatus').value;
   p.notes    = document.getElementById('epp_notes').value.trim();
+  if (p.lcstatus === 'closed' && oldStatus !== 'closed') {
+    autoCreatePurchaseFromPlan(p);
+    sbDelete('purchase_plans', p.id);
+    purchasePlans = purchasePlans.filter(x => x.id !== p.id);
+    closeModal('editPurchasePlanModal');
+    renderPurchasePlanTable();
+    renderPurchasesTable();
+    showTab('purchases');
+    showToast(`${p.model} moved to Purchases. Edit to add full cost details.`, 'success');
+    trackActivity('edited order plan');
+    return;
+  }
   const ok = await saveOne('purchase_plans', p);
   if (!ok) return;
-  if (['closed', 'delivered'].includes(p.lcstatus) && !['closed', 'delivered'].includes(oldStatus)) {
-    convertPlanToPurchases(p);
-  }
   closeModal('editPurchasePlanModal');
   renderPurchasePlanTable();
   showToast('Order plan entry updated.');
@@ -2354,7 +2365,7 @@ function renderPurchasePlanTable() {
   const lcf    = document.getElementById('ppLcFilter')?.value || '';
   const numCols = ['fob'];
   const data = purchasePlans
-    .filter(p => [p.model, p.colour, p.variant].join(' ').toLowerCase().includes(search) && (!lcf || p.lcstatus === lcf))
+    .filter(p => p.lcstatus !== 'closed' && [p.model, p.colour, p.variant].join(' ').toLowerCase().includes(search) && (!lcf || p.lcstatus === lcf))
     .sort((a, b) => {
       let av = a[ppSortCol] ?? '', bv = b[ppSortCol] ?? '';
       if (numCols.includes(ppSortCol)) {
@@ -2886,13 +2897,6 @@ function addPurchase() {
   showToast(`Vehicle added: ${model} (${colour})`);
   trackActivity('added purchase');
 
-  if (pendingPlanClose) {
-    const plan = purchasePlans.find(p => p.id === pendingPlanClose);
-    if (plan) { plan.lcstatus = 'closed'; saveOne('purchase_plans', plan); }
-    pendingPlanClose = null;
-    renderPurchasePlanTable();
-  }
-
   clearPurchaseForm();
   renderPurchasesTable();
   updateVehicleSelects();
@@ -2927,7 +2931,6 @@ function calcEpShippingNu() {
 }
 
 function clearPurchaseForm() {
-  if (pendingPlanClose) { pendingPlanClose = null; renderPurchasePlanTable(); }
   ['p_year','p_cost','p_exrate','p_shipping','p_transport','p_customs','p_excise','p_gst','p_dv','p_permit','p_loading','p_service','p_driver','p_fuel','p_insurance','p_addcost','p_pi','p_po','p_notes']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('p_fob_nu').value = '—';
