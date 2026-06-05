@@ -996,6 +996,7 @@
             <th class="sortable-th op-sortable-th" onclick="setOpSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('po')" data-col="po">PO No.</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstatus')" data-col="lcstatus">LC Status</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody id="orderPlanStockBody"></tbody>
@@ -3778,6 +3779,7 @@ function renderOrderPlanStock() {
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
       <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${lcc};color:${lcc};font-weight:600;font-size:0.82rem;background:${lcc}18">${lcl}</span></td>
+      <td><button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button></td>
     </tr>`;
   }).join('');
 }
