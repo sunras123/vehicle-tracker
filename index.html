@@ -2415,7 +2415,20 @@ function renderPurchasePlanTable() {
       ? `<span style="font-family:monospace;color:#1a1a2e;font-weight:700;font-size:0.82rem;white-space:nowrap">$${fmtNum(totalFob)} FOB</span>`
       : '';
 
-    const rows = items.map((p, i) => {
+    const sortedItems = [...items].sort((a, b) => {
+      let av = a[ppInnerSortCol] ?? '', bv = b[ppInnerSortCol] ?? '';
+      if (ppInnerSortCol === 'fob') { av = parseFloat(av)||0; bv = parseFloat(bv)||0; return ppInnerSortDir==='asc' ? av-bv : bv-av; }
+      av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+      return ppInnerSortDir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    const ppTh = (col, label, style='') => {
+      const active = ppInnerSortCol === col;
+      const cls = active ? `sortable-th sort-${ppInnerSortDir}` : 'sortable-th';
+      return `<th class="${cls}" onclick="setPpInnerSort('${col}')" data-col="${col}"${style ? ` style="${style}"` : ''}>${label}</th>`;
+    };
+
+    const rows = sortedItems.map((p, i) => {
       const pb = bookings.find(b => b.planId === p.id);
       const bookingCell = pb
         ? `<div style="font-size:0.8rem;line-height:1.5">
@@ -2466,9 +2479,8 @@ function renderPurchasePlanTable() {
         <div class="inner-wrap">
           <table>
             <thead><tr>
-              <th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th>
-              <th style="text-align:right">FOB (USD)</th><th>LC Status</th>
-              <th>Booking</th><th>Notes</th><th>Action</th>
+              <th>#</th>${ppTh('date','Date')}${ppTh('model','Model')}${ppTh('variant','Variant')}${ppTh('colour','Colour')}${ppTh('fob','FOB (USD)','text-align:right')}${ppTh('lcstatus','LC Status')}
+              <th>Booking</th>${ppTh('notes','Notes')}<th>Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -2480,6 +2492,16 @@ function renderPurchasePlanTable() {
 
 function togglePoGroup(po) {
   if (ppExpandedPos.has(po)) { ppExpandedPos.delete(po); } else { ppExpandedPos.add(po); }
+  renderPurchasePlanTable();
+}
+
+function setPpInnerSort(col) {
+  if (ppInnerSortCol === col) {
+    ppInnerSortDir = ppInnerSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    ppInnerSortCol = col;
+    ppInnerSortDir = col === 'fob' ? 'desc' : 'asc';
+  }
   renderPurchasePlanTable();
 }
 
@@ -3041,6 +3063,8 @@ let salesSortDir = 'desc';
 let ppSortCol = 'date';
 let ppSortDir = 'desc';
 const ppExpandedPos = new Set();
+let ppInnerSortCol = 'date';
+let ppInnerSortDir = 'asc';
 
 function setPlanSort(col) {
   if (ppSortCol === col) {
