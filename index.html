@@ -214,6 +214,28 @@
   .cat-item-sub { font-size: 0.75rem; color: #888; }
   .colour-preview { width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid rgba(0,0,0,0.15); flex-shrink: 0; }
 
+  /* PO group blocks (Order Plan tab) */
+  .po-group { border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: white; }
+  .po-group-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; background: #f8f9fa; cursor: pointer;
+    user-select: none; transition: background 0.15s;
+  }
+  .po-group-header:hover { background: #eef0f5; }
+  .po-group-chevron { font-size: 0.7rem; color: #888; transition: transform 0.2s; width: 14px; flex-shrink: 0; }
+  .po-group.open .po-group-chevron { transform: rotate(90deg); }
+  .po-group-title { font-weight: 700; font-size: 0.95rem; color: #1a1a2e; white-space: nowrap; }
+  .po-group-count { color: #888; font-size: 0.82rem; white-space: nowrap; }
+  .po-group-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+  .po-group-body { display: none; border-top: 1px solid #e0e0e0; }
+  .po-group.open .po-group-body { display: block; }
+  .po-group-body .inner-wrap { overflow-x: auto; }
+  .po-group-body table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .po-group-body thead th { background: #1a1a2e; color: white; padding: 9px 12px; text-align: left; white-space: nowrap; font-size: 0.78rem; }
+  .po-group-body tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .po-group-body tbody tr:last-child td { border-bottom: none; }
+  .po-group-body tbody tr:hover td { background: #f9fafc; }
+
   @media print {
     header, nav, .tab-content:not(.active), #toast { display: none !important; }
     body { background: white; }
@@ -463,24 +485,7 @@
         <option value="in_transit">In Transit</option>
       </select>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead id="ppThead">
-          <tr>
-            <th>#</th>
-            <th class="sortable-th" onclick="setPlanSort('date')" data-col="date">Date</th>
-            <th class="sortable-th" onclick="setPlanSort('model')" data-col="model">Model</th>
-            <th class="sortable-th" onclick="setPlanSort('variant')" data-col="variant">Variant</th>
-            <th class="sortable-th" onclick="setPlanSort('colour')" data-col="colour">Colour</th>
-            <th class="sortable-th" onclick="setPlanSort('po')" data-col="po">PO No.</th>
-            <th class="sortable-th" onclick="setPlanSort('fob')" data-col="fob">FOB Price (USD)</th>
-            <th class="sortable-th" onclick="setPlanSort('lcstatus')" data-col="lcstatus">LC Status</th>
-            <th>Booking</th><th>Notes</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="ppTableBody"></tbody>
-      </table>
-    </div>
+    <div id="ppGroupContainer"></div>
     <div id="ppEmpty" class="empty-state" style="display:none">
       <div class="empty-icon">&#128196;</div>
       <div>No purchase plans added yet.</div>
@@ -2372,70 +2377,110 @@ function renderPurchasePlanTable() {
   updatePurchasePlanDropdowns();
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
   const lcf    = document.getElementById('ppLcFilter')?.value || '';
-  const numCols = ['fob'];
-  const data = purchasePlans
-    .filter(p => p.lcstatus !== 'closed' && [p.model, p.colour, p.variant].join(' ').toLowerCase().includes(search) && (!lcf || p.lcstatus === lcf))
-    .sort((a, b) => {
-      let av = a[ppSortCol] ?? '', bv = b[ppSortCol] ?? '';
-      if (numCols.includes(ppSortCol)) {
-        av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
-        return ppSortDir === 'asc' ? av - bv : bv - av;
-      }
-      av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
-      return ppSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
 
-  document.querySelectorAll('#ppThead .sortable-th').forEach(th => {
-    th.classList.remove('sort-asc','sort-desc');
-    if (th.dataset.col === ppSortCol) th.classList.add('sort-' + ppSortDir);
-  });
+  const data = purchasePlans.filter(p =>
+    p.lcstatus !== 'closed' &&
+    [p.model, p.colour, p.variant, p.po].join(' ').toLowerCase().includes(search) &&
+    (!lcf || p.lcstatus === lcf)
+  );
 
-  const tbody = document.getElementById('ppTableBody');
+  const container = document.getElementById('ppGroupContainer');
   const empty = document.getElementById('ppEmpty');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  if (!container) return;
+  if (data.length === 0) { container.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
+  // Group by PO number
+  const groups = {};
+  data.forEach(p => { const po = p.po || '(No PO)'; if (!groups[po]) groups[po] = []; groups[po].push(p); });
+  const poKeys = Object.keys(groups).sort((a, b) => {
+    const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
+    return an !== bn ? an - bn : a.localeCompare(b);
+  });
+
   const lcBadge = { opened: '#2980b9', in_transit: '#e67e22', pending: '#e67e22', closed: '#27ae60', delivered: '#8e44ad' };
-  tbody.innerHTML = data.map((p, i) => {
-    const pb = bookings.find(b => b.planId === p.id);
-    const bookingCell = pb
-      ? `<div style="font-size:0.82rem;line-height:1.6">
-           <span style="color:#27ae60;font-weight:700">&#10003; ${pb.customer}</span><br>
-           ${pb.phone    ? `<span style="color:#555">&#128222; ${pb.phone}</span><br>` : ''}
-           ${pb.cid      ? `<span style="color:#555">ID: ${pb.cid}</span><br>` : ''}
-           ${pb.delivery ? `<span style="color:#e67e22">Delivery: ${pb.delivery}</span><br>` : ''}
-           ${pb.deposit  ? `<span style="color:#2980b9">Deposit: ${fmt(pb.deposit)}</span>` : ''}
-         </div>`
-      : `<span style="color:#aaa;">&#8212;</span>`;
-    const bookBtn = pb
-      ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
-      : `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`;
-    return `<tr>
-    <td>${i+1}</td>
-    <td>${p.date}</td>
-    <td><strong>${p.model}</strong></td>
-    <td>${p.variant || '-'}</td>
-    <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
-    <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-    <td style="text-align:right">${p.fob ? fmtNum(p.fob) : '-'}</td>
-    <td>
-      <select onchange="updatePlanLcStatus('${p.id}', this.value)"
-        style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
-        <option value="opened"     ${p.lcstatus==='opened'     ?'selected':''}>Opened</option>
-        <option value="in_transit" ${p.lcstatus==='in_transit' ?'selected':''}>In Transit</option>
-        <option value="closed"     ${p.lcstatus==='closed'     ?'selected':''}>Closed</option>
-      </select>
-    </td>
-    <td>${bookingCell}</td>
-    <td>${p.notes || '-'}</td>
-    <td style="white-space:nowrap">
-      ${bookBtn}
-      <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
-      <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
-    </td>
-  </tr>`;
+  const lcLabel = { opened: 'Opened', in_transit: 'In Transit', closed: 'Closed', delivered: 'Delivered', pending: 'Pending' };
+
+  container.innerHTML = poKeys.map(po => {
+    const items = groups[po];
+    const isOpen = ppExpandedPos.has(po);
+    const totalFob = items.reduce((s, p) => s + (parseFloat(p.fob) || 0), 0);
+
+    const lcCounts = {};
+    items.forEach(p => { lcCounts[p.lcstatus] = (lcCounts[p.lcstatus] || 0) + 1; });
+    const lcPills = Object.entries(lcCounts).map(([s, n]) =>
+      `<span style="background:${lcBadge[s]||'#888'}22;color:${lcBadge[s]||'#888'};border:1px solid ${lcBadge[s]||'#888'}55;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${lcLabel[s]||s} ×${n}</span>`
+    ).join('');
+    const fobPill = totalFob
+      ? `<span style="font-family:monospace;color:#1a1a2e;font-weight:700;font-size:0.82rem;white-space:nowrap">$${fmtNum(totalFob)} FOB</span>`
+      : '';
+
+    const rows = items.map((p, i) => {
+      const pb = bookings.find(b => b.planId === p.id);
+      const bookingCell = pb
+        ? `<div style="font-size:0.8rem;line-height:1.5">
+             <span style="color:#27ae60;font-weight:700">&#10003; ${pb.customer}</span><br>
+             ${pb.phone    ? `<span style="color:#555">&#128222; ${pb.phone}</span><br>` : ''}
+             ${pb.cid      ? `<span style="color:#555">ID: ${pb.cid}</span><br>` : ''}
+             ${pb.delivery ? `<span style="color:#e67e22">Delivery: ${pb.delivery}</span><br>` : ''}
+             ${pb.deposit  ? `<span style="color:#2980b9">Deposit: ${fmt(pb.deposit)}</span>` : ''}
+           </div>`
+        : `<span style="color:#aaa;">&#8212;</span>`;
+      const bookBtn = pb
+        ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
+        : `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${p.date}</td>
+        <td><strong>${p.model}</strong></td>
+        <td>${p.variant || '-'}</td>
+        <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
+        <td style="text-align:right;font-family:monospace">${p.fob ? fmtNum(p.fob) : '-'}</td>
+        <td>
+          <select onchange="updatePlanLcStatus('${p.id}', this.value)"
+            style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
+            <option value="opened"     ${p.lcstatus==='opened'     ?'selected':''}>Opened</option>
+            <option value="in_transit" ${p.lcstatus==='in_transit' ?'selected':''}>In Transit</option>
+            <option value="closed"     ${p.lcstatus==='closed'     ?'selected':''}>Closed</option>
+          </select>
+        </td>
+        <td>${bookingCell}</td>
+        <td>${p.notes || '-'}</td>
+        <td style="white-space:nowrap">
+          ${bookBtn}
+          <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const poId = po.replace(/[^a-zA-Z0-9._-]/g, '_');
+    return `<div class="po-group${isOpen ? ' open' : ''}" id="po-grp-${poId}">
+      <div class="po-group-header" onclick="togglePoGroup(${JSON.stringify(po)})">
+        <span class="po-group-chevron">&#9654;</span>
+        <span class="po-group-title">PO ${po}</span>
+        <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''}</span>
+        <span class="po-group-meta">${lcPills}${fobPill}</span>
+      </div>
+      <div class="po-group-body">
+        <div class="inner-wrap">
+          <table>
+            <thead><tr>
+              <th>#</th><th>Date</th><th>Model</th><th>Variant</th><th>Colour</th>
+              <th style="text-align:right">FOB (USD)</th><th>LC Status</th>
+              <th>Booking</th><th>Notes</th><th>Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
   }).join('');
+}
+
+function togglePoGroup(po) {
+  if (ppExpandedPos.has(po)) { ppExpandedPos.delete(po); } else { ppExpandedPos.add(po); }
+  renderPurchasePlanTable();
 }
 
 function updatePurchaseDropdowns() {
@@ -2995,6 +3040,7 @@ let salesSortDir = 'desc';
 
 let ppSortCol = 'date';
 let ppSortDir = 'desc';
+const ppExpandedPos = new Set();
 
 function setPlanSort(col) {
   if (ppSortCol === col) {
