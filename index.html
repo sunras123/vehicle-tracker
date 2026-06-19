@@ -2456,7 +2456,7 @@ function renderPurchasePlanTable() {
 
     const poId = po.replace(/[^a-zA-Z0-9._-]/g, '_');
     return `<div class="po-group${isOpen ? ' open' : ''}" id="po-grp-${poId}">
-      <div class="po-group-header" onclick="togglePoGroup(${JSON.stringify(po)})">
+      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="togglePoGroup(this.dataset.po)">
         <span class="po-group-chevron">&#9654;</span>
         <span class="po-group-title">PO ${po}</span>
         <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''}</span>
