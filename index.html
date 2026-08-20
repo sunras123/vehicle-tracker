@@ -453,7 +453,7 @@
       </div>
       <div class="form-group">
         <label>Order Status</label>
-        <select id="pp_status">
+        <select id="pp_status" onchange="updatePPPIVisibility()">
           <option value="placed">Order Placed</option>
           <option value="approved">Order Approved</option>
         </select>
@@ -461,6 +461,26 @@
       <div class="form-group form-row-full">
         <label>Notes</label>
         <input type="text" id="pp_notes" placeholder="Any notes">
+      </div>
+    </div>
+
+    <div id="pp_pi_section" style="display:none">
+      <div class="form-grid" style="margin-top:14px;padding-top:14px;border-top:1px dashed #e0e0e0;">
+        <div class="form-group">
+          <label>Performa Invoice (PI) Status</label>
+          <select id="pp_pistatus" onchange="updatePPPIIssuedVisibility()">
+            <option value="pending">Pending</option>
+            <option value="issued">Issued</option>
+          </select>
+        </div>
+        <div class="form-group" id="pp_pinumber_group" style="display:none">
+          <label>PI Number</label>
+          <input type="text" id="pp_pinumber" placeholder="Performa Invoice number">
+        </div>
+        <div class="form-group" id="pp_pidate_group" style="display:none">
+          <label>PI Date</label>
+          <input type="date" id="pp_pidate">
+        </div>
       </div>
     </div>
 
@@ -1578,13 +1598,34 @@
       <div class="form-group"><label>Colour</label><select id="epp_colour"><option value="">-- Select Colour --</option></select></div>
       <div class="form-group"><label>PO Number</label><input type="text" id="epp_po" placeholder="Purchase Order number"></div>
       <div class="form-group"><label>Order Status</label>
-        <select id="epp_status">
+        <select id="epp_status" onchange="updateEppPIVisibility()">
           <option value="placed">Order Placed</option>
           <option value="approved">Order Approved</option>
         </select>
       </div>
       <div class="form-group form-row-full"><label>Notes</label><input type="text" id="epp_notes" placeholder="Any notes"></div>
     </div>
+
+    <div id="epp_pi_section" style="display:none">
+      <div class="form-grid" style="margin-top:14px;padding-top:14px;border-top:1px dashed #e0e0e0;">
+        <div class="form-group">
+          <label>Performa Invoice (PI) Status</label>
+          <select id="epp_pistatus" onchange="updateEppPIIssuedVisibility()">
+            <option value="pending">Pending</option>
+            <option value="issued">Issued</option>
+          </select>
+        </div>
+        <div class="form-group" id="epp_pinumber_group" style="display:none">
+          <label>PI Number</label>
+          <input type="text" id="epp_pinumber" placeholder="Performa Invoice number">
+        </div>
+        <div class="form-group" id="epp_pidate_group" style="display:none">
+          <label>PI Date</label>
+          <input type="date" id="epp_pidate">
+        </div>
+      </div>
+    </div>
+
     <div class="form-actions" style="margin-top:20px">
       <button class="btn btn-warning" onclick="saveEditPurchasePlan()">&#10003; Save Changes</button>
       <button class="btn" onclick="closeModal('editPurchasePlanModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
@@ -1909,7 +1950,8 @@ function fmtDate(d) {
 // shows a separate DD/MM/YYYY text field alongside it. Programmatic writes must go through
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
-  'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery'];
+  'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
+  'pp_pidate','epp_pidate'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2288,12 +2330,30 @@ function updatePPRowColour(rowId) {
   if (sel) sel.innerHTML = colourOptionsForModel(model, variant, sel.value);
 }
 
+function updatePPPIVisibility() {
+  const status = document.getElementById('pp_status').value;
+  const section = document.getElementById('pp_pi_section');
+  if (section) section.style.display = status === 'approved' ? '' : 'none';
+  updatePPPIIssuedVisibility();
+}
+
+function updatePPPIIssuedVisibility() {
+  const show = document.getElementById('pp_pistatus').value === 'issued';
+  document.getElementById('pp_pinumber_group').style.display = show ? '' : 'none';
+  document.getElementById('pp_pidate_group').style.display = show ? '' : 'none';
+}
+
 function addPurchasePlan() {
   const po     = document.getElementById('pp_po').value.trim();
   const date   = document.getElementById('pp_date').value || today();
   const status = document.getElementById('pp_status').value;
   const notes  = document.getElementById('pp_notes').value.trim();
   if (!po) { showToast('PO Number is required.', 'error'); return; }
+
+  const pistatus = status === 'approved' ? document.getElementById('pp_pistatus').value : '';
+  const piIssued = pistatus === 'issued';
+  const pinumber = piIssued ? document.getElementById('pp_pinumber').value.trim() : '';
+  const pidate   = piIssued ? (document.getElementById('pp_pidate').value || '') : '';
 
   const rows = [...document.querySelectorAll('#ppVehicleRows .pp-vehicle-row')];
   const entries = [];
@@ -2305,7 +2365,7 @@ function addPurchasePlan() {
     if (!model || !colour) return;
     entries.push({
       id: genId(), date, model, variant, colour, qty: 1,
-      po, lcstatus: status, notes
+      po, lcstatus: status, notes, pistatus, pinumber, pidate
     });
   });
   if (entries.length === 0) { showToast('Add at least one vehicle with Model and Colour.', 'error'); return; }
@@ -2318,9 +2378,12 @@ function addPurchasePlan() {
 }
 
 function clearPurchasePlanForm() {
-  ['pp_po','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['pp_po','pp_notes','pp_pinumber'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   setDateField('pp_date', today());
+  setDateField('pp_pidate', '');
   document.getElementById('pp_status').value = 'placed';
+  document.getElementById('pp_pistatus').value = 'pending';
+  updatePPPIVisibility();
   const container = document.getElementById('ppVehicleRows');
   if (container) container.innerHTML = '';
   addPurchasePlanVehicleRow();
@@ -2339,7 +2402,7 @@ function autoCreatePurchaseFromPlan(plan) {
     cost: 0, exrate: 0, shipping: 0, transport: 0, customs: 0, excise: 0,
     gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
     fuel: 0, insurance: 0, addcost: 0, totalCost: 0,
-    pi: '', po: plan.po || '', notes: 'From Purchase Plan', status: 'available'
+    pi: plan.pinumber || '', po: plan.po || '', notes: 'From Purchase Plan', status: 'available'
   };
   purchases.push(entry);
   saveOne('purchases', entry, purchaseToDB);
@@ -2390,6 +2453,19 @@ function deletePurchasePlan(id) {
   showToast('Purchase plan entry deleted.');
 }
 
+function updateEppPIVisibility() {
+  const status = document.getElementById('epp_status').value;
+  const section = document.getElementById('epp_pi_section');
+  if (section) section.style.display = status === 'approved' ? '' : 'none';
+  updateEppPIIssuedVisibility();
+}
+
+function updateEppPIIssuedVisibility() {
+  const show = document.getElementById('epp_pistatus').value === 'issued';
+  document.getElementById('epp_pinumber_group').style.display = show ? '' : 'none';
+  document.getElementById('epp_pidate_group').style.display = show ? '' : 'none';
+}
+
 function openEditPurchasePlan(id) {
   const p = purchasePlans.find(x => x.id === id);
   if (!p) return;
@@ -2398,6 +2474,10 @@ function openEditPurchasePlan(id) {
   document.getElementById('epp_po').value       = p.po || '';
   document.getElementById('epp_status').value   = p.lcstatus || 'placed';
   document.getElementById('epp_notes').value    = p.notes || '';
+  document.getElementById('epp_pistatus').value = p.pistatus || 'pending';
+  document.getElementById('epp_pinumber').value = p.pinumber || '';
+  setDateField('epp_pidate', p.pidate || '');
+  updateEppPIVisibility();
 
   // Populate model select
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
@@ -2443,6 +2523,18 @@ async function saveEditPurchasePlan() {
   p.po       = document.getElementById('epp_po').value.trim();
   p.lcstatus = document.getElementById('epp_status').value;
   p.notes    = document.getElementById('epp_notes').value.trim();
+  p.pistatus = p.lcstatus === 'approved' ? document.getElementById('epp_pistatus').value : '';
+  const piIssued = p.pistatus === 'issued';
+  p.pinumber = piIssued ? document.getElementById('epp_pinumber').value.trim() : '';
+  p.pidate   = piIssued ? (document.getElementById('epp_pidate').value || '') : '';
+
+  // PI info applies to the whole PO — keep every vehicle in this PO in sync, same as Order Status.
+  const siblings = purchasePlans.filter(x => x.po === p.po && x.id !== p.id);
+  siblings.forEach(x => {
+    x.pistatus = p.pistatus; x.pinumber = p.pinumber; x.pidate = p.pidate;
+    saveOne('purchase_plans', x);
+  });
+
   const ok = await saveOne('purchase_plans', p);
   if (!ok) return;
   closeModal('editPurchasePlanModal');
@@ -2480,6 +2572,12 @@ function renderPurchasePlanTable() {
     const poStatus = items[0].lcstatus || 'placed';
     const poColour = PP_STATUS_COLOUR[poStatus] || '#888';
     const poDate = items[0].date || '';
+    const piStatus = items[0].pistatus || '';
+    const piBadge = poStatus === 'approved' && piStatus
+      ? (piStatus === 'issued'
+          ? `<span style="background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Issued${items[0].pinumber ? ' #'+items[0].pinumber : ''}${items[0].pidate ? ' ('+fmtDate(items[0].pidate)+')' : ''}</span>`
+          : `<span style="background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`)
+      : '';
 
     const sortedItems = [...items].sort((a, b) => {
       let av = a[ppInnerSortCol] ?? '', bv = b[ppInnerSortCol] ?? '';
@@ -2537,6 +2635,7 @@ function renderPurchasePlanTable() {
             <option value="placed"   ${poStatus==='placed'   ?'selected':''}>Order Placed</option>
             <option value="approved" ${poStatus==='approved' ?'selected':''}>Order Approved</option>
           </select>
+          ${piBadge}
           <button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>
         </span>
       </div>
