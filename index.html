@@ -214,7 +214,15 @@
   .cat-item-sub { font-size: 0.75rem; color: #888; }
   .colour-preview { width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid rgba(0,0,0,0.15); flex-shrink: 0; }
 
-  /* PO group blocks (Order Plan tab) */
+  /* Purchase Plan vehicle rows (dynamic add form) */
+  .pp-vehicle-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px;
+    align-items: end; margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 8px;
+  }
+  .pp-vehicle-row .form-group { margin: 0; }
+  .pp-vehicle-row .btn-danger { height: 38px; }
+
+  /* PO group blocks (Purchase Plan tab) */
   .po-group { border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: white; }
   .po-group-header {
     display: flex; align-items: center; gap: 12px;
@@ -306,7 +314,7 @@
   <button class="tab-btn active" onclick="showTab('summary')">Dashboard</button>
   <button class="tab-btn" onclick="showTab('pricelist')">Price List</button>
   <button class="tab-btn" onclick="showTab('catalogue')">Models/Colours</button>
-  <button class="tab-btn" onclick="showTab('purchaseplan')">Order Plan</button>
+  <button class="tab-btn" onclick="showTab('purchaseplan')">Purchase Plan</button>
   <button class="tab-btn" onclick="showTab('purchases')">Purchases</button>
   <button class="tab-btn" onclick="showTab('sales')">Sales</button>
   <button class="tab-btn" onclick="showTab('bookings')">Bookings</button>
@@ -431,58 +439,49 @@
 <!-- PURCHASE PLAN TAB -->
 <div id="tab-purchaseplan" class="tab-content">
   <div class="panel">
-    <h3>&#128196; Add Order Plan</h3>
+    <h3>&#128196; Add Purchase Plan (PO)</h3>
     <div class="form-grid">
-      <div class="form-group">
-        <label>Date</label>
-        <input type="date" id="pp_date">
-      </div>
-      <div class="form-group">
-        <label>Vehicle Model</label>
-        <select id="pp_model" onchange="updatePurchasePlanVariantSelect()"><option value="">-- Select Model --</option></select>
-      </div>
-      <div class="form-group">
-        <label>Variant</label>
-        <select id="pp_variant" onchange="updatePurchasePlanColourSelect()"><option value="">-- Select Model First --</option></select>
-      </div>
-      <div class="form-group">
-        <label>Colour</label>
-        <select id="pp_colour"><option value="">-- Select Colour --</option></select>
-      </div>
       <div class="form-group">
         <label>PO Number</label>
         <input type="text" id="pp_po" placeholder="Purchase Order number">
       </div>
       <div class="form-group">
-        <label>FOB Price (USD)</label>
-        <input type="text" inputmode="decimal" id="pp_fob" placeholder="0.00" oninput="fmtInput(this)">
+        <label>Date</label>
+        <input type="date" id="pp_date">
       </div>
       <div class="form-group">
-        <label>LC Status</label>
-        <select id="pp_lcstatus">
-          <option value="opened">Opened</option>
-          <option value="in_transit">In Transit</option>
+        <label>Order Status</label>
+        <select id="pp_status">
+          <option value="placed">Order Placed</option>
+          <option value="approved">Order Approved</option>
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group form-row-full">
         <label>Notes</label>
         <input type="text" id="pp_notes" placeholder="Any notes">
       </div>
     </div>
+
+    <h4 style="margin:20px 0 10px;color:#1a1a2e;font-size:0.92rem;">&#128663; Vehicles in this PO</h4>
+    <div id="ppVehicleRows"></div>
+    <div class="form-actions" style="margin-top:2px">
+      <button type="button" class="btn" onclick="addPurchasePlanVehicleRow()" style="background:#f0f2f5;color:#1a1a2e;">&#10133; Add Another Vehicle</button>
+    </div>
+
     <div class="form-actions">
-      <button class="btn btn-primary" onclick="addPurchasePlan()">&#10133; Add to Plan</button>
+      <button class="btn btn-primary" onclick="addPurchasePlan()">&#128190; Save Purchase Plan</button>
       <button class="btn" onclick="clearPurchasePlanForm()" style="background:#f0f2f5;color:#555;">Clear</button>
     </div>
   </div>
 
   <div class="panel">
-    <h3>&#128196; Order Plan Records</h3>
+    <h3>&#128196; Purchase Plan Records</h3>
     <div class="toolbar">
-      <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour...">
-      <select id="ppLcFilter" onchange="renderPurchasePlanTable()">
-        <option value="">All LC Status</option>
-        <option value="opened">Opened</option>
-        <option value="in_transit">In Transit</option>
+      <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour, PO...">
+      <select id="ppStatusFilter" onchange="renderPurchasePlanTable()">
+        <option value="">All Statuses</option>
+        <option value="placed">Order Placed</option>
+        <option value="approved">Order Approved</option>
       </select>
     </div>
     <div id="ppGroupContainer"></div>
@@ -945,12 +944,12 @@
   </div>
 
   <div class="panel">
-    <h3>&#128674; Stock by Model &amp; Colour — In Transit (Unbooked)</h3>
+    <h3>&#128674; Stock by Model &amp; Colour — Order Approved (Unbooked)</h3>
     <div class="model-stock-grid" id="inTransitStockGrid"></div>
   </div>
 
   <div class="panel">
-    <h3>&#128203; Stock by Model &amp; Colour — LC Opened (Unbooked)</h3>
+    <h3>&#128203; Stock by Model &amp; Colour — Order Placed (Unbooked)</h3>
     <div class="model-stock-grid" id="orderPlanStockGrid"></div>
   </div>
 
@@ -987,7 +986,7 @@
     </div>
   </div>
 
-  <!-- ORDER PLAN STOCK RECORDS (unbooked, both In Transit and LC Opened) -->
+  <!-- PURCHASE PLAN STOCK RECORDS (unbooked, both Order Placed and Order Approved) -->
   <div class="panel">
     <h3>&#128203; Unbooked Vehicles on Order</h3>
     <div class="table-wrap">
@@ -1000,7 +999,7 @@
             <th class="sortable-th op-sortable-th" onclick="setOpSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('po')" data-col="po">PO No.</th>
-            <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstatus')" data-col="lcstatus">LC Status</th>
+            <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstatus')" data-col="lcstatus">Order Status</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -1123,7 +1122,7 @@
           <option value="sales">Sales</option>
           <option value="purchases">Purchases</option>
           <option value="bookings">Bookings</option>
-          <option value="orderplan">Order Plan</option>
+          <option value="orderplan">Purchase Plan</option>
           <option value="financials">Financials</option>
           <option value="stock">Stock</option>
           <option value="pricelist">Price List</option>
@@ -1252,7 +1251,7 @@
   <div id="rptSec_orderplan" style="display:none">
     <div class="cards-grid" id="rptPPCards"></div>
     <div class="panel">
-      <h3>&#128196; Order Plan Records</h3>
+      <h3>&#128196; Purchase Plan Records</h3>
       <div class="table-wrap">
         <table class="fin-table">
           <thead id="rptPPThead"></thead>
@@ -1362,7 +1361,7 @@
             <th style="text-align:center">Dashboard</th>
             <th style="text-align:center">Price List</th>
             <th style="text-align:center">Models/Colours</th>
-            <th style="text-align:center">Order Plan</th>
+            <th style="text-align:center">Purchase Plan</th>
             <th style="text-align:center">Purchases</th>
             <th style="text-align:center">Sales</th>
             <th style="text-align:center">Bookings</th>
@@ -1568,7 +1567,7 @@
 <div class="modal-overlay" id="editPurchasePlanModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('editPurchasePlanModal')">&times;</button>
-    <h3>&#9998; Edit Order Plan Entry</h3>
+    <h3>&#9998; Edit Purchase Plan Entry</h3>
     <input type="hidden" id="epp_id">
     <div class="form-grid">
       <div class="form-group"><label>Date</label><input type="date" id="epp_date"></div>
@@ -1576,12 +1575,10 @@
       <div class="form-group"><label>Variant</label><select id="epp_variant"><option value="">-- None --</option></select></div>
       <div class="form-group"><label>Colour</label><select id="epp_colour"><option value="">-- Select Colour --</option></select></div>
       <div class="form-group"><label>PO Number</label><input type="text" id="epp_po" placeholder="Purchase Order number"></div>
-      <div class="form-group"><label>FOB Price (USD)</label><input type="text" inputmode="decimal" id="epp_fob" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>LC Status</label>
-        <select id="epp_lcstatus">
-          <option value="opened">Opened</option>
-          <option value="in_transit">In Transit</option>
-          <option value="closed">Closed</option>
+      <div class="form-group"><label>Order Status</label>
+        <select id="epp_status">
+          <option value="placed">Order Placed</option>
+          <option value="approved">Order Approved</option>
         </select>
       </div>
       <div class="form-group form-row-full"><label>Notes</label><input type="text" id="epp_notes" placeholder="Any notes"></div>
@@ -1593,11 +1590,11 @@
   </div>
 </div>
 
-<!-- BOOK ORDER PLAN MODAL -->
+<!-- BOOK PURCHASE PLAN MODAL -->
 <div class="modal-overlay" id="bookPlanModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('bookPlanModal')">&times;</button>
-    <h3>&#128197; Book Order Plan Vehicle</h3>
+    <h3>&#128197; Book Purchase Plan Vehicle</h3>
     <div id="bookPlanInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
     <input type="hidden" id="bp_plan_id">
     <div class="form-grid">
@@ -2141,7 +2138,10 @@ function renderCatalogue() {
 }
 
 function refreshColourDropdowns() {
-  updatePurchasePlanColourSelect();
+  document.querySelectorAll('#ppVehicleRows .pp-vehicle-row').forEach(row => {
+    const rowId = row.id.replace('ppRow_', '');
+    updatePPRowColour(rowId);
+  });
   updatePurchaseColourSelect();
 }
 
@@ -2173,116 +2173,166 @@ function colourOptionsForModel(modelName, variant, currentColour) {
     names.map(n => `<option value="${n}"${n===currentColour?' selected':''}>${n}</option>`).join('');
 }
 
-function updatePurchasePlanDropdowns() {
-  const pm = document.getElementById('pp_model');
-  const pc = document.getElementById('pp_colour');
-  if (!pm || !pc) return;
-  const curModel  = pm.value;
-  const curColour = pc.value;
+const PP_STATUS_LABEL = { placed: 'Order Placed', approved: 'Order Approved' };
+const PP_STATUS_COLOUR = { placed: '#e67e22', approved: '#27ae60' };
+
+function refreshPurchasePlanRowModelOptions() {
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
-  pm.innerHTML = '<option value="">-- Select Model --</option>' +
-    uniqueModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}</option>`).join('');
-  updatePurchasePlanVariantSelect();
+  document.querySelectorAll('#ppVehicleRows .pp-vehicle-row').forEach(row => {
+    const rowId = row.id.replace('ppRow_', '');
+    const sel = document.getElementById(`ppr_model_${rowId}`);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- Select Model --</option>' +
+      uniqueModels.map(m => `<option value="${m.name}" ${m.name===cur?'selected':''}>${m.name}</option>`).join('');
+  });
 }
 
-function updatePurchasePlanVariantSelect() {
-  const model = document.getElementById('pp_model').value;
-  const sel   = document.getElementById('pp_variant');
+let ppRowSeq = 0;
+
+function addPurchasePlanVehicleRow() {
+  const rowId = ++ppRowSeq;
+  const container = document.getElementById('ppVehicleRows');
+  if (!container) return rowId;
+  const div = document.createElement('div');
+  div.className = 'pp-vehicle-row';
+  div.id = `ppRow_${rowId}`;
+  div.innerHTML = `
+    <div class="form-group">
+      <label>Vehicle Model</label>
+      <select id="ppr_model_${rowId}" onchange="updatePPRowVariant(${rowId})"><option value="">-- Select Model --</option></select>
+    </div>
+    <div class="form-group">
+      <label>Variant</label>
+      <select id="ppr_variant_${rowId}" onchange="updatePPRowColour(${rowId})"><option value="">-- Select Model First --</option></select>
+    </div>
+    <div class="form-group">
+      <label>Colour</label>
+      <select id="ppr_colour_${rowId}"><option value="">-- Select Colour --</option></select>
+    </div>
+    <button type="button" class="btn btn-danger btn-sm" onclick="removePurchasePlanVehicleRow(${rowId})" title="Remove vehicle">&times;</button>
+  `;
+  container.appendChild(div);
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
+  document.getElementById(`ppr_model_${rowId}`).innerHTML = '<option value="">-- Select Model --</option>' +
+    uniqueModels.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  return rowId;
+}
+
+function removePurchasePlanVehicleRow(rowId) {
+  const rows = document.querySelectorAll('#ppVehicleRows .pp-vehicle-row');
+  if (rows.length <= 1) { showToast('At least one vehicle row is required.', 'error'); return; }
+  const el = document.getElementById(`ppRow_${rowId}`);
+  if (el) el.remove();
+}
+
+function updatePPRowVariant(rowId) {
+  const model = document.getElementById(`ppr_model_${rowId}`).value;
+  const sel   = document.getElementById(`ppr_variant_${rowId}`);
   if (!sel) return;
-  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; return; }
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; updatePPRowColour(rowId); return; }
   const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
-  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
-  sel.innerHTML = variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
-  updatePurchasePlanColourSelect();
+  sel.innerHTML = variants.length === 0
+    ? '<option value="">-- No variants found --</option>'
+    : variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
+  updatePPRowColour(rowId);
 }
 
-function updatePurchasePlanColourSelect() {
-  const model   = document.getElementById('pp_model').value;
-  const variant = document.getElementById('pp_variant').value;
-  const pc = document.getElementById('pp_colour');
-  if (pc) pc.innerHTML = colourOptionsForModel(model, variant, pc.value);
+function updatePPRowColour(rowId) {
+  const model   = document.getElementById(`ppr_model_${rowId}`).value;
+  const variant = document.getElementById(`ppr_variant_${rowId}`).value;
+  const sel = document.getElementById(`ppr_colour_${rowId}`);
+  if (sel) sel.innerHTML = colourOptionsForModel(model, variant, sel.value);
 }
 
 function addPurchasePlan() {
-  const model  = document.getElementById('pp_model').value;
-  const colour = document.getElementById('pp_colour').value;
-  if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
-  const lcstatus = document.getElementById('pp_lcstatus').value;
-  const entry = {
-    id:       genId(),
-    date:     document.getElementById('pp_date').value || today(),
-    model,
-    variant:  document.getElementById('pp_variant').value,
-    colour,
-    qty:      1,
-    po:       document.getElementById('pp_po').value.trim(),
-    fob:      parseFloat((document.getElementById('pp_fob').value || '').replace(/,/g,'')) || 0,
-    lcstatus,
-    notes:    document.getElementById('pp_notes').value.trim()
-  };
-  if (lcstatus === 'closed') {
-    autoCreatePurchaseFromPlan(entry);
-    showToast(`Purchase created: ${model} (${colour}). Edit to add full cost details.`, 'success');
-    trackActivity('added purchase from order plan');
-    clearPurchasePlanForm();
-    showTab('purchases');
-    renderPurchasesTable();
-    return;
-  }
-  purchasePlans.push(entry);
-  saveOne('purchase_plans', entry);
-  showToast(`Purchase plan added: ${model} (${colour})`);
-  trackActivity('edited order plan');
+  const po     = document.getElementById('pp_po').value.trim();
+  const date   = document.getElementById('pp_date').value || today();
+  const status = document.getElementById('pp_status').value;
+  const notes  = document.getElementById('pp_notes').value.trim();
+  if (!po) { showToast('PO Number is required.', 'error'); return; }
+
+  const rows = [...document.querySelectorAll('#ppVehicleRows .pp-vehicle-row')];
+  const entries = [];
+  rows.forEach(row => {
+    const rowId  = row.id.replace('ppRow_', '');
+    const model  = document.getElementById(`ppr_model_${rowId}`)?.value || '';
+    const variant= document.getElementById(`ppr_variant_${rowId}`)?.value || '';
+    const colour = document.getElementById(`ppr_colour_${rowId}`)?.value || '';
+    if (!model || !colour) return;
+    entries.push({
+      id: genId(), date, model, variant, colour, qty: 1,
+      po, lcstatus: status, notes
+    });
+  });
+  if (entries.length === 0) { showToast('Add at least one vehicle with Model and Colour.', 'error'); return; }
+
+  entries.forEach(entry => { purchasePlans.push(entry); saveOne('purchase_plans', entry); });
+  showToast(`Purchase plan saved: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''})`, 'success');
+  trackActivity('added purchase plan');
   clearPurchasePlanForm();
   renderPurchasePlanTable();
 }
 
 function clearPurchasePlanForm() {
-  ['pp_model','pp_colour','pp_po','pp_fob','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('pp_variant').innerHTML = '<option value="">-- Select Model First --</option>';
+  ['pp_po','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   document.getElementById('pp_date').value = today();
-  document.getElementById('pp_lcstatus').value = 'opened';
+  document.getElementById('pp_status').value = 'placed';
+  const container = document.getElementById('ppVehicleRows');
+  if (container) container.innerHTML = '';
+  addPurchasePlanVehicleRow();
 }
 
-function updatePlanLcStatus(id, newStatus) {
-  const entry = purchasePlans.find(p => p.id === id);
-  if (!entry) return;
-
-  if (newStatus === 'closed' && entry.lcstatus !== 'closed') {
-    const label = `${entry.model}${entry.variant ? ' ' + entry.variant : ''} (${entry.colour})`;
-    if (!confirm(`Move to Purchases?\n\n${label} will be added to the Purchases tab and removed from Order Plan.\n\nYou can edit the purchase entry to add full cost details.`)) {
-      renderPurchasePlanTable();
-      return;
-    }
-    autoCreatePurchaseFromPlan(entry);
-    sbDelete('purchase_plans', id);
-    purchasePlans = purchasePlans.filter(p => p.id !== id);
-    renderPurchasePlanTable();
-    renderPurchasesTable();
-    showTab('purchases');
-    showToast(`${entry.model} moved to Purchases. Edit to add full cost details.`, 'success');
-    trackActivity('moved order plan to purchases');
-    return;
-  }
-
-  entry.lcstatus = newStatus;
-  saveOne('purchase_plans', entry);
+function updatePoStatus(po, newStatus) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  items.forEach(p => { p.lcstatus = newStatus; saveOne('purchase_plans', p); });
   renderPurchasePlanTable();
 }
 
 function autoCreatePurchaseFromPlan(plan) {
-  const cost = plan.fob || 0;
   const entry = {
     id: genId(), date: today(), make: 'BYD',
     model: plan.model, variant: plan.variant || '', year: '', colour: plan.colour,
-    cost, exrate: 0, shipping: 0, transport: 0, customs: 0, excise: 0,
+    cost: 0, exrate: 0, shipping: 0, transport: 0, customs: 0, excise: 0,
     gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
-    fuel: 0, insurance: 0, addcost: 0, totalCost: cost,
-    pi: '', po: plan.po || '', notes: 'From Order Plan (LC closed)', status: 'available'
+    fuel: 0, insurance: 0, addcost: 0, totalCost: 0,
+    pi: '', po: plan.po || '', notes: 'From Purchase Plan', status: 'available'
   };
   purchases.push(entry);
   saveOne('purchases', entry, purchaseToDB);
   return entry;
+}
+
+function movePlanToPurchase(id) {
+  const entry = purchasePlans.find(p => p.id === id);
+  if (!entry) return;
+  const label = `${entry.model}${entry.variant ? ' ' + entry.variant : ''} (${entry.colour})`;
+  if (!confirm(`Move to Purchases?\n\n${label} will be added to the Purchases tab and removed from Purchase Plan.`)) return;
+  autoCreatePurchaseFromPlan(entry);
+  sbDelete('purchase_plans', id);
+  purchasePlans = purchasePlans.filter(p => p.id !== id);
+  renderPurchasePlanTable();
+  renderPurchasesTable();
+  showTab('purchases');
+  showToast(`${entry.model} moved to Purchases.`, 'success');
+  trackActivity('moved purchase plan to purchases');
+}
+
+function movePoToPurchases(po) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (items.length === 0) return;
+  if (!confirm(`Move all ${items.length} vehicle(s) in PO ${po} to Purchases?\n\nThey will be removed from Purchase Plan.`)) return;
+  items.forEach(entry => {
+    autoCreatePurchaseFromPlan(entry);
+    sbDelete('purchase_plans', entry.id);
+  });
+  const ids = new Set(items.map(p => p.id));
+  purchasePlans = purchasePlans.filter(p => !ids.has(p.id));
+  renderPurchasePlanTable();
+  renderPurchasesTable();
+  showTab('purchases');
+  showToast(`PO ${po} moved to Purchases (${items.length} vehicles).`, 'success');
+  trackActivity('moved purchase plan PO to purchases');
 }
 
 function deletePurchasePlan(id) {
@@ -2303,8 +2353,7 @@ function openEditPurchasePlan(id) {
   document.getElementById('epp_id').value       = p.id;
   document.getElementById('epp_date').value     = p.date || '';
   document.getElementById('epp_po').value       = p.po || '';
-  document.getElementById('epp_fob').value      = p.fob ? fmtNum(p.fob) : '';
-  document.getElementById('epp_lcstatus').value = p.lcstatus || 'opened';
+  document.getElementById('epp_status').value   = p.lcstatus || 'placed';
   document.getElementById('epp_notes').value    = p.notes || '';
 
   // Populate model select
@@ -2343,45 +2392,29 @@ async function saveEditPurchasePlan() {
   const model  = document.getElementById('epp_model').value;
   const colour = document.getElementById('epp_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
-  const oldStatus = p.lcstatus;
   p.date     = document.getElementById('epp_date').value;
   p.model    = model;
   p.variant  = document.getElementById('epp_variant').value;
   p.colour   = colour;
   p.qty      = 1;
   p.po       = document.getElementById('epp_po').value.trim();
-  p.fob      = parseFloat((document.getElementById('epp_fob').value || '').replace(/,/g,'')) || 0;
-  p.lcstatus = document.getElementById('epp_lcstatus').value;
+  p.lcstatus = document.getElementById('epp_status').value;
   p.notes    = document.getElementById('epp_notes').value.trim();
-  if (p.lcstatus === 'closed' && oldStatus !== 'closed') {
-    autoCreatePurchaseFromPlan(p);
-    sbDelete('purchase_plans', p.id);
-    purchasePlans = purchasePlans.filter(x => x.id !== p.id);
-    closeModal('editPurchasePlanModal');
-    renderPurchasePlanTable();
-    renderPurchasesTable();
-    showTab('purchases');
-    showToast(`${p.model} moved to Purchases. Edit to add full cost details.`, 'success');
-    trackActivity('edited order plan');
-    return;
-  }
   const ok = await saveOne('purchase_plans', p);
   if (!ok) return;
   closeModal('editPurchasePlanModal');
   renderPurchasePlanTable();
-  showToast('Order plan entry updated.');
-  trackActivity('edited order plan');
+  showToast('Purchase plan entry updated.');
+  trackActivity('edited purchase plan');
 }
 
 function renderPurchasePlanTable() {
-  updatePurchasePlanDropdowns();
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
-  const lcf    = document.getElementById('ppLcFilter')?.value || '';
+  const statusF = document.getElementById('ppStatusFilter')?.value || '';
 
   const data = purchasePlans.filter(p =>
-    p.lcstatus !== 'closed' &&
     [p.model, p.colour, p.variant, p.po].join(' ').toLowerCase().includes(search) &&
-    (!lcf || p.lcstatus === lcf)
+    (!statusF || p.lcstatus === statusF)
   );
 
   const container = document.getElementById('ppGroupContainer');
@@ -2398,26 +2431,15 @@ function renderPurchasePlanTable() {
     return an !== bn ? an - bn : a.localeCompare(b);
   });
 
-  const lcBadge = { opened: '#2980b9', in_transit: '#e67e22', pending: '#e67e22', closed: '#27ae60', delivered: '#8e44ad' };
-  const lcLabel = { opened: 'Opened', in_transit: 'In Transit', closed: 'Closed', delivered: 'Delivered', pending: 'Pending' };
-
   container.innerHTML = poKeys.map(po => {
     const items = groups[po];
     const isOpen = ppExpandedPos.has(po);
-    const totalFob = items.reduce((s, p) => s + (parseFloat(p.fob) || 0), 0);
-
-    const lcCounts = {};
-    items.forEach(p => { lcCounts[p.lcstatus] = (lcCounts[p.lcstatus] || 0) + 1; });
-    const lcPills = Object.entries(lcCounts).map(([s, n]) =>
-      `<span style="background:${lcBadge[s]||'#888'}22;color:${lcBadge[s]||'#888'};border:1px solid ${lcBadge[s]||'#888'}55;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${lcLabel[s]||s} ×${n}</span>`
-    ).join('');
-    const fobPill = totalFob
-      ? `<span style="font-family:monospace;color:#1a1a2e;font-weight:700;font-size:0.82rem;white-space:nowrap">$${fmtNum(totalFob)} FOB</span>`
-      : '';
+    const poStatus = items[0].lcstatus || 'placed';
+    const poColour = PP_STATUS_COLOUR[poStatus] || '#888';
+    const poDate = items[0].date || '';
 
     const sortedItems = [...items].sort((a, b) => {
       let av = a[ppInnerSortCol] ?? '', bv = b[ppInnerSortCol] ?? '';
-      if (ppInnerSortCol === 'fob') { av = parseFloat(av)||0; bv = parseFloat(bv)||0; return ppInnerSortDir==='asc' ? av-bv : bv-av; }
       av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
       return ppInnerSortDir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     });
@@ -2448,20 +2470,12 @@ function renderPurchasePlanTable() {
         <td><strong>${p.model}</strong></td>
         <td>${p.variant || '-'}</td>
         <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
-        <td style="text-align:right;font-family:monospace">${p.fob ? fmtNum(p.fob) : '-'}</td>
-        <td>
-          <select onchange="updatePlanLcStatus('${p.id}', this.value)"
-            style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcBadge[p.lcstatus]};color:${lcBadge[p.lcstatus]};font-weight:600;font-size:0.82rem;background:${lcBadge[p.lcstatus]}18;cursor:pointer;">
-            <option value="opened"     ${p.lcstatus==='opened'     ?'selected':''}>Opened</option>
-            <option value="in_transit" ${p.lcstatus==='in_transit' ?'selected':''}>In Transit</option>
-            <option value="closed"     ${p.lcstatus==='closed'     ?'selected':''}>Closed</option>
-          </select>
-        </td>
         <td>${bookingCell}</td>
         <td>${p.notes || '-'}</td>
         <td style="white-space:nowrap">
           ${bookBtn}
           <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
+          <button class="btn btn-sm" onclick="movePlanToPurchase('${p.id}')" style="background:#16a085;color:white;margin-right:4px;">&#128230; To Purchases</button>
           <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
         </td>
       </tr>`;
@@ -2469,17 +2483,25 @@ function renderPurchasePlanTable() {
 
     const poId = po.replace(/[^a-zA-Z0-9._-]/g, '_');
     return `<div class="po-group${isOpen ? ' open' : ''}" id="po-grp-${poId}">
-      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="togglePoGroup(this.dataset.po)">
+      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="if(event.target.closest('.po-group-actions'))return;togglePoGroup(this.dataset.po)">
         <span class="po-group-chevron">&#9654;</span>
         <span class="po-group-title">PO ${po}</span>
         <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''}</span>
-        <span class="po-group-meta">${lcPills}${fobPill}</span>
+        <span style="color:#888;font-size:0.8rem">${poDate}</span>
+        <span class="po-group-actions" style="margin-left:auto;display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+          <select onchange="updatePoStatus('${po.replace(/'/g,"\\'")}', this.value)"
+            style="border-radius:6px;padding:4px 8px;border:1.5px solid ${poColour};color:${poColour};font-weight:600;font-size:0.82rem;background:${poColour}18;cursor:pointer;">
+            <option value="placed"   ${poStatus==='placed'   ?'selected':''}>Order Placed</option>
+            <option value="approved" ${poStatus==='approved' ?'selected':''}>Order Approved</option>
+          </select>
+          <button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>
+        </span>
       </div>
       <div class="po-group-body">
         <div class="inner-wrap">
           <table>
             <thead><tr>
-              <th>#</th>${ppTh('date','Date')}${ppTh('model','Model')}${ppTh('variant','Variant')}${ppTh('colour','Colour')}${ppTh('fob','FOB (USD)','text-align:right')}${ppTh('lcstatus','LC Status')}
+              <th>#</th>${ppTh('date','Date')}${ppTh('model','Model')}${ppTh('variant','Variant')}${ppTh('colour','Colour')}
               <th>Booking</th>${ppTh('notes','Notes')}<th>Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
@@ -2500,7 +2522,7 @@ function setPpInnerSort(col) {
     ppInnerSortDir = ppInnerSortDir === 'asc' ? 'desc' : 'asc';
   } else {
     ppInnerSortCol = col;
-    ppInnerSortDir = col === 'fob' ? 'desc' : 'asc';
+    ppInnerSortDir = 'asc';
   }
   renderPurchasePlanTable();
 }
@@ -2589,6 +2611,8 @@ function updateVehicleSelects() {
     available.map(p =>
       `<option value="${p.id}">${p.model}${p.variant ? ' ' + p.variant : ''} | ${p.colour}</option>`
     ).join('');
+
+  refreshPurchasePlanRowModelOptions();
 
   updatePurchaseDropdowns();
 }
@@ -3698,8 +3722,8 @@ function renderBookingsTable() {
 function renderStockCards() {
   const stock      = purchases.filter(p => p.status === 'available');
   const booked     = purchases.filter(p => p.status === 'booked');
-  const inTransit  = purchasePlans.filter(p => p.lcstatus === 'in_transit' && !bookings.find(b => b.planId === p.id));
-  const onOrder    = purchasePlans.filter(p => p.lcstatus === 'opened'     && !bookings.find(b => b.planId === p.id));
+  const approved   = purchasePlans.filter(p => p.lcstatus === 'approved' && !bookings.find(b => b.planId === p.id));
+  const placed     = purchasePlans.filter(p => p.lcstatus === 'placed'   && !bookings.find(b => b.planId === p.id));
   const stockValue = stock.reduce((s,p) => s + (p.totalCost||0), 0);
 
   const container = document.getElementById('stockCards');
@@ -3707,8 +3731,8 @@ function renderStockCards() {
   container.innerHTML = `
     <div class="card green"><div class="card-label">Available Stock in Showroom</div><div class="card-value">${stock.length}</div><div class="card-sub">${fmt(stockValue)} total cost</div></div>
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery</div></div>
-    <div class="card blue"><div class="card-label">In Transit (Unbooked)</div><div class="card-value">${inTransit.length}</div><div class="card-sub">Order Plan — LC In Transit</div></div>
-    <div class="card purple"><div class="card-label">LC Opened (Unbooked)</div><div class="card-value">${onOrder.length}</div><div class="card-sub">Order Plan — LC Opened</div></div>
+    <div class="card blue"><div class="card-label">Order Approved (Unbooked)</div><div class="card-value">${approved.length}</div><div class="card-sub">Purchase Plan — Order Approved</div></div>
+    <div class="card purple"><div class="card-label">Order Placed (Unbooked)</div><div class="card-value">${placed.length}</div><div class="card-sub">Purchase Plan — Order Placed</div></div>
   `;
 }
 
@@ -3808,22 +3832,19 @@ function renderModelGrid(elId, plans, badgeColour) {
 }
 
 function renderOrderPlanStock() {
-  const unbooked  = p => !bookings.find(b => b.planId === p.id);
-  const inTransit = purchasePlans.filter(p => p.lcstatus === 'in_transit' && unbooked(p));
-  const opened    = purchasePlans.filter(p => p.lcstatus === 'opened'     && unbooked(p));
-  const allPlans  = [...inTransit, ...opened];
+  const unbooked = p => !bookings.find(b => b.planId === p.id);
+  const approved = purchasePlans.filter(p => p.lcstatus === 'approved' && unbooked(p));
+  const placed   = purchasePlans.filter(p => p.lcstatus === 'placed'   && unbooked(p));
+  const allPlans = [...approved, ...placed];
 
-  renderModelGrid('inTransitStockGrid', inTransit, '#e67e22');
-  renderModelGrid('orderPlanStockGrid', opened,    '#8e44ad');
+  renderModelGrid('inTransitStockGrid', approved, '#e67e22');
+  renderModelGrid('orderPlanStockGrid', placed,    '#8e44ad');
 
   const tbody = document.getElementById('orderPlanStockBody');
   const empty = document.getElementById('orderPlanStockEmpty');
   if (!tbody) return;
   if (allPlans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
-
-  const lcColour = { in_transit: '#e67e22', opened: '#2980b9' };
-  const lcLabel  = { in_transit: 'In Transit', opened: 'Opened' };
 
   allPlans.sort((a, b) => {
     let av = a[opSortCol] ?? '', bv = b[opSortCol] ?? '';
@@ -3838,9 +3859,9 @@ function renderOrderPlanStock() {
   });
 
   tbody.innerHTML = allPlans.map((p, i) => {
-    const hex   = getColourHex(p.colour);
-    const lcc   = lcColour[p.lcstatus] || '#888';
-    const lcl   = lcLabel[p.lcstatus]  || p.lcstatus;
+    const hex = getColourHex(p.colour);
+    const sc  = PP_STATUS_COLOUR[p.lcstatus] || '#888';
+    const sl  = PP_STATUS_LABEL[p.lcstatus]  || p.lcstatus;
     return `<tr>
       <td>${i+1}</td>
       <td>${p.date}</td>
@@ -3848,7 +3869,7 @@ function renderOrderPlanStock() {
       <td>${p.variant || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-      <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${lcc};color:${lcc};font-weight:600;font-size:0.82rem;background:${lcc}18">${lcl}</span></td>
+      <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${sc};color:${sc};font-weight:600;font-size:0.82rem;background:${sc}18">${sl}</span></td>
       <td><button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button></td>
     </tr>`;
   }).join('');
@@ -4388,7 +4409,7 @@ let sessionTabsVisited = new Set();
 
 const TAB_LABELS = {
   summary: 'Dashboard', pricelist: 'Price List', catalogue: 'Models/Colours',
-  purchaseplan: 'Order Plan', purchases: 'Purchases', sales: 'Sales',
+  purchaseplan: 'Purchase Plan', purchases: 'Purchases', sales: 'Sales',
   bookings: 'Bookings', stock: 'Stock', financials: 'Financials',
   reports: 'Reports', credentials: 'Credential Mgmt'
 };
@@ -4570,7 +4591,7 @@ const MANAGEABLE_TABS = [
   { id: 'summary',      label: 'Dashboard'   },
   { id: 'pricelist',    label: 'Price List'  },
   { id: 'catalogue',    label: 'Catalogue'   },
-  { id: 'purchaseplan', label: 'Order Plan'  },
+  { id: 'purchaseplan', label: 'Purchase Plan'  },
   { id: 'purchases',    label: 'Purchases'   },
   { id: 'sales',        label: 'Sales'       },
   { id: 'bookings',     label: 'Bookings'    },
@@ -4654,6 +4675,9 @@ document.getElementById('headerDate').textContent =
   if (el) el.value = today();
 });
 
+if (document.getElementById('ppVehicleRows') && !document.getElementById('ppVehicleRows').children.length) {
+  addPurchasePlanVehicleRow();
+}
 
 loadAll();
 setupRealtime();
@@ -5415,33 +5439,30 @@ function renderRptOrderPlan() {
 
   const cards = document.getElementById('rptPPCards');
   if (cards) {
-    const totalFob = data.reduce((s,p) => s + (p.fob||0), 0);
-    const byLC = {};
-    data.forEach(p => { byLC[p.lcstatus] = (byLC[p.lcstatus]||0) + 1; });
+    const byStatus = {};
+    data.forEach(p => { byStatus[p.lcstatus] = (byStatus[p.lcstatus]||0) + 1; });
     cards.innerHTML = `
       <div class="card blue"><div class="card-label">Plan Entries</div><div class="card-value">${data.length}</div></div>
-      <div class="card green"><div class="card-label">LC Opened</div><div class="card-value">${byLC.opened||0}</div></div>
-      <div class="card orange"><div class="card-label">LC Pending</div><div class="card-value">${byLC.pending||0}</div></div>
-      <div class="card"><div class="card-label">LC Closed</div><div class="card-value">${byLC.closed||0}</div></div>
-      <div class="card purple"><div class="card-label">Delivered</div><div class="card-value">${byLC.delivered||0}</div></div>
-      <div class="card purple"><div class="card-label">Total FOB (USD)</div><div class="card-value" style="font-size:1.2rem">$${fmtNum(totalFob)}</div></div>`;
+      <div class="card orange"><div class="card-label">Order Placed</div><div class="card-value">${byStatus.placed||0}</div></div>
+      <div class="card green"><div class="card-label">Order Approved</div><div class="card-value">${byStatus.approved||0}</div></div>`;
   }
 
   const rptPPThead = document.getElementById('rptPPThead');
-  if (rptPPThead) rptPPThead.innerHTML = `<tr><th>#</th>${rptTh('orderplan','date','Date')}${rptTh('orderplan','model','Model')}${rptTh('orderplan','variant','Variant')}${rptTh('orderplan','colour','Colour')}${rptTh('orderplan','po','PO No.')}${rptTh('orderplan','fob','FOB (USD)','text-align:right')}${rptTh('orderplan','lcstatus','LC Status')}${rptTh('orderplan','notes','Notes')}</tr>`;
+  if (rptPPThead) rptPPThead.innerHTML = `<tr><th>#</th>${rptTh('orderplan','date','Date')}${rptTh('orderplan','model','Model')}${rptTh('orderplan','variant','Variant')}${rptTh('orderplan','colour','Colour')}${rptTh('orderplan','po','PO No.')}${rptTh('orderplan','lcstatus','Order Status')}${rptTh('orderplan','notes','Notes')}</tr>`;
 
   const tbody = document.getElementById('rptPPBody');
   if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No order plans in this period</td></tr>'; return; }
-  const ppGetVal = (p, col) => col === 'fob' ? (p[col]||0) : (p[col]||'');
-  tbody.innerHTML = [...data].sort(rptCmp('orderplan', ppGetVal, ['qty','fob'])).map((p,i) => {
-    const lcCls = p.lcstatus==='closed'?'#27ae60':p.lcstatus==='opened'?'#2980b9':'#e67e22';
+  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No purchase plans in this period</td></tr>'; return; }
+  const ppGetVal = (p, col) => p[col] || '';
+  tbody.innerHTML = [...data].sort(rptCmp('orderplan', ppGetVal, ['qty'])).map((p,i) => {
+    const sCls = PP_STATUS_COLOUR[p.lcstatus] || '#888';
+    const sLbl = PP_STATUS_LABEL[p.lcstatus] || p.lcstatus;
     return `<tr>
       <td>${i+1}</td><td>${p.date}</td>
       <td><strong>${p.model}</strong></td><td>${p.variant||'-'}</td>
       <td>${p.colour||'-'}</td>
-      <td>${p.po||'-'}</td><td style="text-align:right">${fmtNum(p.fob||0)}</td>
-      <td><span style="color:${lcCls};font-weight:600;text-transform:capitalize">${p.lcstatus}</span></td>
+      <td>${p.po||'-'}</td>
+      <td><span style="color:${sCls};font-weight:600">${sLbl}</span></td>
       <td>${p.notes||'-'}</td>
     </tr>`;
   }).join('');
