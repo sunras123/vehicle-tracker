@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asanga Mobility — Dealership Management System</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; }
@@ -1902,6 +1904,38 @@ function fmtDate(d) {
   return `${day}/${m}/${y}`;
 }
 
+// ---- DD/MM/YYYY date pickers (flatpickr) on top of native <input type="date"> fields ----
+// Underlying input keeps its ISO (Y-m-d) value for all existing read/save logic; flatpickr
+// shows a separate DD/MM/YYYY text field alongside it. Programmatic writes must go through
+// setDateField() so the visible alt field stays in sync with the value set from JS.
+const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
+  'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery'];
+const datePickers = {};
+
+function initDatePickers() {
+  DATE_FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || datePickers[id]) return;
+    el.setAttribute('type', 'text');
+    datePickers[id] = flatpickr(el, {
+      altInput: true,
+      altFormat: 'd/m/Y',
+      dateFormat: 'Y-m-d',
+      allowInput: true,
+    });
+  });
+}
+
+function setDateField(id, isoValue) {
+  const fp = datePickers[id];
+  if (fp) {
+    if (isoValue) fp.setDate(isoValue, true); else fp.clear();
+  } else {
+    const el = document.getElementById(id);
+    if (el) el.value = isoValue || '';
+  }
+}
+
 function parseNum(id) {
   const val = (document.getElementById(id).value || '').replace(/,/g, '');
   return parseFloat(val) || 0;
@@ -2285,7 +2319,7 @@ function addPurchasePlan() {
 
 function clearPurchasePlanForm() {
   ['pp_po','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('pp_date').value = today();
+  setDateField('pp_date', today());
   document.getElementById('pp_status').value = 'placed';
   const container = document.getElementById('ppVehicleRows');
   if (container) container.innerHTML = '';
@@ -2360,7 +2394,7 @@ function openEditPurchasePlan(id) {
   const p = purchasePlans.find(x => x.id === id);
   if (!p) return;
   document.getElementById('epp_id').value       = p.id;
-  document.getElementById('epp_date').value     = p.date || '';
+  setDateField('epp_date', p.date || '');
   document.getElementById('epp_po').value       = p.po || '';
   document.getElementById('epp_status').value   = p.lcstatus || 'placed';
   document.getElementById('epp_notes').value    = p.notes || '';
@@ -3045,7 +3079,7 @@ function clearPurchaseForm() {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('p_fob_nu').value = '—';
   document.getElementById('p_shipping_nu').value = '—';
-  document.getElementById('p_date').value = today();
+  setDateField('p_date', today());
   document.getElementById('p_model').value = '';
   document.getElementById('p_variant').innerHTML = '<option value="">-- Select Model First --</option>';
   document.getElementById('p_colour').value = '';
@@ -3337,7 +3371,7 @@ function addSale() {
 function clearSaleForm() {
   ['s_date','s_vehicle','s_buyer','s_cid','s_phone','s_address','s_price','s_discount','s_netprice','s_amountpaid','s_pending','s_journal_number','s_cheque_number','s_ca_number','s_ca_date','s_pi','s_salesperson','s_notes']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('s_date').value = today();
+  setDateField('s_date', today());
   document.getElementById('s_discount').value = '0';
   document.getElementById('s_payment').value = 'Cash';
   document.getElementById('s_pending').style.color = '#e74c3c';
@@ -3561,7 +3595,7 @@ function addBooking() {
 function clearBookingForm() {
   ['b_date','b_vehicle','b_variant','b_customer','b_cid','b_phone','b_address','b_deposit','b_agreedprice','b_discount','b_saleprice','b_balance','b_delivery','b_notes']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('b_date').value = today();
+  setDateField('b_date', today());
   updateVehicleSelects();
 }
 
@@ -3615,7 +3649,7 @@ function convertBookingToSale(id) {
 
   showTab('sales');
   setTimeout(() => {
-    document.getElementById('s_date').value = today();
+    setDateField('s_date', today());
     document.getElementById('s_vehicle').value = b.vehicleId;
     document.getElementById('s_buyer').value = b.customer;
     document.getElementById('s_cid').value = b.cid || '';
@@ -3811,7 +3845,7 @@ function openBookingForVehicle(vehicleId) {
   setTimeout(() => {
     const sel = document.getElementById('b_vehicle');
     if (sel) { sel.value = vehicleId; autoFillBookingListPrice(); }
-    document.getElementById('b_date').value = today();
+    setDateField('b_date', today());
     document.getElementById('tab-bookings').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('Vehicle pre-selected — fill in booking details and save.', 'success');
   }, 100);
@@ -4684,6 +4718,8 @@ document.getElementById('headerDate').textContent =
   if (el) el.value = today();
 });
 
+initDatePickers();
+
 if (document.getElementById('ppVehicleRows') && !document.getElementById('ppVehicleRows').children.length) {
   addPurchasePlanVehicleRow();
 }
@@ -4710,7 +4746,7 @@ function openEditPurchase(id) {
   const p = getPurchase(id);
   if (!p) return;
   document.getElementById('ep_id').value = id;
-  document.getElementById('ep_date').value = p.date || '';
+  setDateField('ep_date', p.date || '');
   document.getElementById('ep_year').value = p.year || '';
   document.getElementById('ep_pi').value = p.pi || '';
   document.getElementById('ep_po').value = p.po || '';
@@ -4820,7 +4856,7 @@ function openEditSale(id) {
   const s = sales.find(x => x.id === id);
   if (!s) return;
   document.getElementById('es_id').value = id;
-  document.getElementById('es_date').value = s.date || '';
+  setDateField('es_date', s.date || '');
   document.getElementById('es_buyer').value = s.buyer || '';
   document.getElementById('es_cid').value = s.cid || '';
   document.getElementById('es_phone').value = s.phone || '';
@@ -4829,7 +4865,7 @@ function openEditSale(id) {
   document.getElementById('es_journal_number').value = s.journalNumber || '';
   document.getElementById('es_cheque_number').value = s.chequeNumber || '';
   document.getElementById('es_ca_number').value = s.caNumber || '';
-  document.getElementById('es_ca_date').value = s.caDate || '';
+  setDateField('es_ca_date', s.caDate || '');
   document.getElementById('es_pi').value = s.pi || '';
   document.getElementById('es_salesperson').value = s.salesperson || '';
   document.getElementById('es_notes').value = s.notes || '';
@@ -4898,12 +4934,12 @@ function openEditBooking(id) {
   if (!b) return;
   if (b.planId) { openBookPlanModal(b.planId); return; }
   document.getElementById('eb_id').value = id;
-  document.getElementById('eb_date').value = b.date || '';
+  setDateField('eb_date', b.date || '');
   document.getElementById('eb_customer').value = b.customer || '';
   document.getElementById('eb_cid').value = b.cid || '';
   document.getElementById('eb_phone').value = b.phone || '';
   document.getElementById('eb_address').value = b.address || '';
-  document.getElementById('eb_delivery').value = b.delivery || '';
+  setDateField('eb_delivery', b.delivery || '');
   document.getElementById('eb_notes').value = b.notes || '';
 
   const depEl  = document.getElementById('eb_deposit');
@@ -4960,12 +4996,12 @@ function openBookPlanModal(planId) {
   document.getElementById('bp_plan_id').value = planId;
   document.getElementById('bookPlanInfo').innerHTML =
     `<strong>${p.model}${p.variant ? ' ' + p.variant : ''}</strong> &nbsp;|&nbsp; ${p.colour} &nbsp;|&nbsp; PO: ${p.po || '&#8212;'}`;
-  document.getElementById('bp_date').value     = existing ? existing.date     : today();
+  setDateField('bp_date', existing ? existing.date : today());
   document.getElementById('bp_customer').value = existing ? (existing.customer || '') : '';
   document.getElementById('bp_cid').value      = existing ? (existing.cid      || '') : '';
   document.getElementById('bp_phone').value    = existing ? (existing.phone    || '') : '';
   document.getElementById('bp_address').value  = existing ? (existing.address  || '') : '';
-  document.getElementById('bp_delivery').value = existing ? (existing.delivery || '') : '';
+  setDateField('bp_delivery', existing ? (existing.delivery || '') : '');
   document.getElementById('bp_notes').value    = existing ? (existing.notes    || '') : '';
   const depEl  = document.getElementById('bp_deposit');
   const agEl   = document.getElementById('bp_agreedprice');
