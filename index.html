@@ -216,6 +216,24 @@
   .cat-item-sub { font-size: 0.75rem; color: #888; }
   .colour-preview { width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid rgba(0,0,0,0.15); flex-shrink: 0; }
 
+  /* Purchase Plan mode switch (Add / View boxes) */
+  .pp-mode-switch { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .pp-mode-box {
+    background: white; border-radius: 12px; padding: 20px; text-align: left;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); border: 2px solid transparent; border-left: 4px solid #ccc;
+    display: flex; align-items: center; gap: 14px; cursor: pointer; font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .pp-mode-box:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+  .pp-mode-box.active { border-left-color: #e94560; border-color: #e9456055; background: #fff5f6; }
+  .pp-mode-icon { font-size: 1.6rem; flex-shrink: 0; }
+  .pp-mode-label { font-size: 1.02rem; font-weight: 700; color: #1a1a2e; }
+  .pp-mode-sub { font-size: 0.78rem; color: #888; margin-top: 2px; }
+  .static-field {
+    padding: 10px 12px; border-radius: 8px; background: #f0f2f5; color: #555;
+    font-size: 0.95rem; font-weight: 600;
+  }
+
   /* Purchase Plan vehicle rows (dynamic add form) */
   .pp-vehicle-row {
     display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px;
@@ -440,8 +458,26 @@
 
 <!-- PURCHASE PLAN TAB -->
 <div id="tab-purchaseplan" class="tab-content">
-  <div class="panel">
-    <h3>&#128196; Add Purchase Plan (PO)</h3>
+
+  <div class="pp-mode-switch">
+    <button type="button" class="pp-mode-box" id="ppModeBox_add" onclick="showPPMode('add')">
+      <span class="pp-mode-icon">&#10133;</span>
+      <span>
+        <div class="pp-mode-label">Add Purchase Order</div>
+        <div class="pp-mode-sub">Create a new PO with vehicle details</div>
+      </span>
+    </button>
+    <button type="button" class="pp-mode-box" id="ppModeBox_view" onclick="showPPMode('view')">
+      <span class="pp-mode-icon">&#128196;</span>
+      <span>
+        <div class="pp-mode-label">View Purchase Orders</div>
+        <div class="pp-mode-sub">Browse, expand and manage existing POs</div>
+      </span>
+    </button>
+  </div>
+
+  <div class="panel" id="ppMode_add" style="display:none">
+    <h3>&#128196; Add Purchase Order (PO)</h3>
     <div class="form-grid">
       <div class="form-group">
         <label>PO Number</label>
@@ -453,34 +489,11 @@
       </div>
       <div class="form-group">
         <label>Order Status</label>
-        <select id="pp_status" onchange="updatePPPIVisibility()">
-          <option value="placed">Order Placed</option>
-          <option value="approved">Order Approved</option>
-        </select>
+        <div class="static-field">Order Placed</div>
       </div>
       <div class="form-group form-row-full">
         <label>Notes</label>
         <input type="text" id="pp_notes" placeholder="Any notes">
-      </div>
-    </div>
-
-    <div id="pp_pi_section" style="display:none">
-      <div class="form-grid" style="margin-top:14px;padding-top:14px;border-top:1px dashed #e0e0e0;">
-        <div class="form-group">
-          <label>Performa Invoice (PI) Status</label>
-          <select id="pp_pistatus" onchange="updatePPPIIssuedVisibility()">
-            <option value="pending">Pending</option>
-            <option value="issued">Issued</option>
-          </select>
-        </div>
-        <div class="form-group" id="pp_pinumber_group" style="display:none">
-          <label>PI Number</label>
-          <input type="text" id="pp_pinumber" placeholder="Performa Invoice number">
-        </div>
-        <div class="form-group" id="pp_pidate_group" style="display:none">
-          <label>PI Date</label>
-          <input type="date" id="pp_pidate">
-        </div>
       </div>
     </div>
 
@@ -496,7 +509,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="ppMode_view">
     <h3>&#128196; Purchase Plan Records</h3>
     <div class="toolbar">
       <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour, PO...">
@@ -1951,7 +1964,7 @@ function fmtDate(d) {
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
-  'pp_pidate','epp_pidate'];
+  'epp_pidate'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2330,30 +2343,19 @@ function updatePPRowColour(rowId) {
   if (sel) sel.innerHTML = colourOptionsForModel(model, variant, sel.value);
 }
 
-function updatePPPIVisibility() {
-  const status = document.getElementById('pp_status').value;
-  const section = document.getElementById('pp_pi_section');
-  if (section) section.style.display = status === 'approved' ? '' : 'none';
-  updatePPPIIssuedVisibility();
-}
-
-function updatePPPIIssuedVisibility() {
-  const show = document.getElementById('pp_pistatus').value === 'issued';
-  document.getElementById('pp_pinumber_group').style.display = show ? '' : 'none';
-  document.getElementById('pp_pidate_group').style.display = show ? '' : 'none';
+function showPPMode(mode) {
+  document.getElementById('ppMode_add').style.display  = mode === 'add'  ? '' : 'none';
+  document.getElementById('ppMode_view').style.display = mode === 'view' ? '' : 'none';
+  document.getElementById('ppModeBox_add').classList.toggle('active',  mode === 'add');
+  document.getElementById('ppModeBox_view').classList.toggle('active', mode === 'view');
+  if (mode === 'view') renderPurchasePlanTable();
 }
 
 function addPurchasePlan() {
   const po     = document.getElementById('pp_po').value.trim();
   const date   = document.getElementById('pp_date').value || today();
-  const status = document.getElementById('pp_status').value;
   const notes  = document.getElementById('pp_notes').value.trim();
   if (!po) { showToast('PO Number is required.', 'error'); return; }
-
-  const pistatus = status === 'approved' ? document.getElementById('pp_pistatus').value : '';
-  const piIssued = pistatus === 'issued';
-  const pinumber = piIssued ? document.getElementById('pp_pinumber').value.trim() : '';
-  const pidate   = piIssued ? (document.getElementById('pp_pidate').value || '') : '';
 
   const rows = [...document.querySelectorAll('#ppVehicleRows .pp-vehicle-row')];
   const entries = [];
@@ -2365,7 +2367,7 @@ function addPurchasePlan() {
     if (!model || !colour) return;
     entries.push({
       id: genId(), date, model, variant, colour, qty: 1,
-      po, lcstatus: status, notes, pistatus, pinumber, pidate
+      po, lcstatus: 'placed', notes, pistatus: '', pinumber: '', pidate: ''
     });
   });
   if (entries.length === 0) { showToast('Add at least one vehicle with Model and Colour.', 'error'); return; }
@@ -2374,16 +2376,12 @@ function addPurchasePlan() {
   showToast(`Purchase plan saved: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''})`, 'success');
   trackActivity('added purchase plan');
   clearPurchasePlanForm();
-  renderPurchasePlanTable();
+  showPPMode('view');
 }
 
 function clearPurchasePlanForm() {
-  ['pp_po','pp_notes','pp_pinumber'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['pp_po','pp_notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   setDateField('pp_date', today());
-  setDateField('pp_pidate', '');
-  document.getElementById('pp_status').value = 'placed';
-  document.getElementById('pp_pistatus').value = 'pending';
-  updatePPPIVisibility();
   const container = document.getElementById('ppVehicleRows');
   if (container) container.innerHTML = '';
   addPurchasePlanVehicleRow();
@@ -4822,6 +4820,7 @@ initDatePickers();
 if (document.getElementById('ppVehicleRows') && !document.getElementById('ppVehicleRows').children.length) {
   addPurchasePlanVehicleRow();
 }
+showPPMode('view');
 
 loadAll();
 setupRealtime();
