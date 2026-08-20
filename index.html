@@ -1646,6 +1646,37 @@
   </div>
 </div>
 
+<!-- PO APPROVAL: PERFORMA INVOICE MODAL -->
+<div class="modal-overlay" id="poPiModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('poPiModal')">&times;</button>
+    <h3>&#128196; Performa Invoice (PI)</h3>
+    <div id="popiInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="popi_po">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>PI Status</label>
+        <select id="popi_pistatus" onchange="updatePopiVisibility()">
+          <option value="pending">Pending</option>
+          <option value="issued">Issued</option>
+        </select>
+      </div>
+      <div class="form-group" id="popi_pinumber_group" style="display:none">
+        <label>PI Number</label>
+        <input type="text" id="popi_pinumber" placeholder="Performa Invoice number">
+      </div>
+      <div class="form-group" id="popi_pidate_group" style="display:none">
+        <label>PI Date</label>
+        <input type="date" id="popi_pidate">
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="savePoPi()">&#10003; Save</button>
+      <button class="btn" onclick="closeModal('poPiModal')" style="background:#f0f2f5;color:#555;">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- BOOK PURCHASE PLAN MODAL -->
 <div class="modal-overlay" id="bookPlanModal">
   <div class="modal">
@@ -1964,7 +1995,7 @@ function fmtDate(d) {
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
-  'epp_pidate'];
+  'epp_pidate','popi_pidate'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2389,8 +2420,57 @@ function clearPurchasePlanForm() {
 
 function updatePoStatus(po, newStatus) {
   const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
-  items.forEach(p => { p.lcstatus = newStatus; saveOne('purchase_plans', p); });
+  items.forEach(p => {
+    p.lcstatus = newStatus;
+    if (newStatus === 'approved' && !p.pistatus) p.pistatus = 'pending';
+    saveOne('purchase_plans', p);
+  });
   renderPurchasePlanTable();
+  if (newStatus === 'approved') openPoPiModal(po);
+}
+
+function openPoPiModal(po) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) return;
+  const first = items[0];
+  document.getElementById('popi_po').value = po;
+  document.getElementById('popiInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  document.getElementById('popi_pistatus').value = first.pistatus || 'pending';
+  document.getElementById('popi_pinumber').value = first.pinumber || '';
+  setDateField('popi_pidate', first.pidate || '');
+  updatePopiVisibility();
+  document.getElementById('poPiModal').classList.add('open');
+}
+
+function updatePopiVisibility() {
+  const show = document.getElementById('popi_pistatus').value === 'issued';
+  document.getElementById('popi_pinumber_group').style.display = show ? '' : 'none';
+  document.getElementById('popi_pidate_group').style.display = show ? '' : 'none';
+}
+
+async function savePoPi() {
+  const po = document.getElementById('popi_po').value;
+  const pistatus = document.getElementById('popi_pistatus').value;
+  const piIssued = pistatus === 'issued';
+  const pinumber = piIssued ? document.getElementById('popi_pinumber').value.trim() : '';
+  const pidate   = piIssued ? (document.getElementById('popi_pidate').value || '') : '';
+  if (piIssued && (!pinumber || !pidate)) {
+    showToast('PI Number and PI Date are required when PI Status is Issued.', 'error');
+    return;
+  }
+
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const tasks = items.map(p => {
+    p.pistatus = pistatus; p.pinumber = pinumber; p.pidate = pidate;
+    return saveOne('purchase_plans', p);
+  });
+  const results = await Promise.all(tasks);
+  if (results.some(r => !r)) return;
+
+  closeModal('poPiModal');
+  renderPurchasePlanTable();
+  showToast(`PI details saved for PO ${po}.`, 'success');
+  trackActivity('updated PO PI details');
 }
 
 function autoCreatePurchaseFromPlan(plan) {
