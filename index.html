@@ -2795,8 +2795,8 @@ function renderPurchasePlanTable() {
     const piStatus = items[0].pistatus || '';
     const piBadge = poStatus === 'approved' && piStatus
       ? (piStatus === 'issued'
-          ? `<span style="background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Issued${items[0].pinumber ? ' #'+items[0].pinumber : ''}${items[0].pidate ? ' ('+fmtDate(items[0].pidate)+')' : ''}</span>`
-          : `<span style="background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`)
+          ? `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to edit PI number and date" style="cursor:pointer;background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Issued${items[0].pinumber ? ' #'+items[0].pinumber : ''}${items[0].pidate ? ' ('+fmtDate(items[0].pidate)+')' : ''}</span>`
+          : `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to enter PI details" style="cursor:pointer;background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`)
       : '';
 
     const lcStage = items[0].lcstage || (piStatus === 'issued' ? 'pending' : '');
