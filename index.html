@@ -1709,6 +1709,30 @@
   </div>
 </div>
 
+<!-- LC CLOSED: CLOSURE DETAILS MODAL -->
+<div class="modal-overlay" id="lcClosureModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('lcClosureModal')">&times;</button>
+    <h3>&#128737; Letter of Credit — Closure Details</h3>
+    <div id="lcClosureInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="lcc_po">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>LC Closure Date</label>
+        <input type="date" id="lcc_closuredate">
+      </div>
+      <div class="form-group">
+        <label>Exchange Rate (Nu./USD)</label>
+        <input type="text" inputmode="decimal" id="lcc_exrate" placeholder="0.00" oninput="fmtInput(this)">
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="saveLcClosure()">&#10003; Save</button>
+      <button class="btn" onclick="closeModal('lcClosureModal')" style="background:#f0f2f5;color:#555;">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- BOOK PURCHASE PLAN MODAL -->
 <div class="modal-overlay" id="bookPlanModal">
   <div class="modal">
@@ -2027,7 +2051,7 @@ function fmtDate(d) {
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
-  'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate'];
+  'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate','lcc_closuredate'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2515,6 +2539,7 @@ function updateLcStage(po, newStage) {
   });
   renderPurchasePlanTable();
   if (newStage === 'opened') openLcDatesModal(po);
+  if (newStage === 'closed') openLcClosureModal(po);
 }
 
 function openLcDatesModal(po) {
@@ -2555,11 +2580,46 @@ async function saveLcDates() {
   trackActivity('updated LC details');
 }
 
+function openLcClosureModal(po) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) return;
+  const first = items[0];
+  document.getElementById('lcc_po').value = po;
+  document.getElementById('lcClosureInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  setDateField('lcc_closuredate', first.lcclosuredate || '');
+  const exrateEl = document.getElementById('lcc_exrate');
+  exrateEl.value = first.lcexrate || ''; fmtInput(exrateEl);
+  document.getElementById('lcClosureModal').classList.add('open');
+}
+
+async function saveLcClosure() {
+  const po          = document.getElementById('lcc_po').value;
+  const closuredate = document.getElementById('lcc_closuredate').value || '';
+  const exrate      = parseFloat((document.getElementById('lcc_exrate').value || '').replace(/,/g,'')) || 0;
+  if (!closuredate || !exrate) {
+    showToast('Both LC Closure Date and Exchange Rate are required.', 'error');
+    return;
+  }
+
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const tasks = items.map(p => {
+    p.lcclosuredate = closuredate; p.lcexrate = exrate;
+    return saveOne('purchase_plans', p);
+  });
+  const results = await Promise.all(tasks);
+  if (results.some(r => !r)) return;
+
+  closeModal('lcClosureModal');
+  renderPurchasePlanTable();
+  showToast(`LC closure details saved for PO ${po}.`, 'success');
+  trackActivity('updated LC closure details');
+}
+
 function autoCreatePurchaseFromPlan(plan) {
   const entry = {
     id: genId(), date: today(), make: 'BYD',
     model: plan.model, variant: plan.variant || '', year: '', colour: plan.colour,
-    cost: 0, exrate: 0, shipping: 0, transport: 0, customs: 0, excise: 0,
+    cost: 0, exrate: plan.lcexrate || 0, shipping: 0, transport: 0, customs: 0, excise: 0,
     gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
     fuel: 0, insurance: 0, addcost: 0, totalCost: 0,
     pi: plan.pinumber || '', po: plan.po || '', notes: 'From Purchase Plan', status: 'available'
@@ -2752,6 +2812,9 @@ function renderPurchasePlanTable() {
     const lcDatesBadge = piStatus === 'issued' && (lcStage === 'opened' || lcStage === 'closed') && (items[0].lcnumber || items[0].lcdate || items[0].etd || items[0].eta)
       ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC details" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${items[0].lcnumber ? 'LC #'+items[0].lcnumber+' ' : ''}${items[0].lcdate ? '('+fmtDate(items[0].lcdate)+') ' : ''}ETD ${fmtDate(items[0].etd) || '—'} &#8594; ETA ${fmtDate(items[0].eta) || '—'}</span>`
       : '';
+    const lcClosureBadge = piStatus === 'issued' && lcStage === 'closed' && (items[0].lcclosuredate || items[0].lcexrate)
+      ? `<span onclick="openLcClosureModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC closure details" style="cursor:pointer;background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">Closed${items[0].lcclosuredate ? ' '+fmtDate(items[0].lcclosuredate) : ''} @ ${fmtNum(items[0].lcexrate||0)} Nu/USD</span>`
+      : '';
 
     const sortedItems = [...items].sort((a, b) => {
       let av = a[ppInnerSortCol] ?? '', bv = b[ppInnerSortCol] ?? '';
@@ -2812,6 +2875,7 @@ function renderPurchasePlanTable() {
           ${piBadge}
           ${lcSelect}
           ${lcDatesBadge}
+          ${lcClosureBadge}
           <button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>
         </span>
       </div>
@@ -2905,6 +2969,15 @@ function lookupListPrice(vehicleId) {
 }
 
 function autoFillSaleListPrice() {
+  const vehicleId = document.getElementById('s_vehicle').value;
+  const veh = getPurchase(vehicleId);
+  const priceEl = document.getElementById('s_price');
+  if (!veh || !priceEl) return;
+  const pl = lookupListPrice(vehicleId);
+  if (pl && pl.listPrice && veh.exrate) {
+    priceEl.value = fmtNum(pl.listPrice * veh.exrate);
+    calcSalePending();
+  }
 }
 
 function autoFillBookingListPrice() {
