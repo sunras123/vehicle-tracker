@@ -1681,10 +1681,18 @@
 <div class="modal-overlay" id="lcDatesModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('lcDatesModal')">&times;</button>
-    <h3>&#128737; Letter of Credit — Shipment Dates</h3>
+    <h3>&#128737; Letter of Credit — Details</h3>
     <div id="lcDatesInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
     <input type="hidden" id="lcd_po">
     <div class="form-grid">
+      <div class="form-group">
+        <label>LC Number</label>
+        <input type="text" id="lcd_lcnumber" placeholder="Letter of Credit number">
+      </div>
+      <div class="form-group">
+        <label>LC Date</label>
+        <input type="date" id="lcd_lcdate">
+      </div>
       <div class="form-group">
         <label>Estimated Time of Departure</label>
         <input type="date" id="lcd_etd">
@@ -2019,7 +2027,7 @@ function fmtDate(d) {
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
-  'epp_pidate','popi_pidate','lcd_etd','lcd_eta'];
+  'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2515,15 +2523,19 @@ function openLcDatesModal(po) {
   const first = items[0];
   document.getElementById('lcd_po').value = po;
   document.getElementById('lcDatesInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  document.getElementById('lcd_lcnumber').value = first.lcnumber || '';
+  setDateField('lcd_lcdate', first.lcdate || '');
   setDateField('lcd_etd', first.etd || '');
   setDateField('lcd_eta', first.eta || '');
   document.getElementById('lcDatesModal').classList.add('open');
 }
 
 async function saveLcDates() {
-  const po  = document.getElementById('lcd_po').value;
-  const etd = document.getElementById('lcd_etd').value || '';
-  const eta = document.getElementById('lcd_eta').value || '';
+  const po       = document.getElementById('lcd_po').value;
+  const lcnumber = document.getElementById('lcd_lcnumber').value.trim();
+  const lcdate   = document.getElementById('lcd_lcdate').value || '';
+  const etd      = document.getElementById('lcd_etd').value || '';
+  const eta      = document.getElementById('lcd_eta').value || '';
   if (!etd || !eta) {
     showToast('Both ETD and ETA dates are required.', 'error');
     return;
@@ -2531,7 +2543,7 @@ async function saveLcDates() {
 
   const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
   const tasks = items.map(p => {
-    p.etd = etd; p.eta = eta;
+    p.lcnumber = lcnumber; p.lcdate = lcdate; p.etd = etd; p.eta = eta;
     return saveOne('purchase_plans', p);
   });
   const results = await Promise.all(tasks);
@@ -2539,8 +2551,8 @@ async function saveLcDates() {
 
   closeModal('lcDatesModal');
   renderPurchasePlanTable();
-  showToast(`LC shipment dates saved for PO ${po}.`, 'success');
-  trackActivity('updated LC shipment dates');
+  showToast(`LC details saved for PO ${po}.`, 'success');
+  trackActivity('updated LC details');
 }
 
 function autoCreatePurchaseFromPlan(plan) {
@@ -2737,8 +2749,8 @@ function renderPurchasePlanTable() {
           <option value="closed" ${lcStage==='closed'?'selected':''}>LC Closed</option>
         </select>`
       : '';
-    const lcDatesBadge = piStatus === 'issued' && (lcStage === 'opened' || lcStage === 'closed') && (items[0].etd || items[0].eta)
-      ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit shipment dates" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">ETD ${fmtDate(items[0].etd) || '—'} &#8594; ETA ${fmtDate(items[0].eta) || '—'}</span>`
+    const lcDatesBadge = piStatus === 'issued' && (lcStage === 'opened' || lcStage === 'closed') && (items[0].lcnumber || items[0].lcdate || items[0].etd || items[0].eta)
+      ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC details" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${items[0].lcnumber ? 'LC #'+items[0].lcnumber+' ' : ''}${items[0].lcdate ? '('+fmtDate(items[0].lcdate)+') ' : ''}ETD ${fmtDate(items[0].etd) || '—'} &#8594; ETA ${fmtDate(items[0].eta) || '—'}</span>`
       : '';
 
     const sortedItems = [...items].sort((a, b) => {
