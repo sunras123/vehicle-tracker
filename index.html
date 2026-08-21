@@ -1677,6 +1677,30 @@
   </div>
 </div>
 
+<!-- LC OPENED: SHIPMENT DATES MODAL -->
+<div class="modal-overlay" id="lcDatesModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('lcDatesModal')">&times;</button>
+    <h3>&#128737; Letter of Credit — Shipment Dates</h3>
+    <div id="lcDatesInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="lcd_po">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Estimated Time of Departure</label>
+        <input type="date" id="lcd_etd">
+      </div>
+      <div class="form-group">
+        <label>Estimated Time of Arrival</label>
+        <input type="date" id="lcd_eta">
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="saveLcDates()">&#10003; Save</button>
+      <button class="btn" onclick="closeModal('lcDatesModal')" style="background:#f0f2f5;color:#555;">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- BOOK PURCHASE PLAN MODAL -->
 <div class="modal-overlay" id="bookPlanModal">
   <div class="modal">
@@ -1995,7 +2019,7 @@ function fmtDate(d) {
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
-  'epp_pidate','popi_pidate'];
+  'epp_pidate','popi_pidate','lcd_etd','lcd_eta'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2304,6 +2328,8 @@ function colourOptionsForModel(modelName, variant, currentColour) {
 
 const PP_STATUS_LABEL = { placed: 'Order Placed', approved: 'Order Approved' };
 const PP_STATUS_COLOUR = { placed: '#e67e22', approved: '#27ae60' };
+const LC_STAGE_LABEL = { pending: 'LC Pending', opened: 'LC Opened', closed: 'LC Closed' };
+const LC_STAGE_COLOUR = { pending: '#e67e22', opened: '#2980b9', closed: '#27ae60' };
 
 function refreshPurchasePlanRowModelOptions() {
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
@@ -2471,6 +2497,50 @@ async function savePoPi() {
   renderPurchasePlanTable();
   showToast(`PI details saved for PO ${po}.`, 'success');
   trackActivity('updated PO PI details');
+}
+
+function updateLcStage(po, newStage) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  items.forEach(p => {
+    p.lcstage = newStage;
+    saveOne('purchase_plans', p);
+  });
+  renderPurchasePlanTable();
+  if (newStage === 'opened') openLcDatesModal(po);
+}
+
+function openLcDatesModal(po) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) return;
+  const first = items[0];
+  document.getElementById('lcd_po').value = po;
+  document.getElementById('lcDatesInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  setDateField('lcd_etd', first.etd || '');
+  setDateField('lcd_eta', first.eta || '');
+  document.getElementById('lcDatesModal').classList.add('open');
+}
+
+async function saveLcDates() {
+  const po  = document.getElementById('lcd_po').value;
+  const etd = document.getElementById('lcd_etd').value || '';
+  const eta = document.getElementById('lcd_eta').value || '';
+  if (!etd || !eta) {
+    showToast('Both ETD and ETA dates are required.', 'error');
+    return;
+  }
+
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const tasks = items.map(p => {
+    p.etd = etd; p.eta = eta;
+    return saveOne('purchase_plans', p);
+  });
+  const results = await Promise.all(tasks);
+  if (results.some(r => !r)) return;
+
+  closeModal('lcDatesModal');
+  renderPurchasePlanTable();
+  showToast(`LC shipment dates saved for PO ${po}.`, 'success');
+  trackActivity('updated LC shipment dates');
 }
 
 function autoCreatePurchaseFromPlan(plan) {
@@ -2657,6 +2727,20 @@ function renderPurchasePlanTable() {
           : `<span style="background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`)
       : '';
 
+    const lcStage = items[0].lcstage || (piStatus === 'issued' ? 'pending' : '');
+    const lcColour = LC_STAGE_COLOUR[lcStage] || '#888';
+    const lcSelect = piStatus === 'issued'
+      ? `<select onchange="updateLcStage('${po.replace(/'/g,"\\'")}', this.value)"
+          style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcColour};color:${lcColour};font-weight:600;font-size:0.82rem;background:${lcColour}18;cursor:pointer;">
+          <option value="pending" ${lcStage==='pending'?'selected':''}>LC Pending</option>
+          <option value="opened" ${lcStage==='opened'?'selected':''}>LC Opened</option>
+          <option value="closed" ${lcStage==='closed'?'selected':''}>LC Closed</option>
+        </select>`
+      : '';
+    const lcDatesBadge = piStatus === 'issued' && (lcStage === 'opened' || lcStage === 'closed') && (items[0].etd || items[0].eta)
+      ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit shipment dates" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">ETD ${fmtDate(items[0].etd) || '—'} &#8594; ETA ${fmtDate(items[0].eta) || '—'}</span>`
+      : '';
+
     const sortedItems = [...items].sort((a, b) => {
       let av = a[ppInnerSortCol] ?? '', bv = b[ppInnerSortCol] ?? '';
       av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
@@ -2714,6 +2798,8 @@ function renderPurchasePlanTable() {
             <option value="approved" ${poStatus==='approved' ?'selected':''}>Order Approved</option>
           </select>
           ${piBadge}
+          ${lcSelect}
+          ${lcDatesBadge}
           <button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>
         </span>
       </div>
