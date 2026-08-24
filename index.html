@@ -3041,6 +3041,13 @@ function autoFillBookingListPrice() {
   const veh = getPurchase(vehicleId);
   const varEl = document.getElementById('b_variant');
   if (varEl) varEl.value = (veh && veh.variant) ? veh.variant : '';
+  const priceEl = document.getElementById('b_agreedprice');
+  if (!veh || !priceEl) return;
+  const pl = lookupListPrice(vehicleId);
+  if (pl && pl.listPrice && veh.exrate) {
+    priceEl.value = fmtNum(pl.listPrice * veh.exrate);
+    calcBookingSalePrice();
+  }
 }
 
 function updateVehicleSelects() {
