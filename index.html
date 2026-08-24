@@ -784,50 +784,6 @@
     </div>
   </div>
 
-  <div class="panel">
-    <h3>&#128176; Sales Records</h3>
-    <div class="toolbar">
-      <input type="text" id="salesSearch" oninput="renderSalesTable()" placeholder="&#128269; Search by buyer, model...">
-      <select id="salesPaymentFilter" onchange="renderSalesTable()">
-        <option value="">All Payment Methods</option>
-        <option value="Cash">Cash</option>
-        <option value="Cheque">Cheque</option>
-        <option value="Loan">Loan</option>
-      </select>
-      <button class="btn btn-success btn-sm" onclick="importSalesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
-      <input type="file" id="salesExcelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleSalesExcelImport(event)">
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead id="salesThead">
-          <tr>
-            <th>#</th>
-            <th class="sortable-th" onclick="setSaleSort('date')" data-col="date">Date</th>
-            <th class="sortable-th" onclick="setSaleSort('po')" data-col="po">PO</th>
-            <th class="sortable-th" onclick="setSaleSort('model')" data-col="model">Vehicle</th>
-            <th class="sortable-th" onclick="setSaleSort('colour')" data-col="colour">Colour</th>
-            <th class="sortable-th" onclick="setSaleSort('buyer')" data-col="buyer">Buyer</th>
-            <th>CID No.</th><th>Phone</th><th>Address</th><th>Invoice No.</th>
-            <th class="sortable-th" onclick="setSaleSort('salePrice')" data-col="salePrice">List Price</th>
-            <th class="sortable-th" onclick="setSaleSort('discount')" data-col="discount">Discount</th>
-            <th class="sortable-th" onclick="setSaleSort('netPrice')" data-col="netPrice">Sale Price</th>
-            <th class="sortable-th" onclick="setSaleSort('amountPaid')" data-col="amountPaid">Paid</th>
-            <th class="sortable-th" onclick="setSaleSort('pendingAmount')" data-col="pendingAmount">Balance Payable</th>
-            <th class="sortable-th" onclick="setSaleSort('payment')" data-col="payment">Payment</th>
-            <th>Ref. No.</th><th>CA No.</th>
-            <th class="sortable-th" onclick="setSaleSort('salesperson')" data-col="salesperson">Salesperson</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="salesTableBody"></tbody>
-      </table>
-    </div>
-    <div id="salesEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">&#128176;</div>
-      <div>No sales recorded yet.</div>
-    </div>
-  </div>
-
   <div class="panel" id="bookingFormPanel" style="display:none">
     <h3>&#10133; Add Booking</h3>
     <div class="form-grid">
@@ -894,7 +850,68 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="pp-mode-switch">
+    <button type="button" class="pp-mode-box" id="srModeBox_sales" onclick="showSalesRecordsMode('sales')">
+      <span class="pp-mode-icon">&#128176;</span>
+      <span>
+        <div class="pp-mode-label">Sales Records</div>
+        <div class="pp-mode-sub">Browse and search all recorded sales</div>
+      </span>
+    </button>
+    <button type="button" class="pp-mode-box" id="srModeBox_bookings" onclick="showSalesRecordsMode('bookings')">
+      <span class="pp-mode-icon">&#128197;</span>
+      <span>
+        <div class="pp-mode-label">Booking Records</div>
+        <div class="pp-mode-sub">Browse and search all active bookings</div>
+      </span>
+    </button>
+  </div>
+
+  <div class="panel" id="srMode_sales" style="display:none">
+    <h3>&#128176; Sales Records</h3>
+    <div class="toolbar">
+      <input type="text" id="salesSearch" oninput="renderSalesTable()" placeholder="&#128269; Search by buyer, model...">
+      <select id="salesPaymentFilter" onchange="renderSalesTable()">
+        <option value="">All Payment Methods</option>
+        <option value="Cash">Cash</option>
+        <option value="Cheque">Cheque</option>
+        <option value="Loan">Loan</option>
+      </select>
+      <button class="btn btn-success btn-sm" onclick="importSalesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
+      <input type="file" id="salesExcelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleSalesExcelImport(event)">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="salesThead">
+          <tr>
+            <th>#</th>
+            <th class="sortable-th" onclick="setSaleSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setSaleSort('po')" data-col="po">PO</th>
+            <th class="sortable-th" onclick="setSaleSort('model')" data-col="model">Vehicle</th>
+            <th class="sortable-th" onclick="setSaleSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setSaleSort('buyer')" data-col="buyer">Buyer</th>
+            <th>CID No.</th><th>Phone</th><th>Address</th><th>Invoice No.</th>
+            <th class="sortable-th" onclick="setSaleSort('salePrice')" data-col="salePrice">List Price</th>
+            <th class="sortable-th" onclick="setSaleSort('discount')" data-col="discount">Discount</th>
+            <th class="sortable-th" onclick="setSaleSort('netPrice')" data-col="netPrice">Sale Price</th>
+            <th class="sortable-th" onclick="setSaleSort('amountPaid')" data-col="amountPaid">Paid</th>
+            <th class="sortable-th" onclick="setSaleSort('pendingAmount')" data-col="pendingAmount">Balance Payable</th>
+            <th class="sortable-th" onclick="setSaleSort('payment')" data-col="payment">Payment</th>
+            <th>Ref. No.</th><th>CA No.</th>
+            <th class="sortable-th" onclick="setSaleSort('salesperson')" data-col="salesperson">Salesperson</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="salesTableBody"></tbody>
+      </table>
+    </div>
+    <div id="salesEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#128176;</div>
+      <div>No sales recorded yet.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="srMode_bookings" style="display:none">
     <h3>&#128197; Booking Records</h3>
     <div class="toolbar">
       <input type="text" id="bookingsSearch" oninput="renderBookingsTable()" placeholder="&#128269; Search by customer, model...">
@@ -2451,6 +2468,15 @@ function showPPMode(mode) {
   document.getElementById('ppModeBox_add').classList.toggle('active',  mode === 'add');
   document.getElementById('ppModeBox_view').classList.toggle('active', mode === 'view');
   if (mode === 'view') renderPurchasePlanTable();
+}
+
+function showSalesRecordsMode(mode) {
+  document.getElementById('srMode_sales').style.display    = mode === 'sales'    ? '' : 'none';
+  document.getElementById('srMode_bookings').style.display = mode === 'bookings' ? '' : 'none';
+  document.getElementById('srModeBox_sales').classList.toggle('active',    mode === 'sales');
+  document.getElementById('srModeBox_bookings').classList.toggle('active', mode === 'bookings');
+  if (mode === 'sales')    renderSalesTable();
+  if (mode === 'bookings') renderBookingsTable();
 }
 
 function addPurchasePlan() {
@@ -5252,6 +5278,7 @@ if (document.getElementById('ppVehicleRows') && !document.getElementById('ppVehi
   addPurchasePlanVehicleRow();
 }
 showPPMode('view');
+showSalesRecordsMode('sales');
 
 loadAll();
 setupRealtime();
