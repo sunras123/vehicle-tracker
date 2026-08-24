@@ -534,7 +534,7 @@
         <option value="booked">Booked</option>
         <option value="sold">Sold</option>
       </select>
-      <button class="btn btn-success btn-sm" onclick="importPurchasesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
+      <button class="btn btn-success btn-sm" style="white-space:nowrap;display:none" onclick="importPurchasesFromExcel()">&#128229; Import from Excel</button>
       <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
     </div>
     <div id="purchGroupContainer"></div>
