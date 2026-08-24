@@ -3580,13 +3580,13 @@ function renderPurchasesTable() {
       const hex = getColourHex(p.colour);
       return `<tr>
         <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
+        <td>${p.pi || '-'}</td>
         <td>${i+1}</td>
         <td>${fmtDate(p.date)}</td>
         <td><strong>${p.model}</strong></td>
         <td>${p.variant || '-'}</td>
         <td>${p.year || '-'}</td>
         <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-        <td><strong>${fmtNum(p.totalCost)}</strong></td>
         <td><span class="badge badge-${p.status}">${p.status}</span></td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-warning btn-sm" onclick="openEditPurchase('${p.id}')">&#9998; Edit</button>
@@ -3607,7 +3607,7 @@ function renderPurchasesTable() {
         <div class="inner-wrap">
           <table>
             <thead><tr>
-              <th>PO No.</th><th>#</th>${pTh('date','Date')}${pTh('model','Model')}${pTh('variant','Variant')}${pTh('year','Year')}${pTh('colour','Colour')}${pTh('totalCost','Total Cost (Nu.)')}${pTh('status','Status')}<th>Action</th>
+              <th>PO No.</th><th>PI No.</th><th>#</th>${pTh('date','Date')}${pTh('model','Model')}${pTh('variant','Variant')}${pTh('year','Year')}${pTh('colour','Colour')}${pTh('status','Status')}<th>Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
