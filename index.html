@@ -928,12 +928,12 @@
   </div>
 
   <div class="panel">
-    <h3>&#128674; Stock by Model &amp; Colour — Order Approved (Unbooked)</h3>
+    <h3>&#128674; Stock by Model &amp; Colour (LC Opened)</h3>
     <div class="model-stock-grid" id="inTransitStockGrid"></div>
   </div>
 
   <div class="panel">
-    <h3>&#128203; Stock by Model &amp; Colour — Order Placed (Unbooked)</h3>
+    <h3>&#128203; Stock by Model &amp; Colour (LC Closed)</h3>
     <div class="model-stock-grid" id="orderPlanStockGrid"></div>
   </div>
 
@@ -4399,8 +4399,10 @@ function renderOrderPlanStock() {
   const placed   = purchasePlans.filter(p => p.lcstatus === 'placed'   && unbooked(p));
   const allPlans = [...approved, ...placed];
 
-  renderModelGrid('inTransitStockGrid', approved, '#e67e22');
-  renderModelGrid('orderPlanStockGrid', placed,    '#8e44ad');
+  const lcOpened = purchasePlans.filter(p => p.lcstage === 'opened' && unbooked(p));
+  const lcClosed = purchasePlans.filter(p => p.lcstage === 'closed' && unbooked(p));
+  renderModelGrid('inTransitStockGrid', lcOpened, '#e67e22');
+  renderModelGrid('orderPlanStockGrid', lcClosed, '#8e44ad');
 
   const tbody = document.getElementById('orderPlanStockBody');
   const empty = document.getElementById('orderPlanStockEmpty');
