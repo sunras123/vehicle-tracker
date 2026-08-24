@@ -677,11 +677,10 @@
         <thead>
           <tr id="availVehThead">
             <th>#</th>
-            <th class="sortable-th" onclick="setAvailVehSort('date')" data-col="date">Date</th>
-            <th class="sortable-th" onclick="setAvailVehSort('po')" data-col="po">PO No.</th>
             <th class="sortable-th" onclick="setAvailVehSort('model')" data-col="model">Model</th>
             <th class="sortable-th" onclick="setAvailVehSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th" onclick="setAvailVehSort('colour')" data-col="colour">Colour</th>
+            <th class="sortable-th" onclick="setAvailVehSort('date')" data-col="date">Date</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -3094,10 +3093,6 @@ function renderAvailableVehiclesTable() {
 
   data.sort((a, b) => {
     let av = a[availVehSortCol] ?? '', bv = b[availVehSortCol] ?? '';
-    if (availVehSortCol === 'po') {
-      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
-      return availVehSortDir === 'asc' ? av - bv : bv - av;
-    }
     av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
     return availVehSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
   });
@@ -3115,12 +3110,12 @@ function renderAvailableVehiclesTable() {
     const hex = getColourHex(p.colour);
     return `<tr>
       <td>${i+1}</td>
-      <td>${fmtDate(p.date)}</td>
-      <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
       <td><strong>${p.model}</strong></td>
       <td>${p.variant || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
+      <td>${fmtDate(p.date)}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#2980b9;color:white;" onclick="openEditPurchase('${p.id}')">&#128269; Show Vehicle Details</button>
         <button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>
         <button class="btn btn-sm" style="background:#27ae60;color:white;" onclick="openSaleForVehicle('${p.id}')">&#128176; Sell</button>
       </td>
