@@ -4279,19 +4279,18 @@ function renderBookingsTable() {
 // STOCK
 // ============================================================
 function renderStockCards() {
-  const stock      = purchases.filter(p => p.status === 'available');
-  const booked     = purchases.filter(p => p.status === 'booked');
-  const approved   = purchasePlans.filter(p => p.lcstatus === 'approved' && !bookings.find(b => b.planId === p.id));
-  const placed     = purchasePlans.filter(p => p.lcstatus === 'placed'   && !bookings.find(b => b.planId === p.id));
-  const stockValue = stock.reduce((s,p) => s + (p.totalCost||0), 0);
+  const stock    = purchases.filter(p => p.status === 'available');
+  const booked   = purchases.filter(p => p.status === 'booked');
+  const lcOpened = purchasePlans.filter(p => p.lcstage === 'opened' && !bookings.find(b => b.planId === p.id));
+  const lcClosed = purchasePlans.filter(p => p.lcstage === 'closed' && !bookings.find(b => b.planId === p.id));
 
   const container = document.getElementById('stockCards');
   if (!container) return;
   container.innerHTML = `
-    <div class="card green"><div class="card-label">Available Stock in Showroom</div><div class="card-value">${stock.length}</div><div class="card-sub">${fmt(stockValue)} total cost</div></div>
+    <div class="card green"><div class="card-label">Available Stock in Showroom</div><div class="card-value">${stock.length}</div></div>
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery</div></div>
-    <div class="card blue"><div class="card-label">Order Approved (Unbooked)</div><div class="card-value">${approved.length}</div><div class="card-sub">Purchase Plan — Order Approved</div></div>
-    <div class="card purple"><div class="card-label">Order Placed (Unbooked)</div><div class="card-value">${placed.length}</div><div class="card-sub">Purchase Plan — Order Placed</div></div>
+    <div class="card blue"><div class="card-label">LC Opened</div><div class="card-value">${lcOpened.length}</div><div class="card-sub">Purchase Plan — LC Opened</div></div>
+    <div class="card purple"><div class="card-label">LC Closed</div><div class="card-value">${lcClosed.length}</div><div class="card-sub">Purchase Plan — LC Closed</div></div>
   `;
 }
 
