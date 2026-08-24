@@ -847,6 +847,7 @@
         <label>Payment Method</label>
         <select id="s_payment" onchange="toggleSaleLoanFields()">
           <option value="Cash">Cash</option>
+          <option value="Phone Transfer">Phone Transfer</option>
           <option value="Cheque">Cheque</option>
           <option value="Loan">Loan</option>
         </select>
@@ -858,6 +859,10 @@
       <div class="form-group" id="s_cheque_group" style="display:none">
         <label>Cheque Number</label>
         <input type="text" id="s_cheque_number" placeholder="Cheque number">
+      </div>
+      <div class="form-group" id="s_cheque_date_group" style="display:none">
+        <label>Cheque Date</label>
+        <input type="date" id="s_cheque_date">
       </div>
       <div class="form-group" id="s_ca_group" style="display:none">
         <label>CA Number</label>
@@ -923,6 +928,35 @@
       <div class="form-group">
         <label>Advance Paid (Nu.)</label>
         <input type="text" inputmode="decimal" id="b_deposit" placeholder="0.00" oninput="fmtInput(this);calcBookingBalance()">
+      </div>
+      <div class="form-group">
+        <label>Payment Method</label>
+        <select id="b_payment" onchange="toggleBookingPaymentFields()">
+          <option value="Cash">Cash</option>
+          <option value="Phone Transfer">Phone Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Loan">Loan</option>
+        </select>
+      </div>
+      <div class="form-group" id="b_journal_group" style="display:none">
+        <label>Journal Number</label>
+        <input type="text" id="b_journal_number" placeholder="Journal number">
+      </div>
+      <div class="form-group" id="b_cheque_group" style="display:none">
+        <label>Cheque Number</label>
+        <input type="text" id="b_cheque_number" placeholder="Cheque number">
+      </div>
+      <div class="form-group" id="b_cheque_date_group" style="display:none">
+        <label>Cheque Date</label>
+        <input type="date" id="b_cheque_date">
+      </div>
+      <div class="form-group" id="b_ca_group" style="display:none">
+        <label>CA Number</label>
+        <input type="text" id="b_ca_number" placeholder="CA number">
+      </div>
+      <div class="form-group" id="b_ca_date_group" style="display:none">
+        <label>CA Advance Date</label>
+        <input type="date" id="b_ca_date">
       </div>
       <div class="form-group">
         <label>List Price (Nu.)</label>
@@ -1592,12 +1626,14 @@
       <div class="form-group"><label>Payment Method</label>
         <select id="es_payment" onchange="toggleEditSaleLoanFields()">
           <option value="Cash">Cash</option>
+          <option value="Phone Transfer">Phone Transfer</option>
           <option value="Cheque">Cheque</option>
           <option value="Loan">Loan</option>
         </select>
       </div>
       <div class="form-group" id="es_journal_group" style="display:none"><label>Journal Number</label><input type="text" id="es_journal_number" placeholder="Journal number"></div>
       <div class="form-group" id="es_cheque_group" style="display:none"><label>Cheque Number</label><input type="text" id="es_cheque_number" placeholder="Cheque number"></div>
+      <div class="form-group" id="es_cheque_date_group" style="display:none"><label>Cheque Date</label><input type="date" id="es_cheque_date"></div>
       <div class="form-group" id="es_ca_group" style="display:none"><label>CA Number</label><input type="text" id="es_ca_number" placeholder="CA number"></div>
       <div class="form-group" id="es_ca_date_group" style="display:none"><label>CA Advance Date</label><input type="date" id="es_ca_date"></div>
       <div class="form-group"><label>Invoice Number</label><input type="text" id="es_pi" placeholder="Invoice number"></div>
@@ -1624,6 +1660,19 @@
       <div class="form-group"><label>Customer Phone</label><input type="text" id="eb_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
       <div class="form-group"><label>Customer Address</label><input type="text" id="eb_address" placeholder="Address"></div>
       <div class="form-group"><label>Advance Paid (Nu.)</label><input type="text" inputmode="decimal" id="eb_deposit" placeholder="0.00" oninput="fmtInput(this);calcEditBookingBalance()"></div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="eb_payment" onchange="toggleEditBookingPaymentFields()">
+          <option value="Cash">Cash</option>
+          <option value="Phone Transfer">Phone Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Loan">Loan</option>
+        </select>
+      </div>
+      <div class="form-group" id="eb_journal_group" style="display:none"><label>Journal Number</label><input type="text" id="eb_journal_number" placeholder="Journal number"></div>
+      <div class="form-group" id="eb_cheque_group" style="display:none"><label>Cheque Number</label><input type="text" id="eb_cheque_number" placeholder="Cheque number"></div>
+      <div class="form-group" id="eb_cheque_date_group" style="display:none"><label>Cheque Date</label><input type="date" id="eb_cheque_date"></div>
+      <div class="form-group" id="eb_ca_group" style="display:none"><label>CA Number</label><input type="text" id="eb_ca_number" placeholder="CA number"></div>
+      <div class="form-group" id="eb_ca_date_group" style="display:none"><label>CA Advance Date</label><input type="date" id="eb_ca_date"></div>
       <div class="form-group"><label>List Price (Nu.)</label><input type="text" inputmode="decimal" id="eb_agreedprice" placeholder="0.00" oninput="fmtInput(this);calcEditBookingSalePrice()"></div>
       <div class="form-group"><label>Discount (Nu.)</label><input type="text" inputmode="decimal" id="eb_discount" placeholder="0.00" oninput="fmtInput(this);calcEditBookingSalePrice()"></div>
       <div class="form-group"><label>Sale Price (Nu.)</label><input type="text" id="eb_saleprice" readonly placeholder="0.00" style="background:#f8f9fa;font-weight:600;color:#1a1a2e;cursor:not-allowed;"></div>
@@ -1787,6 +1836,19 @@
       <div class="form-group"><label>Customer Phone</label><input type="text" id="bp_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
       <div class="form-group"><label>Customer Address</label><input type="text" id="bp_address" placeholder="Address"></div>
       <div class="form-group"><label>Advance Paid (Nu.)</label><input type="text" inputmode="decimal" id="bp_deposit" placeholder="0.00" oninput="fmtInput(this);calcPlanBookingBalance()"></div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="bp_payment" onchange="togglePlanBookingPaymentFields()">
+          <option value="Cash">Cash</option>
+          <option value="Phone Transfer">Phone Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Loan">Loan</option>
+        </select>
+      </div>
+      <div class="form-group" id="bp_journal_group" style="display:none"><label>Journal Number</label><input type="text" id="bp_journal_number" placeholder="Journal number"></div>
+      <div class="form-group" id="bp_cheque_group" style="display:none"><label>Cheque Number</label><input type="text" id="bp_cheque_number" placeholder="Cheque number"></div>
+      <div class="form-group" id="bp_cheque_date_group" style="display:none"><label>Cheque Date</label><input type="date" id="bp_cheque_date"></div>
+      <div class="form-group" id="bp_ca_group" style="display:none"><label>CA Number</label><input type="text" id="bp_ca_number" placeholder="CA number"></div>
+      <div class="form-group" id="bp_ca_date_group" style="display:none"><label>CA Advance Date</label><input type="date" id="bp_ca_date"></div>
       <div class="form-group"><label>List Price (Nu.)</label><input type="text" inputmode="decimal" id="bp_agreedprice" placeholder="0.00" oninput="fmtInput(this);calcPlanBookingSalePrice()"></div>
       <div class="form-group"><label>Discount (Nu.)</label><input type="text" inputmode="decimal" id="bp_discount" placeholder="0.00" oninput="fmtInput(this);calcPlanBookingSalePrice()"></div>
       <div class="form-group"><label>Sale Price (Nu.)</label><input type="text" id="bp_saleprice" readonly placeholder="0.00" style="background:#f8f9fa;font-weight:600;color:#1a1a2e;cursor:not-allowed;"></div>
@@ -1827,6 +1889,7 @@ function saleToDB(s) {
   r.pending_amount = s.pendingAmount; delete r.pendingAmount;
   r.journal_number = s.journalNumber; delete r.journalNumber;
   r.cheque_number  = s.chequeNumber;  delete r.chequeNumber;
+  r.cheque_date    = s.chequeDate;    delete r.chequeDate;
   r.ca_number  = s.caNumber;          delete r.caNumber;
   r.ca_date    = s.caDate;            delete r.caDate;
   return r;
@@ -1840,6 +1903,7 @@ function saleFromDB(r) {
   s.pendingAmount  = r.pending_amount;  delete s.pending_amount;
   s.journalNumber  = r.journal_number;  delete s.journal_number;
   s.chequeNumber   = r.cheque_number;   delete s.cheque_number;
+  s.chequeDate     = r.cheque_date;     delete s.cheque_date;
   s.caNumber       = r.ca_number;       delete s.ca_number;
   s.caDate         = r.ca_date;         delete s.ca_date;
   return s;
@@ -1850,6 +1914,11 @@ function bookingToDB(b) {
   delete r.vehicleId; delete r.planId; delete r.source;
   r.agreed_price = b.agreedPrice; delete r.agreedPrice;
   r.sale_price   = b.salePrice;   delete r.salePrice;
+  r.journal_number = b.journalNumber; delete r.journalNumber;
+  r.cheque_number  = b.chequeNumber;  delete r.chequeNumber;
+  r.cheque_date    = b.chequeDate;    delete r.chequeDate;
+  r.ca_number  = b.caNumber;          delete r.caNumber;
+  r.ca_date    = b.caDate;            delete r.caDate;
   return r;
 }
 function bookingFromDB(r) {
@@ -1866,6 +1935,11 @@ function bookingFromDB(r) {
   delete b.vehicle_id;
   b.agreedPrice = r.agreed_price; delete b.agreed_price;
   b.salePrice   = r.sale_price;   delete b.sale_price;
+  b.journalNumber = r.journal_number; delete b.journal_number;
+  b.chequeNumber  = r.cheque_number;  delete b.cheque_number;
+  b.chequeDate    = r.cheque_date;    delete b.cheque_date;
+  b.caNumber      = r.ca_number;      delete b.ca_number;
+  b.caDate        = r.ca_date;        delete b.ca_date;
   return b;
 }
 
@@ -2089,10 +2163,11 @@ function fmtDate(d) {
 // Underlying input keeps its ISO (Y-m-d) value for all existing read/save logic; flatpickr
 // shows a separate DD/MM/YYYY text field alongside it. Programmatic writes must go through
 // setDateField() so the visible alt field stays in sync with the value set from JS.
-const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
-  'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
+const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','s_cheque_date','b_date','b_delivery',
+  'ep_date','es_date','es_ca_date','es_cheque_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
   'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate','lcc_closuredate',
-  'ep_pidate','ep_lcdate','ep_etd','ep_eta'];
+  'ep_pidate','ep_lcdate','ep_etd','ep_eta',
+  'b_cheque_date','b_ca_date','eb_cheque_date','eb_ca_date','bp_cheque_date','bp_ca_date'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -3830,17 +3905,43 @@ function calcSalePending() {
 }
 function toggleSaleLoanFields() {
   const v = document.getElementById('s_payment').value;
-  document.getElementById('s_journal_group').style.display  = v === 'Cash'   ? '' : 'none';
-  document.getElementById('s_cheque_group').style.display   = v === 'Cheque' ? '' : 'none';
-  document.getElementById('s_ca_group').style.display       = v === 'Loan'   ? '' : 'none';
-  document.getElementById('s_ca_date_group').style.display  = v === 'Loan'   ? '' : 'none';
+  document.getElementById('s_journal_group').style.display     = v === 'Phone Transfer' ? '' : 'none';
+  document.getElementById('s_cheque_group').style.display      = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('s_cheque_date_group').style.display = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('s_ca_group').style.display          = v === 'Loan'           ? '' : 'none';
+  document.getElementById('s_ca_date_group').style.display     = v === 'Loan'           ? '' : 'none';
 }
 function toggleEditSaleLoanFields() {
   const v = document.getElementById('es_payment').value;
-  document.getElementById('es_journal_group').style.display = v === 'Cash'   ? '' : 'none';
-  document.getElementById('es_cheque_group').style.display  = v === 'Cheque' ? '' : 'none';
-  document.getElementById('es_ca_group').style.display      = v === 'Loan'   ? '' : 'none';
-  document.getElementById('es_ca_date_group').style.display = v === 'Loan'   ? '' : 'none';
+  document.getElementById('es_journal_group').style.display     = v === 'Phone Transfer' ? '' : 'none';
+  document.getElementById('es_cheque_group').style.display      = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('es_cheque_date_group').style.display = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('es_ca_group').style.display          = v === 'Loan'           ? '' : 'none';
+  document.getElementById('es_ca_date_group').style.display     = v === 'Loan'           ? '' : 'none';
+}
+function toggleBookingPaymentFields() {
+  const v = document.getElementById('b_payment').value;
+  document.getElementById('b_journal_group').style.display     = v === 'Phone Transfer' ? '' : 'none';
+  document.getElementById('b_cheque_group').style.display      = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('b_cheque_date_group').style.display = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('b_ca_group').style.display          = v === 'Loan'           ? '' : 'none';
+  document.getElementById('b_ca_date_group').style.display     = v === 'Loan'           ? '' : 'none';
+}
+function toggleEditBookingPaymentFields() {
+  const v = document.getElementById('eb_payment').value;
+  document.getElementById('eb_journal_group').style.display     = v === 'Phone Transfer' ? '' : 'none';
+  document.getElementById('eb_cheque_group').style.display      = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('eb_cheque_date_group').style.display = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('eb_ca_group').style.display          = v === 'Loan'           ? '' : 'none';
+  document.getElementById('eb_ca_date_group').style.display     = v === 'Loan'           ? '' : 'none';
+}
+function togglePlanBookingPaymentFields() {
+  const v = document.getElementById('bp_payment').value;
+  document.getElementById('bp_journal_group').style.display     = v === 'Phone Transfer' ? '' : 'none';
+  document.getElementById('bp_cheque_group').style.display      = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('bp_cheque_date_group').style.display = v === 'Cheque'         ? '' : 'none';
+  document.getElementById('bp_ca_group').style.display          = v === 'Loan'           ? '' : 'none';
+  document.getElementById('bp_ca_date_group').style.display     = v === 'Loan'           ? '' : 'none';
 }
 
 function addSale() {
@@ -3874,8 +3975,9 @@ function addSale() {
     salePrice: price, discount, netPrice,
     amountPaid, pendingAmount: pendingAmt,
     payment,
-    journalNumber: payment === 'Cash'   ? document.getElementById('s_journal_number').value.trim() : '',
+    journalNumber: payment === 'Phone Transfer' ? document.getElementById('s_journal_number').value.trim() : '',
     chequeNumber:  payment === 'Cheque' ? document.getElementById('s_cheque_number').value.trim() : '',
+    chequeDate:    payment === 'Cheque' ? document.getElementById('s_cheque_date').value : '',
     caNumber: payment === 'Loan' ? document.getElementById('s_ca_number').value.trim() : '',
     caDate:   payment === 'Loan' ? document.getElementById('s_ca_date').value : '',
     pi: document.getElementById('s_pi').value.trim(),
@@ -3896,7 +3998,7 @@ function addSale() {
 }
 
 function clearSaleForm() {
-  ['s_date','s_vehicle','s_buyer','s_cid','s_phone','s_address','s_price','s_discount','s_netprice','s_amountpaid','s_pending','s_journal_number','s_cheque_number','s_ca_number','s_ca_date','s_pi','s_salesperson','s_notes']
+  ['s_date','s_vehicle','s_buyer','s_cid','s_phone','s_address','s_price','s_discount','s_netprice','s_amountpaid','s_pending','s_journal_number','s_cheque_number','s_cheque_date','s_ca_number','s_ca_date','s_pi','s_salesperson','s_notes']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   setDateField('s_date', today());
   document.getElementById('s_discount').value = '0';
@@ -3978,7 +4080,7 @@ function renderSalesTable() {
     return `<tr>
       <td>${i+1}</td>
       <td>${fmtDate(s.date)}</td>
-      <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''} ${veh.year||''}</small>` : 'N/A'}</td>
+      <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''}</small>` : 'N/A'}</td>
       <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
       <td>${s.buyer}</td>
       <td>${s.cid || '-'}</td>
@@ -4099,12 +4201,19 @@ function addBooking() {
   const salePrice   = agreedPrice - discount;
 
   veh.status = 'booked';
+  const payment = document.getElementById('b_payment').value;
   const newBooking = {
     id: genId(), date, vehicleId, customer,
     cid: document.getElementById('b_cid').value.trim(),
     phone: document.getElementById('b_phone').value.trim(),
     address: document.getElementById('b_address').value.trim(),
     deposit, agreedPrice, discount, salePrice, balance: salePrice - deposit,
+    payment,
+    journalNumber: payment === 'Phone Transfer' ? document.getElementById('b_journal_number').value.trim() : '',
+    chequeNumber:  payment === 'Cheque' ? document.getElementById('b_cheque_number').value.trim() : '',
+    chequeDate:    payment === 'Cheque' ? document.getElementById('b_cheque_date').value : '',
+    caNumber: payment === 'Loan' ? document.getElementById('b_ca_number').value.trim() : '',
+    caDate:   payment === 'Loan' ? document.getElementById('b_ca_date').value : '',
     delivery: document.getElementById('b_delivery').value,
     notes: document.getElementById('b_notes').value.trim()
   };
@@ -4120,9 +4229,11 @@ function addBooking() {
 }
 
 function clearBookingForm() {
-  ['b_date','b_vehicle','b_variant','b_customer','b_cid','b_phone','b_address','b_deposit','b_agreedprice','b_discount','b_saleprice','b_balance','b_delivery','b_notes']
+  ['b_date','b_vehicle','b_variant','b_customer','b_cid','b_phone','b_address','b_deposit','b_agreedprice','b_discount','b_saleprice','b_balance','b_delivery','b_notes','b_journal_number','b_cheque_number','b_cheque_date','b_ca_number','b_ca_date']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   setDateField('b_date', today());
+  document.getElementById('b_payment').value = 'Cash';
+  toggleBookingPaymentFields();
   updateVehicleSelects();
 }
 
@@ -5383,6 +5494,7 @@ function openEditSale(id) {
   document.getElementById('es_payment').value = s.payment || 'Cash';
   document.getElementById('es_journal_number').value = s.journalNumber || '';
   document.getElementById('es_cheque_number').value = s.chequeNumber || '';
+  setDateField('es_cheque_date', s.chequeDate || '');
   document.getElementById('es_ca_number').value = s.caNumber || '';
   setDateField('es_ca_date', s.caDate || '');
   document.getElementById('es_pi').value = s.pi || '';
@@ -5428,8 +5540,9 @@ async function saveEditSale() {
   s.amountPaid    = amountPaid;
   s.pendingAmount = pending;
   s.payment       = esPayment;
-  s.journalNumber = esPayment === 'Cash'   ? document.getElementById('es_journal_number').value.trim() : '';
+  s.journalNumber = esPayment === 'Phone Transfer' ? document.getElementById('es_journal_number').value.trim() : '';
   s.chequeNumber  = esPayment === 'Cheque' ? document.getElementById('es_cheque_number').value.trim() : '';
+  s.chequeDate    = esPayment === 'Cheque' ? document.getElementById('es_cheque_date').value : '';
   s.caNumber      = esPayment === 'Loan'   ? document.getElementById('es_ca_number').value.trim() : '';
   s.caDate        = esPayment === 'Loan'   ? document.getElementById('es_ca_date').value : '';
   s.pi            = document.getElementById('es_pi').value.trim();
@@ -5460,6 +5573,13 @@ function openEditBooking(id) {
   document.getElementById('eb_address').value = b.address || '';
   setDateField('eb_delivery', b.delivery || '');
   document.getElementById('eb_notes').value = b.notes || '';
+  document.getElementById('eb_payment').value = b.payment || 'Cash';
+  document.getElementById('eb_journal_number').value = b.journalNumber || '';
+  document.getElementById('eb_cheque_number').value = b.chequeNumber || '';
+  setDateField('eb_cheque_date', b.chequeDate || '');
+  document.getElementById('eb_ca_number').value = b.caNumber || '';
+  setDateField('eb_ca_date', b.caDate || '');
+  toggleEditBookingPaymentFields();
 
   const depEl  = document.getElementById('eb_deposit');
   const agEl   = document.getElementById('eb_agreedprice');
@@ -5488,6 +5608,7 @@ async function saveEditBooking() {
   const agreedPrice = pn('eb_agreedprice');
   const discount    = pn('eb_discount');
   const salePrice   = agreedPrice - discount;
+  const ebPayment = document.getElementById('eb_payment').value;
   b.date        = document.getElementById('eb_date').value;
   b.customer    = customer;
   b.cid         = document.getElementById('eb_cid').value.trim();
@@ -5500,6 +5621,12 @@ async function saveEditBooking() {
   b.balance     = salePrice - deposit;
   b.delivery    = document.getElementById('eb_delivery').value;
   b.notes       = document.getElementById('eb_notes').value.trim();
+  b.payment       = ebPayment;
+  b.journalNumber = ebPayment === 'Phone Transfer' ? document.getElementById('eb_journal_number').value.trim() : '';
+  b.chequeNumber  = ebPayment === 'Cheque' ? document.getElementById('eb_cheque_number').value.trim() : '';
+  b.chequeDate    = ebPayment === 'Cheque' ? document.getElementById('eb_cheque_date').value : '';
+  b.caNumber      = ebPayment === 'Loan'   ? document.getElementById('eb_ca_number').value.trim() : '';
+  b.caDate        = ebPayment === 'Loan'   ? document.getElementById('eb_ca_date').value : '';
   const ok = await saveOne('bookings', b, bookingToDB);
   if (!ok) return;
   closeModal('editBookingModal');
@@ -5522,6 +5649,13 @@ function openBookPlanModal(planId) {
   document.getElementById('bp_address').value  = existing ? (existing.address  || '') : '';
   setDateField('bp_delivery', existing ? (existing.delivery || '') : '');
   document.getElementById('bp_notes').value    = existing ? (existing.notes    || '') : '';
+  document.getElementById('bp_payment').value  = existing ? (existing.payment || 'Cash') : 'Cash';
+  document.getElementById('bp_journal_number').value = existing ? (existing.journalNumber || '') : '';
+  document.getElementById('bp_cheque_number').value  = existing ? (existing.chequeNumber  || '') : '';
+  setDateField('bp_cheque_date', existing ? (existing.chequeDate || '') : '');
+  document.getElementById('bp_ca_number').value = existing ? (existing.caNumber || '') : '';
+  setDateField('bp_ca_date', existing ? (existing.caDate || '') : '');
+  togglePlanBookingPaymentFields();
   const depEl  = document.getElementById('bp_deposit');
   const agEl   = document.getElementById('bp_agreedprice');
   const discEl = document.getElementById('bp_discount');
@@ -5566,6 +5700,12 @@ async function savePlanBooking() {
   const agreedPrice = pn('bp_agreedprice');
   const discount    = pn('bp_discount');
   const salePrice   = agreedPrice - discount;
+  const payment = document.getElementById('bp_payment').value;
+  const journalNumber = payment === 'Phone Transfer' ? document.getElementById('bp_journal_number').value.trim() : '';
+  const chequeNumber  = payment === 'Cheque' ? document.getElementById('bp_cheque_number').value.trim() : '';
+  const chequeDate    = payment === 'Cheque' ? document.getElementById('bp_cheque_date').value : '';
+  const caNumber = payment === 'Loan' ? document.getElementById('bp_ca_number').value.trim() : '';
+  const caDate   = payment === 'Loan' ? document.getElementById('bp_ca_date').value : '';
   const existing = bookings.find(b => b.planId === planId);
   if (existing) {
     existing.date        = date;
@@ -5580,6 +5720,12 @@ async function savePlanBooking() {
     existing.balance     = salePrice - deposit;
     existing.delivery    = document.getElementById('bp_delivery').value;
     existing.notes       = document.getElementById('bp_notes').value.trim();
+    existing.payment       = payment;
+    existing.journalNumber = journalNumber;
+    existing.chequeNumber  = chequeNumber;
+    existing.chequeDate    = chequeDate;
+    existing.caNumber      = caNumber;
+    existing.caDate        = caDate;
     const ok = await saveOne('bookings', existing, bookingToDB);
     if (!ok) return;
     showToast('Booking updated.');
@@ -5590,7 +5736,8 @@ async function savePlanBooking() {
       address:  document.getElementById('bp_address').value.trim(),
       deposit, agreedPrice, discount, salePrice, balance: salePrice - deposit,
       delivery: document.getElementById('bp_delivery').value,
-      notes:    document.getElementById('bp_notes').value.trim()
+      notes:    document.getElementById('bp_notes').value.trim(),
+      payment, journalNumber, chequeNumber, chequeDate, caNumber, caDate
     };
     bookings.push(newBooking);
     saveOne('bookings', newBooking, bookingToDB);
