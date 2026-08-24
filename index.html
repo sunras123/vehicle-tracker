@@ -694,7 +694,9 @@
     </div>
   </div>
 
-  <div class="panel" id="saleFormPanel" style="display:none">
+  <div class="modal-overlay" id="saleFormPanel">
+   <div class="modal">
+    <button class="modal-close" onclick="clearSaleForm(); closeModal('saleFormPanel');">&times;</button>
     <h3>&#10133; Record Vehicle Sale</h3>
     <div class="form-grid">
       <div class="form-group">
@@ -780,11 +782,14 @@
     </div>
     <div class="form-actions">
       <button class="btn btn-success" onclick="addSale()">&#10003; Record Sale</button>
-      <button class="btn" onclick="clearSaleForm(); hideSaleFormPanel();" style="background:#f0f2f5;color:#555;">Cancel</button>
+      <button class="btn" onclick="clearSaleForm(); closeModal('saleFormPanel');" style="background:#f0f2f5;color:#555;">Cancel</button>
     </div>
+   </div>
   </div>
 
-  <div class="panel" id="bookingFormPanel" style="display:none">
+  <div class="modal-overlay" id="bookingFormPanel">
+   <div class="modal">
+    <button class="modal-close" onclick="clearBookingForm(); closeModal('bookingFormPanel');">&times;</button>
     <h3>&#10133; Add Booking</h3>
     <div class="form-grid">
       <div class="form-group">
@@ -846,8 +851,9 @@
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="addBooking()">&#128197; Add Booking</button>
-      <button class="btn" onclick="clearBookingForm(); hideBookingFormPanel();" style="background:#f0f2f5;color:#555;">Cancel</button>
+      <button class="btn" onclick="clearBookingForm(); closeModal('bookingFormPanel');" style="background:#f0f2f5;color:#555;">Cancel</button>
     </div>
+   </div>
   </div>
 
   <div class="pp-mode-switch">
@@ -3873,7 +3879,7 @@ function addSale() {
   showToast(`Sale recorded: ${veh.model} to ${buyer}`);
   trackActivity('added sale');
   clearSaleForm();
-  hideSaleFormPanel();
+  closeModal('saleFormPanel');
   renderSalesTable();
   updateVehicleSelects();
   renderBookingsTable();
@@ -4099,7 +4105,7 @@ function addBooking() {
   showToast(`Booking added for ${customer}`);
   trackActivity('added booking');
   clearBookingForm();
-  hideBookingFormPanel();
+  closeModal('bookingFormPanel');
   renderBookingsTable();
   updateVehicleSelects();
 }
@@ -4159,29 +4165,25 @@ function convertBookingToSale(id) {
     renderPurchasePlanTable();
   }
 
-  showTab('sales');
-  setTimeout(() => {
-    showSaleFormPanel();
-    setDateField('s_date', today());
-    document.getElementById('s_vehicle').value = b.vehicleId;
-    document.getElementById('s_buyer').value = b.customer;
-    document.getElementById('s_cid').value = b.cid || '';
-    document.getElementById('s_phone').value = b.phone || '';
-    document.getElementById('s_address').value = b.address || '';
+  setDateField('s_date', today());
+  document.getElementById('s_vehicle').value = b.vehicleId;
+  document.getElementById('s_buyer').value = b.customer;
+  document.getElementById('s_cid').value = b.cid || '';
+  document.getElementById('s_phone').value = b.phone || '';
+  document.getElementById('s_address').value = b.address || '';
 
-    const listEl = document.getElementById('s_price');
-    listEl.value = b.agreedPrice || ''; fmtInput(listEl);
+  const listEl = document.getElementById('s_price');
+  listEl.value = b.agreedPrice || ''; fmtInput(listEl);
 
-    const discEl = document.getElementById('s_discount');
-    discEl.value = b.discount || '0'; fmtInput(discEl);
+  const discEl = document.getElementById('s_discount');
+  discEl.value = b.discount || '0'; fmtInput(discEl);
 
-    const paidEl = document.getElementById('s_amountpaid');
-    paidEl.value = b.deposit || ''; fmtInput(paidEl);
+  const paidEl = document.getElementById('s_amountpaid');
+  paidEl.value = b.deposit || ''; fmtInput(paidEl);
 
-    calcSalePending();
-    document.getElementById('saleFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast('Booking details loaded — complete and record the sale.', 'success');
-  }, 100);
+  calcSalePending();
+  openModal('saleFormPanel');
+  showToast('Booking details loaded — complete and record the sale.', 'success');
 }
 
 function getPlanSrc(b) {
@@ -4355,33 +4357,18 @@ function renderStockTable() {
 }
 
 function openBookingForVehicle(vehicleId) {
-  showTab('sales');
-  setTimeout(() => {
-    showBookingFormPanel();
-    const sel = document.getElementById('b_vehicle');
-    if (sel) { sel.value = vehicleId; autoFillBookingListPrice(); }
-    setDateField('b_date', today());
-    document.getElementById('bookingFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast('Vehicle pre-selected — fill in booking details and save.', 'success');
-  }, 100);
+  const sel = document.getElementById('b_vehicle');
+  if (sel) { sel.value = vehicleId; autoFillBookingListPrice(); }
+  setDateField('b_date', today());
+  openModal('bookingFormPanel');
 }
 
 function openSaleForVehicle(vehicleId) {
-  showTab('sales');
-  setTimeout(() => {
-    showSaleFormPanel();
-    const sel = document.getElementById('s_vehicle');
-    if (sel) { sel.value = vehicleId; autoFillSaleListPrice(); }
-    setDateField('s_date', today());
-    document.getElementById('saleFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast('Vehicle pre-selected — fill in sale details and save.', 'success');
-  }, 100);
+  const sel = document.getElementById('s_vehicle');
+  if (sel) { sel.value = vehicleId; autoFillSaleListPrice(); }
+  setDateField('s_date', today());
+  openModal('saleFormPanel');
 }
-
-function showSaleFormPanel() { document.getElementById('saleFormPanel').style.display = ''; }
-function hideSaleFormPanel() { document.getElementById('saleFormPanel').style.display = 'none'; }
-function showBookingFormPanel() { document.getElementById('bookingFormPanel').style.display = ''; }
-function hideBookingFormPanel() { document.getElementById('bookingFormPanel').style.display = 'none'; }
 
 function renderModelGrid(elId, plans, badgeColour) {
   const el = document.getElementById(elId);
