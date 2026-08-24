@@ -335,7 +335,6 @@
   <button class="tab-btn" onclick="showTab('pricelist')">Price List</button>
   <button class="tab-btn" onclick="showTab('catalogue')">Models/Colours</button>
   <button class="tab-btn" onclick="showTab('purchaseplan')">Purchase Plan</button>
-  <button class="tab-btn" onclick="showTab('purchases')">Purchases</button>
   <button class="tab-btn" onclick="showTab('sales')">Sales/Bookings</button>
   <button class="tab-btn" onclick="showTab('stock')">Stock</button>
   <button class="tab-btn" onclick="showTab('financials')">Financials</button>
@@ -546,124 +545,6 @@
   </div>
 </div>
 
-<!-- PURCHASES TAB -->
-<div id="tab-purchases" class="tab-content">
-  <div class="panel" id="addPurchasePanel" style="display:none">
-    <h3>&#10133; Add Vehicle Purchase</h3>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Date</label>
-        <input type="date" id="p_date">
-      </div>
-      <div class="form-group">
-        <label>Model</label>
-        <select id="p_model" onchange="updatePurchaseVariantSelect()"><option value="">-- Select Model --</option></select>
-      </div>
-      <div class="form-group">
-        <label>Variant</label>
-        <select id="p_variant" onchange="updatePurchaseColourSelect()"><option value="">-- Select Model First --</option></select>
-      </div>
-      <div class="form-group">
-        <label>Colour</label>
-        <select id="p_colour"><option value="">-- Select Colour --</option></select>
-      </div>
-      <div class="form-group">
-        <label>Year</label>
-        <input type="number" id="p_year" placeholder="2024" min="1990" max="2030">
-      </div>
-      <div class="form-group">
-        <label>FOB Price (USD)</label>
-        <input type="text" inputmode="decimal" id="p_cost" placeholder="0.00" oninput="fmtInput(this); calcFobNu()">
-      </div>
-      <div class="form-group">
-        <label>Exchange Rate (Nu./USD)</label>
-        <input type="text" inputmode="decimal" id="p_exrate" placeholder="0.00" oninput="fmtInput(this); calcFobNu(); calcShippingNu()">
-      </div>
-      <div class="form-group">
-        <label>FOB Price (Nu.)</label>
-        <input type="text" id="p_fob_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;">
-      </div>
-      <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;">
-        <span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Cost Breakdown</span>
-      </div>
-      <div class="form-group">
-        <label>Shipping China → Kolkata (USD)</label>
-        <input type="text" inputmode="decimal" id="p_shipping" placeholder="0.00" oninput="fmtInput(this); calcShippingNu()">
-      </div>
-      <div class="form-group">
-        <label>Shipping China → Kolkata (Nu.)</label>
-        <input type="text" id="p_shipping_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;">
-      </div>
-      <div class="form-group">
-        <label>Transport Kolkata → Phuentsholing (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_transport" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Customs Duty (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_customs" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Excise Duty (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_excise" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>GST (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_gst" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>DV Charges (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_dv" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Permit Charges (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_permit" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Unloading &amp; Loading (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_loading" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Service Charge &amp; Commission (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_service" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Driver Charges (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_driver" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Fuel Cost (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_fuel" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Transit Insurance (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_insurance" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;">
-        <span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Other</span>
-      </div>
-      <div class="form-group">
-        <label>Additional Costs (Nu.)</label>
-        <input type="text" inputmode="decimal" id="p_addcost" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-      <div class="form-group">
-        <label>Invoice Number</label>
-        <input type="text" id="p_pi" placeholder="Invoice number">
-      </div>
-      <div class="form-group">
-        <label>PO Number</label>
-        <input type="text" id="p_po" placeholder="Purchase Order number">
-      </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <input type="text" id="p_notes" placeholder="Any notes">
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" onclick="addPurchase()">&#10133; Add Purchase</button>
-      <button class="btn" onclick="clearPurchaseForm()" style="background:#f0f2f5;color:#555;">Clear</button>
-    </div>
-  </div>
-</div>
 
 <!-- SALES TAB -->
 <div id="tab-sales" class="tab-content">
@@ -2245,7 +2126,7 @@ function getVehicleLabel(p) {
 // ============================================================
 // TABS
 // ============================================================
-const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','stock','financials','reports','credentials'];
+const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','sales','stock','financials','reports','credentials'];
 
 function showTab(name) {
   if (currentUser) sessionTabsVisited.add(name);
@@ -2765,13 +2646,12 @@ function movePlanToPurchase(id) {
   const entry = purchasePlans.find(p => p.id === id);
   if (!entry) return;
   const label = `${entry.model}${entry.variant ? ' ' + entry.variant : ''} (${entry.colour})`;
-  if (!confirm(`Move to Purchases?\n\n${label} will be added to the Purchases tab and removed from Purchase Plan.`)) return;
+  if (!confirm(`Move to Purchases?\n\n${label} will be added to Purchase Records and removed from Purchase Plan Under Process.`)) return;
   autoCreatePurchaseFromPlan(entry);
   sbDelete('purchase_plans', id);
   purchasePlans = purchasePlans.filter(p => p.id !== id);
   renderPurchasePlanTable();
   renderPurchasesTable();
-  showTab('purchases');
   showToast(`${entry.model} moved to Purchases.`, 'success');
   trackActivity('moved purchase plan to purchases');
 }
@@ -2788,7 +2668,6 @@ function movePoToPurchases(po) {
   purchasePlans = purchasePlans.filter(p => !ids.has(p.id));
   renderPurchasePlanTable();
   renderPurchasesTable();
-  showTab('purchases');
   showToast(`PO ${po} moved to Purchases (${items.length} vehicles).`, 'success');
   trackActivity('moved purchase plan PO to purchases');
 }
@@ -3050,6 +2929,14 @@ function setPpInnerSort(col) {
 }
 
 function updatePurchaseDropdowns() {
+  // Stock filters
+  const models  = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.model))].sort();
+  const colours = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.colour))].sort();
+  const smf = document.getElementById('stockModelFilter');
+  const scf = document.getElementById('stockColourFilter');
+  if (smf) smf.innerHTML = '<option value="">All Models</option>' + models.map(m=>`<option>${m}</option>`).join('');
+  if (scf) scf.innerHTML = '<option value="">All Colours</option>' + colours.map(c=>`<option>${c}</option>`).join('');
+
   const pm = document.getElementById('p_model');
   const pc = document.getElementById('p_colour');
   if (!pm || !pc) return;
@@ -3061,14 +2948,6 @@ function updatePurchaseDropdowns() {
     uniqueModels.map(m => `<option value="${m.name}" ${m.name===curModel?'selected':''}>${m.name}</option>`).join('');
 
   updatePurchaseVariantSelect();
-
-  // Also update stock filters
-  const models  = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.model))].sort();
-  const colours = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.colour))].sort();
-  const smf = document.getElementById('stockModelFilter');
-  const scf = document.getElementById('stockColourFilter');
-  if (smf) smf.innerHTML = '<option value="">All Models</option>' + models.map(m=>`<option>${m}</option>`).join('');
-  if (scf) scf.innerHTML = '<option value="">All Colours</option>' + colours.map(c=>`<option>${c}</option>`).join('');
 }
 
 function updatePurchaseVariantSelect() {
@@ -5113,7 +4992,7 @@ let sessionTabsVisited = new Set();
 
 const TAB_LABELS = {
   summary: 'Dashboard', pricelist: 'Price List', catalogue: 'Models/Colours',
-  purchaseplan: 'Purchase Plan', purchases: 'Purchases', sales: 'Sales/Bookings',
+  purchaseplan: 'Purchase Plan', sales: 'Sales/Bookings',
   stock: 'Stock', financials: 'Financials',
   reports: 'Reports', credentials: 'Credential Mgmt'
 };
@@ -5296,7 +5175,6 @@ const MANAGEABLE_TABS = [
   { id: 'pricelist',    label: 'Price List'  },
   { id: 'catalogue',    label: 'Catalogue'   },
   { id: 'purchaseplan', label: 'Purchase Plan'  },
-  { id: 'purchases',    label: 'Purchases'   },
   { id: 'sales',        label: 'Sales/Bookings' },
   { id: 'stock',        label: 'Stock'       },
   { id: 'financials',   label: 'Financials'  },
