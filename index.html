@@ -509,7 +509,7 @@
   </div>
 
   <div class="panel" id="ppMode_view">
-    <h3>&#128196; Purchase Plan Records</h3>
+    <h3>&#128196; Purchase Plan Under Process</h3>
     <div class="toolbar">
       <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour, PO...">
       <select id="ppStatusFilter" onchange="renderPurchasePlanTable()">
@@ -522,6 +522,26 @@
     <div id="ppEmpty" class="empty-state" style="display:none">
       <div class="empty-icon">&#128196;</div>
       <div>No purchase plans added yet.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>&#128218; Purchase Records</h3>
+    <div class="toolbar">
+      <input type="text" id="purchaseSearch" oninput="renderPurchasesTable()" placeholder="&#128269; Search by model, colour, PO...">
+      <select id="purchaseStatusFilter" onchange="renderPurchasesTable()">
+        <option value="">All Status</option>
+        <option value="available">Available</option>
+        <option value="booked">Booked</option>
+        <option value="sold">Sold</option>
+      </select>
+      <button class="btn btn-success btn-sm" onclick="importPurchasesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
+      <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
+    </div>
+    <div id="purchGroupContainer"></div>
+    <div id="purchasesEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#128666;</div>
+      <div>No purchase records yet.</div>
     </div>
   </div>
 </div>
@@ -641,26 +661,6 @@
     <div class="form-actions">
       <button class="btn btn-primary" onclick="addPurchase()">&#10133; Add Purchase</button>
       <button class="btn" onclick="clearPurchaseForm()" style="background:#f0f2f5;color:#555;">Clear</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>&#128218; Purchase Records</h3>
-    <div class="toolbar">
-      <input type="text" id="purchaseSearch" oninput="renderPurchasesTable()" placeholder="&#128269; Search by model, colour, PO...">
-      <select id="purchaseStatusFilter" onchange="renderPurchasesTable()">
-        <option value="">All Status</option>
-        <option value="available">Available</option>
-        <option value="booked">Booked</option>
-        <option value="sold">Sold</option>
-      </select>
-      <button class="btn btn-success btn-sm" onclick="importPurchasesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
-      <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
-    </div>
-    <div id="purchGroupContainer"></div>
-    <div id="purchasesEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">&#128666;</div>
-      <div>No purchase records yet.</div>
     </div>
   </div>
 </div>
