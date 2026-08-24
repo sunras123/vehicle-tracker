@@ -4678,18 +4678,30 @@ function clearPriceListForm() {
   document.getElementById('pl_save_btn').textContent = '🏷️ Save Price';
 }
 
+let plInlineEditId = null;
+
 function editPriceListEntry(id) {
+  plInlineEditId = String(id);
+  renderPriceList();
+}
+
+function cancelInlinePriceListEdit() {
+  plInlineEditId = null;
+  renderPriceList();
+}
+
+function saveInlinePriceListEdit(id) {
   const pl = priceLists.find(p => String(p.id) === String(id));
   if (!pl) { showToast('Entry not found. Try refreshing the page.', 'error'); return; }
-  updatePriceListModelSelect();
-  document.getElementById('pl_model').value = pl.model;
-  updatePriceListVariantSelect();
-  document.getElementById('pl_variant').value = pl.variant || '';
-  document.getElementById('pl_price').value = fmtNum(pl.listPrice);
-  document.getElementById('pl_form_heading').textContent = '✏️ Editing: ' + pl.model + (pl.variant ? ' ' + pl.variant : '');
-  document.getElementById('pl_save_btn').textContent = '✓ Update Price';
-  document.getElementById('pl_add_panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  document.getElementById('pl_price').focus();
+  const input = document.getElementById(`pl_inline_price_${id}`);
+  const listPrice = parseNum(input.id);
+  if (!listPrice) { showToast('List Price is required.', 'error'); return; }
+  pl.listPrice = listPrice;
+  saveOne('price_list', pl, priceListToDB);
+  showToast('List price saved.');
+  trackActivity('edited price list');
+  plInlineEditId = null;
+  renderPriceList();
 }
 
 function deletePriceListEntry(id) {
@@ -4713,13 +4725,22 @@ function renderPriceList() {
   if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  tbody.innerHTML = data.map((pl, i) => `<tr>
+  tbody.innerHTML = data.map((pl, i) => {
+    const editing = plInlineEditId === String(pl.id);
+    const priceCell = editing
+      ? `<input type="text" inputmode="decimal" id="pl_inline_price_${pl.id}" value="${fmtNum(pl.listPrice)}" oninput="fmtInput(this)" style="width:110px;font-weight:600;">`
+      : `<span style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</span>`;
+    const actionsCell = !isSuperAdmin() ? '' : editing
+      ? `<button class="btn btn-sm" style="background:#27ae60;color:white;margin-right:4px" onclick="saveInlinePriceListEdit('${pl.id}')">&#10003; Save</button><button class="btn btn-sm" style="background:#f0f2f5;color:#555;" onclick="cancelInlinePriceListEdit()">Cancel</button>`
+      : `<button class="btn btn-sm" style="background:#e8f0fe;color:#1a73e8;margin-right:4px" onclick="editPriceListEntry('${pl.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>`;
+    return `<tr>
     <td>${i + 1}</td>
     <td><strong>${pl.model}</strong></td>
     <td>${pl.variant || '-'}</td>
-    <td style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</td>
-    <td>${isSuperAdmin() ? `<button class="btn btn-sm" style="background:#e8f0fe;color:#1a73e8;margin-right:4px" onclick="editPriceListEntry('${pl.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>` : ''}</td>
-  </tr>`).join('');
+    <td>${priceCell}</td>
+    <td>${actionsCell}</td>
+  </tr>`;
+  }).join('');
 }
 
 // ============================================================
