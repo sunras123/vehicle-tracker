@@ -2885,12 +2885,13 @@ function renderPurchasePlanTable() {
              ${pb.deposit  ? `<span style="color:#2980b9">Deposit: ${fmt(pb.deposit)}</span>` : ''}
            </div>`
         : `<span style="color:#aaa;">&#8212;</span>`;
-      const lcReady = p.lcstage === 'opened' || p.lcstage === 'closed';
+      const lcReady   = p.lcstage === 'opened' || p.lcstage === 'closed';
+      const bookReady = p.lcstage === 'closed';
       const bookBtn = pb
         ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
-        : lcReady
+        : bookReady
           ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`
-          : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before booking" style="background:#ccc;color:#888;margin-right:4px;cursor:not-allowed;">&#128197; Book</button>`;
+          : `<button class="btn btn-sm" disabled title="LC must be Closed before booking" style="background:#ccc;color:#888;margin-right:4px;cursor:not-allowed;">&#128197; Book</button>`;
       return `<tr>
         <td>${i+1}</td>
         <td>${fmtDate(p.date)}</td>
@@ -3013,12 +3014,10 @@ function updateEditPurchaseVariantSelect(currentVariant) {
   sel.innerHTML = variants.map(v => `<option value="${v}" ${v===cur?'selected':''}>${v || '(Base / No Variant)'}</option>`).join('');
 }
 
-function lookupListPrice(vehicleId) {
-  const veh = getPurchase(vehicleId);
-  if (!veh) return null;
+function lookupListPrice(model, variant) {
   // Try exact model+variant match first, then model-only fallback
-  return priceLists.find(pl => pl.model === veh.model && pl.variant === (veh.variant || ''))
-      || priceLists.find(pl => pl.model === veh.model && pl.variant === '');
+  return priceLists.find(pl => pl.model === model && pl.variant === (variant || ''))
+      || priceLists.find(pl => pl.model === model && pl.variant === '');
 }
 
 function autoFillSaleListPrice() {
@@ -3026,7 +3025,7 @@ function autoFillSaleListPrice() {
   const veh = getPurchase(vehicleId);
   const priceEl = document.getElementById('s_price');
   if (!veh || !priceEl) return;
-  const pl = lookupListPrice(vehicleId);
+  const pl = lookupListPrice(veh.model, veh.variant);
   if (pl && pl.listPrice && veh.exrate) {
     priceEl.value = fmtNum(pl.listPrice * veh.exrate);
     calcSalePending();
@@ -3040,7 +3039,7 @@ function autoFillBookingListPrice() {
   if (varEl) varEl.value = (veh && veh.variant) ? veh.variant : '';
   const priceEl = document.getElementById('b_agreedprice');
   if (!veh || !priceEl) return;
-  const pl = lookupListPrice(vehicleId);
+  const pl = lookupListPrice(veh.model, veh.variant);
   if (pl && pl.listPrice && veh.exrate) {
     priceEl.value = fmtNum(pl.listPrice * veh.exrate);
     calcBookingSalePrice();
@@ -5516,10 +5515,16 @@ function openBookPlanModal(planId) {
   const agEl   = document.getElementById('bp_agreedprice');
   const discEl = document.getElementById('bp_discount');
   depEl.value  = existing ? (existing.deposit     || '') : ''; fmtInput(depEl);
-  agEl.value   = existing ? (existing.agreedPrice || '') : ''; fmtInput(agEl);
   discEl.value = existing ? (existing.discount    || '') : ''; fmtInput(discEl);
-  document.getElementById('bp_saleprice').value = existing ? fmtNum(existing.salePrice != null ? existing.salePrice : existing.agreedPrice) : '';
-  document.getElementById('bp_balance').value   = existing ? fmtNum(existing.balance || 0) : '';
+  if (existing) {
+    agEl.value = existing.agreedPrice || ''; fmtInput(agEl);
+    document.getElementById('bp_saleprice').value = fmtNum(existing.salePrice != null ? existing.salePrice : existing.agreedPrice);
+    document.getElementById('bp_balance').value   = fmtNum(existing.balance || 0);
+  } else {
+    const pl = lookupListPrice(p.model, p.variant);
+    agEl.value = (pl && pl.listPrice && p.lcexrate) ? fmtNum(pl.listPrice * p.lcexrate) : '';
+    calcPlanBookingSalePrice();
+  }
   openModal('bookPlanModal');
 }
 
