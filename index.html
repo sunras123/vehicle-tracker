@@ -2839,9 +2839,12 @@ function renderPurchasePlanTable() {
              ${pb.deposit  ? `<span style="color:#2980b9">Deposit: ${fmt(pb.deposit)}</span>` : ''}
            </div>`
         : `<span style="color:#aaa;">&#8212;</span>`;
+      const lcReady = p.lcstage === 'opened' || p.lcstage === 'closed';
       const bookBtn = pb
         ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
-        : `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`;
+        : lcReady
+          ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`
+          : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before booking" style="background:#ccc;color:#888;margin-right:4px;cursor:not-allowed;">&#128197; Book</button>`;
       return `<tr>
         <td>${i+1}</td>
         <td>${fmtDate(p.date)}</td>
@@ -4261,7 +4264,9 @@ function renderOrderPlanStock() {
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
       <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${sc};color:${sc};font-weight:600;font-size:0.82rem;background:${sc}18">${sl}</span></td>
-      <td><button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button></td>
+      <td>${(p.lcstage === 'opened' || p.lcstage === 'closed')
+        ? `<button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button>`
+        : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before booking" style="background:#ccc;color:#888;cursor:not-allowed;">&#128197; Book</button>`}</td>
     </tr>`;
   }).join('');
 }
