@@ -529,7 +529,7 @@
 
 <!-- PURCHASES TAB -->
 <div id="tab-purchases" class="tab-content">
-  <div class="panel">
+  <div class="panel" id="addPurchasePanel" style="display:none">
     <h3>&#10133; Add Vehicle Purchase</h3>
     <div class="form-grid">
       <div class="form-group">
@@ -648,7 +648,7 @@
   <div class="panel">
     <h3>&#128218; Purchase Records</h3>
     <div class="toolbar">
-      <input type="text" id="purchaseSearch" oninput="renderPurchasesTable()" placeholder="&#128269; Search by model, colour...">
+      <input type="text" id="purchaseSearch" oninput="renderPurchasesTable()" placeholder="&#128269; Search by model, colour, PO...">
       <select id="purchaseStatusFilter" onchange="renderPurchasesTable()">
         <option value="">All Status</option>
         <option value="available">Available</option>
@@ -658,28 +658,10 @@
       <button class="btn btn-success btn-sm" onclick="importPurchasesFromExcel()" style="white-space:nowrap;">&#128229; Import from Excel</button>
       <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr id="purchasesThead">
-            <th>Sl #</th>
-            <th class="sortable-th" onclick="setPurchaseSort('date')" data-col="date">Date</th>
-            <th class="sortable-th" onclick="setPurchaseSort('model')" data-col="model">Model</th>
-            <th class="sortable-th" onclick="setPurchaseSort('variant')" data-col="variant">Variant</th>
-            <th class="sortable-th" onclick="setPurchaseSort('year')" data-col="year">Year</th>
-            <th class="sortable-th" onclick="setPurchaseSort('colour')" data-col="colour">Colour</th>
-            <th class="sortable-th" onclick="setPurchaseSort('po')" data-col="po">PO No.</th>
-            <th class="sortable-th" onclick="setPurchaseSort('totalCost')" data-col="totalCost">Total Cost (Nu.)</th>
-            <th class="sortable-th" onclick="setPurchaseSort('status')" data-col="status">Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="purchasesTableBody"></tbody>
-      </table>
-    </div>
+    <div id="purchGroupContainer"></div>
     <div id="purchasesEmpty" class="empty-state" style="display:none">
       <div class="empty-icon">&#128666;</div>
-      <div>No purchase records yet. Add your first vehicle above.</div>
+      <div>No purchase records yet.</div>
     </div>
   </div>
 </div>
@@ -3478,6 +3460,24 @@ function setOpSort(col) {
 
 let purchaseSortCol = 'date';
 let purchaseSortDir = 'desc';
+const purchExpandedPos = new Set();
+let purchInnerSortCol = 'date';
+let purchInnerSortDir = 'asc';
+
+function togglePurchGroup(po) {
+  if (purchExpandedPos.has(po)) { purchExpandedPos.delete(po); } else { purchExpandedPos.add(po); }
+  renderPurchasesTable();
+}
+
+function setPurchInnerSort(col) {
+  if (purchInnerSortCol === col) {
+    purchInnerSortDir = purchInnerSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    purchInnerSortCol = col;
+    purchInnerSortDir = col === 'totalCost' || col === 'year' ? 'desc' : 'asc';
+  }
+  renderPurchasesTable();
+}
 
 let salesSortCol = 'date';
 let salesSortDir = 'desc';
@@ -3536,55 +3536,84 @@ function setPurchaseSort(col) {
 function renderPurchasesTable() {
   const search  = document.getElementById('purchaseSearch').value.toLowerCase();
   const statusF = document.getElementById('purchaseStatusFilter').value;
-  let data = purchases.filter(p => {
-    const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
+  const data = purchases.filter(p => {
+    const match = [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(search);
     return match && (!statusF || p.status === statusF);
   });
 
-  // Apply sort
-  data.sort((a, b) => {
-    let av = a[purchaseSortCol] ?? '';
-    let bv = b[purchaseSortCol] ?? '';
-    if (purchaseSortCol === 'totalCost' || purchaseSortCol === 'year') {
-      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
-      return purchaseSortDir === 'asc' ? av - bv : bv - av;
-    }
-    if (purchaseSortCol === 'po') {
-      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
-      return purchaseSortDir === 'asc' ? av - bv : bv - av;
-    }
-    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
-    return purchaseSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-  });
-
-  // Update header indicators
-  document.querySelectorAll('#purchasesThead .sortable-th').forEach(th => {
-    th.classList.remove('sort-asc', 'sort-desc');
-    if (th.dataset.col === purchaseSortCol) th.classList.add('sort-' + purchaseSortDir);
-  });
-
-  const tbody = document.getElementById('purchasesTableBody');
+  const container = document.getElementById('purchGroupContainer');
   const empty = document.getElementById('purchasesEmpty');
-  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  if (!container) return;
+  if (data.length === 0) { container.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  tbody.innerHTML = data.map((p, i) => {
-    const hex = getColourHex(p.colour);
-    return `<tr>
-      <td>${i+1}</td>
-      <td>${fmtDate(p.date)}</td>
-      <td><strong>${p.model}</strong></td>
-      <td>${p.variant || '-'}</td>
-      <td>${p.year || '-'}</td>
-      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
-      <td><strong>${fmtNum(p.totalCost)}</strong></td>
-      <td><span class="badge badge-${p.status}">${p.status}</span></td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-warning btn-sm" onclick="openEditPurchase('${p.id}')">&#9998; Edit</button>
-        ${p.status === 'available' ? `<button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>` : ''}
-      </td>
-    </tr>`;
+  // Group by PO number
+  const groups = {};
+  data.forEach(p => { const po = p.po || '(No PO)'; if (!groups[po]) groups[po] = []; groups[po].push(p); });
+  const poKeys = Object.keys(groups).sort((a, b) => {
+    const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
+    return an !== bn ? an - bn : a.localeCompare(b);
+  });
+
+  container.innerHTML = poKeys.map(po => {
+    const items = groups[po];
+    const isOpen = purchExpandedPos.has(po);
+    const poDate = items[0].date || '';
+
+    const sortedItems = [...items].sort((a, b) => {
+      let av = a[purchInnerSortCol] ?? '', bv = b[purchInnerSortCol] ?? '';
+      if (purchInnerSortCol === 'totalCost' || purchInnerSortCol === 'year') {
+        av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+        return purchInnerSortDir === 'asc' ? av - bv : bv - av;
+      }
+      av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+      return purchInnerSortDir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    const pTh = (col, label, style='') => {
+      const active = purchInnerSortCol === col;
+      const cls = active ? `sortable-th sort-${purchInnerSortDir}` : 'sortable-th';
+      return `<th class="${cls}" onclick="setPurchInnerSort('${col}')" data-col="${col}"${style ? ` style="${style}"` : ''}>${label}</th>`;
+    };
+
+    const rows = sortedItems.map((p, i) => {
+      const hex = getColourHex(p.colour);
+      return `<tr>
+        <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
+        <td>${i+1}</td>
+        <td>${fmtDate(p.date)}</td>
+        <td><strong>${p.model}</strong></td>
+        <td>${p.variant || '-'}</td>
+        <td>${p.year || '-'}</td>
+        <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
+        <td><strong>${fmtNum(p.totalCost)}</strong></td>
+        <td><span class="badge badge-${p.status}">${p.status}</span></td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-warning btn-sm" onclick="openEditPurchase('${p.id}')">&#9998; Edit</button>
+          ${p.status === 'available' ? `<button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    const poId = po.replace(/[^a-zA-Z0-9._-]/g, '_');
+    return `<div class="po-group${isOpen ? ' open' : ''}" id="purch-grp-${poId}">
+      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="togglePurchGroup(this.dataset.po)">
+        <span class="po-group-chevron">&#9654;</span>
+        <span class="po-group-title">PO ${po}</span>
+        <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''}</span>
+        <span style="color:#888;font-size:0.8rem">${fmtDate(poDate)}</span>
+      </div>
+      <div class="po-group-body">
+        <div class="inner-wrap">
+          <table>
+            <thead><tr>
+              <th>PO No.</th><th>#</th>${pTh('date','Date')}${pTh('model','Model')}${pTh('variant','Variant')}${pTh('year','Year')}${pTh('colour','Colour')}${pTh('totalCost','Total Cost (Nu.)')}${pTh('status','Status')}<th>Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
