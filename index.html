@@ -787,7 +787,7 @@
             <th class="sortable-th op-sortable-th" onclick="setOpSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('po')" data-col="po">PO No.</th>
-            <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstatus')" data-col="lcstatus">Order Status</th>
+            <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstage')" data-col="lcstage">Order Status</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -4425,8 +4425,8 @@ function renderOrderPlanStock() {
 
   tbody.innerHTML = allPlans.map((p, i) => {
     const hex = getColourHex(p.colour);
-    const sc  = PP_STATUS_COLOUR[p.lcstatus] || '#888';
-    const sl  = PP_STATUS_LABEL[p.lcstatus]  || p.lcstatus;
+    const sc  = LC_STAGE_COLOUR[p.lcstage] || '#888';
+    const sl  = LC_STAGE_LABEL[p.lcstage]  || 'LC Pending';
     return `<tr>
       <td>${i+1}</td>
       <td>${fmtDate(p.date)}</td>
