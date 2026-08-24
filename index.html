@@ -823,6 +823,27 @@
 
 <!-- BOOKINGS TAB -->
 <div id="tab-pricelist" class="tab-content">
+  <div class="panel">
+    <h3>&#127991; Price List</h3>
+    <div class="toolbar">
+      <input type="text" id="pricelistSearch" oninput="renderPriceList()" placeholder="&#128269; Search by model, variant...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Model</th><th>Variant</th><th>List Price (USD)</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pricelistTableBody"></tbody>
+      </table>
+    </div>
+    <div id="pricelistEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#127991;</div>
+      <div>No list prices added yet.</div>
+    </div>
+  </div>
+
   <div class="panel" id="pl_add_panel">
     <h3 id="pl_form_heading">&#10133; Add List Price</h3>
     <div class="form-grid">
@@ -842,27 +863,6 @@
     <div class="form-actions">
       <button class="btn btn-primary" id="pl_save_btn" onclick="addPriceListEntry()">&#127991; Save Price</button>
       <button class="btn" onclick="clearPriceListForm()" style="background:#f0f2f5;color:#555;">Clear</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>&#127991; Price List</h3>
-    <div class="toolbar">
-      <input type="text" id="pricelistSearch" oninput="renderPriceList()" placeholder="&#128269; Search by model, variant...">
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>Model</th><th>Variant</th><th>List Price (USD)</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="pricelistTableBody"></tbody>
-      </table>
-    </div>
-    <div id="pricelistEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">&#127991;</div>
-      <div>No list prices added yet.</div>
     </div>
   </div>
 </div>
