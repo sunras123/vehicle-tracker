@@ -3547,12 +3547,12 @@ function renderPurchasesTable() {
   if (data.length === 0) { container.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  // Group by PO number
+  // Group by PO number, latest PO first
   const groups = {};
   data.forEach(p => { const po = p.po || '(No PO)'; if (!groups[po]) groups[po] = []; groups[po].push(p); });
   const poKeys = Object.keys(groups).sort((a, b) => {
     const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
-    return an !== bn ? an - bn : a.localeCompare(b);
+    return an !== bn ? bn - an : b.localeCompare(a);
   });
 
   container.innerHTML = poKeys.map(po => {
