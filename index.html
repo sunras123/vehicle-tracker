@@ -2856,7 +2856,9 @@ function renderPurchasePlanTable() {
         <td style="white-space:nowrap">
           ${bookBtn}
           <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
-          <button class="btn btn-sm" onclick="movePlanToPurchase('${p.id}')" style="background:#16a085;color:white;margin-right:4px;">&#128230; To Purchases</button>
+          ${lcReady
+            ? `<button class="btn btn-sm" onclick="movePlanToPurchase('${p.id}')" style="background:#16a085;color:white;margin-right:4px;">&#128230; To Purchases</button>`
+            : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before moving to Purchases" style="background:#ccc;color:#888;margin-right:4px;cursor:not-allowed;">&#128230; To Purchases</button>`}
           <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
         </td>
       </tr>`;
@@ -2879,7 +2881,9 @@ function renderPurchasePlanTable() {
           ${lcSelect}
           ${lcDatesBadge}
           ${lcClosureBadge}
-          <button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>
+          ${(lcStage === 'opened' || lcStage === 'closed')
+            ? `<button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>`
+            : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before moving to Purchases" style="background:#ccc;color:#888;cursor:not-allowed;">&#128230; Move All to Purchases</button>`}
         </span>
       </div>
       <div class="po-group-body">
