@@ -1479,33 +1479,25 @@
     <h3>&#9998; Edit Purchase Record</h3>
     <input type="hidden" id="ep_id">
     <div class="form-grid">
-      <div class="form-group"><label>Date</label><input type="date" id="ep_date"></div>
+      <div class="form-group"><label>PO Number</label><input type="text" id="ep_po" placeholder="Purchase Order number"></div>
+      <div class="form-group"><label>PO Date</label><input type="date" id="ep_date"></div>
+      <div class="form-group"><label>PI Number</label><input type="text" id="ep_pi" placeholder="Performa Invoice number"></div>
+      <div class="form-group"><label>PI Date</label><input type="date" id="ep_pidate"></div>
+      <div class="form-group"><label>LC Status</label>
+        <select id="ep_lcstage">
+          <option value="">-- Not Set --</option>
+          <option value="pending">LC Pending</option>
+          <option value="opened">LC Opened</option>
+          <option value="closed">LC Closed</option>
+        </select>
+      </div>
+      <div class="form-group"><label>LC Number</label><input type="text" id="ep_lcnumber" placeholder="LC number"></div>
+      <div class="form-group"><label>LC Date</label><input type="date" id="ep_lcdate"></div>
+      <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;"><span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Vehicle Details</span></div>
       <div class="form-group"><label>Model</label><select id="ep_model" onchange="updateEditPurchaseVariantSelect()"><option value="">-- Select Model --</option></select></div>
       <div class="form-group"><label>Variant</label><select id="ep_variant"><option value="">-- Select Model First --</option></select></div>
       <div class="form-group"><label>Colour</label><select id="ep_colour"><option value="">-- Select Colour --</option></select></div>
       <div class="form-group"><label>Year</label><input type="number" id="ep_year" placeholder="2024" min="1990" max="2030"></div>
-      <div class="form-group"><label>FOB Price (USD)</label><input type="text" inputmode="decimal" id="ep_cost" placeholder="0.00" oninput="fmtInput(this); calcEpFobNu()"></div>
-      <div class="form-group"><label>Exchange Rate (Nu./USD)</label><input type="text" inputmode="decimal" id="ep_exrate" placeholder="0.00" oninput="fmtInput(this); calcEpFobNu(); calcEpShippingNu()"></div>
-      <div class="form-group"><label>FOB Price (Nu.)</label><input type="text" id="ep_fob_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;"></div>
-      <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;"><span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Cost Breakdown</span></div>
-      <div class="form-group"><label>Shipping China → Kolkata (USD)</label><input type="text" inputmode="decimal" id="ep_shipping" placeholder="0.00" oninput="fmtInput(this); calcEpShippingNu()"></div>
-      <div class="form-group"><label>Shipping China → Kolkata (Nu.)</label><input type="text" id="ep_shipping_nu" placeholder="—" readonly style="background:#f0f2f5;color:#1a1a2e;font-weight:700;cursor:default;"></div>
-      <div class="form-group"><label>Transport Kolkata → Phuentsholing (Nu.)</label><input type="text" inputmode="decimal" id="ep_transport" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Customs Duty (Nu.)</label><input type="text" inputmode="decimal" id="ep_customs" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Excise Duty (Nu.)</label><input type="text" inputmode="decimal" id="ep_excise" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>GST (Nu.)</label><input type="text" inputmode="decimal" id="ep_gst" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>DV Charges (Nu.)</label><input type="text" inputmode="decimal" id="ep_dv" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Permit Charges (Nu.)</label><input type="text" inputmode="decimal" id="ep_permit" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Unloading &amp; Loading (Nu.)</label><input type="text" inputmode="decimal" id="ep_loading" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Service Charge &amp; Commission (Nu.)</label><input type="text" inputmode="decimal" id="ep_service" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Driver Charges (Nu.)</label><input type="text" inputmode="decimal" id="ep_driver" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Fuel Cost (Nu.)</label><input type="text" inputmode="decimal" id="ep_fuel" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Transit Insurance (Nu.)</label><input type="text" inputmode="decimal" id="ep_insurance" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;"><span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Other</span></div>
-      <div class="form-group"><label>Additional Costs (Nu.)</label><input type="text" inputmode="decimal" id="ep_addcost" placeholder="0.00" oninput="fmtInput(this)"></div>
-      <div class="form-group"><label>Invoice Number</label><input type="text" id="ep_pi" placeholder="Invoice number"></div>
-      <div class="form-group"><label>PO Number</label><input type="text" id="ep_po" placeholder="Purchase Order number"></div>
-      <div class="form-group"><label>Notes</label><input type="text" id="ep_notes" placeholder="Any notes"></div>
     </div>
     <div class="form-actions" style="margin-top:20px">
       <button class="btn btn-warning" onclick="saveEditPurchase()">&#10003; Save Changes</button>
@@ -2033,7 +2025,8 @@ function fmtDate(d) {
 // setDateField() so the visible alt field stays in sync with the value set from JS.
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
-  'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate','lcc_closuredate'];
+  'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate','lcc_closuredate',
+  'ep_pidate','ep_lcdate'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2604,7 +2597,9 @@ function autoCreatePurchaseFromPlan(plan) {
     cost: 0, exrate: plan.lcexrate || 0, shipping: 0, transport: 0, customs: 0, excise: 0,
     gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
     fuel: 0, insurance: 0, addcost: 0, totalCost: 0,
-    pi: plan.pinumber || '', po: plan.po || '', notes: 'From Purchase Plan', status: 'available'
+    pi: plan.pinumber || '', pidate: plan.pidate || '', po: plan.po || '',
+    lcstage: plan.lcstage || '', lcnumber: plan.lcnumber || '', lcdate: plan.lcdate || '',
+    notes: 'From Purchase Plan', status: 'available'
   };
   purchases.push(entry);
   saveOne('purchases', entry, purchaseToDB);
@@ -5166,21 +5161,10 @@ function openEditPurchase(id) {
   document.getElementById('ep_year').value = p.year || '';
   document.getElementById('ep_pi').value = p.pi || '';
   document.getElementById('ep_po').value = p.po || '';
-  document.getElementById('ep_notes').value = p.notes || '';
-
-  const costEl   = document.getElementById('ep_cost');
-  const exrateEl = document.getElementById('ep_exrate');
-  const addEl    = document.getElementById('ep_addcost');
-  costEl.value   = p.cost || '';   fmtInput(costEl);
-  exrateEl.value = p.exrate || ''; fmtInput(exrateEl);
-  calcEpFobNu();
-  calcEpShippingNu();
-  addEl.value    = p.addcost || ''; fmtInput(addEl);
-  [['ep_shipping',p.shipping],['ep_transport',p.transport],['ep_customs',p.customs],
-   ['ep_excise',p.excise],['ep_gst',p.gst],['ep_dv',p.dv],['ep_permit',p.permit],
-   ['ep_loading',p.loading],['ep_service',p.service],['ep_driver',p.driver],
-   ['ep_fuel',p.fuel],['ep_insurance',p.insurance]
-  ].forEach(([id, val]) => { const el = document.getElementById(id); el.value = val || ''; fmtInput(el); });
+  setDateField('ep_pidate', p.pidate || '');
+  document.getElementById('ep_lcstage').value = p.lcstage || '';
+  document.getElementById('ep_lcnumber').value = p.lcnumber || '';
+  setDateField('ep_lcdate', p.lcdate || '');
 
   // Populate model select
   const ms = document.getElementById('ep_model');
@@ -5203,46 +5187,17 @@ async function saveEditPurchase() {
   const model  = document.getElementById('ep_model').value;
   const colour = document.getElementById('ep_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
-  const pn = id => parseFloat((document.getElementById(id).value||'').replace(/,/g,'')) || 0;
-  const cost      = pn('ep_cost');
-  const exrate    = pn('ep_exrate');
-  const shipping  = pn('ep_shipping');
-  const transport = pn('ep_transport');
-  const customs   = pn('ep_customs');
-  const excise    = pn('ep_excise');
-  const gst       = pn('ep_gst');
-  const dv        = pn('ep_dv');
-  const permit    = pn('ep_permit');
-  const loading   = pn('ep_loading');
-  const service   = pn('ep_service');
-  const driver    = pn('ep_driver');
-  const fuel      = pn('ep_fuel');
-  const insurance = pn('ep_insurance');
-  const addcost   = pn('ep_addcost');
   p.date      = document.getElementById('ep_date').value;
   p.model     = model;
   p.variant   = document.getElementById('ep_variant').value;
   p.colour    = colour;
   p.year      = document.getElementById('ep_year').value;
-  p.cost      = cost;
-  p.exrate    = exrate;
-  p.shipping  = shipping;
-  p.transport = transport;
-  p.customs   = customs;
-  p.excise    = excise;
-  p.gst       = gst;
-  p.dv        = dv;
-  p.permit    = permit;
-  p.loading   = loading;
-  p.service   = service;
-  p.driver    = driver;
-  p.fuel      = fuel;
-  p.insurance = insurance;
-  p.addcost   = addcost;
-  p.totalCost = cost + addcost;
   p.pi        = document.getElementById('ep_pi').value.trim();
   p.po        = document.getElementById('ep_po').value.trim();
-  p.notes     = document.getElementById('ep_notes').value.trim();
+  p.pidate    = document.getElementById('ep_pidate').value;
+  p.lcstage   = document.getElementById('ep_lcstage').value;
+  p.lcnumber  = document.getElementById('ep_lcnumber').value.trim();
+  p.lcdate    = document.getElementById('ep_lcdate').value;
   const ok = await saveOne('purchases', p, purchaseToDB);
   if (!ok) return;
   closeModal('editPurchaseModal');
