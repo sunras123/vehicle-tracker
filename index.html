@@ -2951,9 +2951,10 @@ function updatePurchaseDropdowns() {
 }
 
 function updatePurchaseVariantSelect() {
-  const model = document.getElementById('p_model').value;
-  const sel   = document.getElementById('p_variant');
-  if (!sel) return;
+  const modelEl = document.getElementById('p_model');
+  const sel     = document.getElementById('p_variant');
+  if (!sel || !modelEl) return;
+  const model = modelEl.value;
   if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; return; }
   const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
   if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
@@ -2962,10 +2963,11 @@ function updatePurchaseVariantSelect() {
 }
 
 function updatePurchaseColourSelect() {
-  const model   = document.getElementById('p_model').value;
-  const variant = document.getElementById('p_variant').value;
+  const modelEl   = document.getElementById('p_model');
+  const variantEl = document.getElementById('p_variant');
   const pc = document.getElementById('p_colour');
-  if (pc) pc.innerHTML = colourOptionsForModel(model, variant, pc.value);
+  if (!pc || !modelEl || !variantEl) return;
+  pc.innerHTML = colourOptionsForModel(modelEl.value, variantEl.value, pc.value);
 }
 
 function updateEditPurchaseVariantSelect(currentVariant) {
