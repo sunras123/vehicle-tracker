@@ -3547,10 +3547,13 @@ function renderPurchasesTable() {
   if (data.length === 0) { container.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  // Group by PO number, latest PO first
+  // Group by PO number, most recently dated PO first
   const groups = {};
   data.forEach(p => { const po = p.po || '(No PO)'; if (!groups[po]) groups[po] = []; groups[po].push(p); });
+  const groupLatestDate = po => groups[po].reduce((max, p) => (p.date || '') > max ? (p.date || '') : max, '');
   const poKeys = Object.keys(groups).sort((a, b) => {
+    const ad = groupLatestDate(a), bd = groupLatestDate(b);
+    if (ad !== bd) return bd.localeCompare(ad);
     const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
     return an !== bn ? bn - an : b.localeCompare(a);
   });
