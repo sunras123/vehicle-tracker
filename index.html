@@ -680,7 +680,7 @@
             <th class="sortable-th" onclick="setAvailVehSort('model')" data-col="model">Model</th>
             <th class="sortable-th" onclick="setAvailVehSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th" onclick="setAvailVehSort('colour')" data-col="colour">Colour</th>
-            <th class="sortable-th" onclick="setAvailVehSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setAvailVehSort('date')" data-col="date">PO Date</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -2661,7 +2661,7 @@ async function saveLcClosure() {
 
 function autoCreatePurchaseFromPlan(plan) {
   const entry = {
-    id: genId(), date: today(), make: 'BYD',
+    id: genId(), date: plan.date || today(), make: 'BYD',
     model: plan.model, variant: plan.variant || '', year: '', colour: plan.colour,
     cost: 0, exrate: plan.lcexrate || 0, shipping: 0, transport: 0, customs: 0, excise: 0,
     gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
@@ -4148,7 +4148,7 @@ function convertBookingToSale(id) {
     const plan = purchasePlans.find(p => p.id === b.planId);
     if (!plan) { showToast('Order plan entry not found.', 'error'); return; }
     const newPurchase = {
-      id: genId(), date: today(), make: 'BYD',
+      id: genId(), date: plan.date || today(), make: 'BYD',
       model: plan.model, variant: plan.variant || '',
       year: new Date().getFullYear().toString(),
       colour: plan.colour, cost: 0, exrate: 0, shipping: 0, transport: 0,
