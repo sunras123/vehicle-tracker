@@ -1481,6 +1481,18 @@
     <div class="form-grid">
       <div class="form-group"><label>PO Number</label><input type="text" id="ep_po" placeholder="Purchase Order number"></div>
       <div class="form-group"><label>PO Date</label><input type="date" id="ep_date"></div>
+      <div class="form-group"><label>Order Status</label>
+        <select id="ep_orderstatus">
+          <option value="placed">Order Placed</option>
+          <option value="approved">Order Approved</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PI Status</label>
+        <select id="ep_pistatus">
+          <option value="pending">Pending</option>
+          <option value="issued">Issued</option>
+        </select>
+      </div>
       <div class="form-group"><label>PI Number</label><input type="text" id="ep_pi" placeholder="Performa Invoice number"></div>
       <div class="form-group"><label>PI Date</label><input type="date" id="ep_pidate"></div>
       <div class="form-group"><label>LC Status</label>
@@ -1493,11 +1505,13 @@
       </div>
       <div class="form-group"><label>LC Number</label><input type="text" id="ep_lcnumber" placeholder="LC number"></div>
       <div class="form-group"><label>LC Date</label><input type="date" id="ep_lcdate"></div>
+      <div class="form-group"><label>ETD</label><input type="date" id="ep_etd"></div>
+      <div class="form-group"><label>ETA</label><input type="date" id="ep_eta"></div>
+      <div class="form-group form-row-full"><label>Notes</label><input type="text" id="ep_notes" placeholder="Any notes"></div>
       <div class="form-row-full" style="border-top:1px solid #e0e0e0;padding-top:10px;margin-top:4px;"><span style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.3px;">Vehicle Details</span></div>
       <div class="form-group"><label>Model</label><select id="ep_model" onchange="updateEditPurchaseVariantSelect()"><option value="">-- Select Model --</option></select></div>
       <div class="form-group"><label>Variant</label><select id="ep_variant"><option value="">-- Select Model First --</option></select></div>
       <div class="form-group"><label>Colour</label><select id="ep_colour"><option value="">-- Select Colour --</option></select></div>
-      <div class="form-group"><label>Year</label><input type="number" id="ep_year" placeholder="2024" min="1990" max="2030"></div>
     </div>
     <div class="form-actions" style="margin-top:20px">
       <button class="btn btn-warning" onclick="saveEditPurchase()">&#10003; Save Changes</button>
@@ -2026,7 +2040,7 @@ function fmtDate(d) {
 const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','b_date','b_delivery',
   'ep_date','es_date','es_ca_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
   'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate','lcc_closuredate',
-  'ep_pidate','ep_lcdate'];
+  'ep_pidate','ep_lcdate','ep_etd','ep_eta'];
 const datePickers = {};
 
 function initDatePickers() {
@@ -2598,7 +2612,9 @@ function autoCreatePurchaseFromPlan(plan) {
     gst: 0, dv: 0, permit: 0, loading: 0, service: 0, driver: 0,
     fuel: 0, insurance: 0, addcost: 0, totalCost: 0,
     pi: plan.pinumber || '', pidate: plan.pidate || '', po: plan.po || '',
+    orderstatus: plan.lcstatus || 'approved', pistatus: plan.pistatus || 'issued',
     lcstage: plan.lcstage || '', lcnumber: plan.lcnumber || '', lcdate: plan.lcdate || '',
+    etd: plan.etd || '', eta: plan.eta || '',
     notes: 'From Purchase Plan', status: 'available'
   };
   purchases.push(entry);
@@ -5158,13 +5174,17 @@ function openEditPurchase(id) {
   if (!p) return;
   document.getElementById('ep_id').value = id;
   setDateField('ep_date', p.date || '');
-  document.getElementById('ep_year').value = p.year || '';
   document.getElementById('ep_pi').value = p.pi || '';
   document.getElementById('ep_po').value = p.po || '';
+  document.getElementById('ep_orderstatus').value = p.orderstatus || 'approved';
+  document.getElementById('ep_pistatus').value = p.pistatus || 'issued';
   setDateField('ep_pidate', p.pidate || '');
   document.getElementById('ep_lcstage').value = p.lcstage || '';
   document.getElementById('ep_lcnumber').value = p.lcnumber || '';
   setDateField('ep_lcdate', p.lcdate || '');
+  setDateField('ep_etd', p.etd || '');
+  setDateField('ep_eta', p.eta || '');
+  document.getElementById('ep_notes').value = p.notes || '';
 
   // Populate model select
   const ms = document.getElementById('ep_model');
@@ -5187,17 +5207,21 @@ async function saveEditPurchase() {
   const model  = document.getElementById('ep_model').value;
   const colour = document.getElementById('ep_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
-  p.date      = document.getElementById('ep_date').value;
-  p.model     = model;
-  p.variant   = document.getElementById('ep_variant').value;
-  p.colour    = colour;
-  p.year      = document.getElementById('ep_year').value;
-  p.pi        = document.getElementById('ep_pi').value.trim();
-  p.po        = document.getElementById('ep_po').value.trim();
-  p.pidate    = document.getElementById('ep_pidate').value;
-  p.lcstage   = document.getElementById('ep_lcstage').value;
-  p.lcnumber  = document.getElementById('ep_lcnumber').value.trim();
-  p.lcdate    = document.getElementById('ep_lcdate').value;
+  p.date        = document.getElementById('ep_date').value;
+  p.model       = model;
+  p.variant     = document.getElementById('ep_variant').value;
+  p.colour      = colour;
+  p.pi          = document.getElementById('ep_pi').value.trim();
+  p.po          = document.getElementById('ep_po').value.trim();
+  p.orderstatus = document.getElementById('ep_orderstatus').value;
+  p.pistatus    = document.getElementById('ep_pistatus').value;
+  p.pidate      = document.getElementById('ep_pidate').value;
+  p.lcstage     = document.getElementById('ep_lcstage').value;
+  p.lcnumber    = document.getElementById('ep_lcnumber').value.trim();
+  p.lcdate      = document.getElementById('ep_lcdate').value;
+  p.etd         = document.getElementById('ep_etd').value;
+  p.eta         = document.getElementById('ep_eta').value;
+  p.notes       = document.getElementById('ep_notes').value.trim();
   const ok = await saveOne('purchases', p, purchaseToDB);
   if (!ok) return;
   closeModal('editPurchaseModal');
