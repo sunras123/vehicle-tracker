@@ -336,8 +336,7 @@
   <button class="tab-btn" onclick="showTab('catalogue')">Models/Colours</button>
   <button class="tab-btn" onclick="showTab('purchaseplan')">Purchase Plan</button>
   <button class="tab-btn" onclick="showTab('purchases')">Purchases</button>
-  <button class="tab-btn" onclick="showTab('sales')">Sales</button>
-  <button class="tab-btn" onclick="showTab('bookings')">Bookings</button>
+  <button class="tab-btn" onclick="showTab('sales')">Sales/Bookings</button>
   <button class="tab-btn" onclick="showTab('stock')">Stock</button>
   <button class="tab-btn" onclick="showTab('financials')">Financials</button>
   <button class="tab-btn" onclick="showTab('reports')">Reports</button>
@@ -669,6 +668,33 @@
 <!-- SALES TAB -->
 <div id="tab-sales" class="tab-content">
   <div class="panel">
+    <h3>&#128665; Available Vehicles</h3>
+    <div class="toolbar">
+      <input type="text" id="availVehSearch" oninput="renderAvailableVehiclesTable()" placeholder="&#128269; Search by model, colour, PO...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr id="availVehThead">
+            <th>#</th>
+            <th class="sortable-th" onclick="setAvailVehSort('date')" data-col="date">Date</th>
+            <th class="sortable-th" onclick="setAvailVehSort('po')" data-col="po">PO No.</th>
+            <th class="sortable-th" onclick="setAvailVehSort('model')" data-col="model">Model</th>
+            <th class="sortable-th" onclick="setAvailVehSort('variant')" data-col="variant">Variant</th>
+            <th class="sortable-th" onclick="setAvailVehSort('colour')" data-col="colour">Colour</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="availVehTableBody"></tbody>
+      </table>
+    </div>
+    <div id="availVehEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#128665;</div>
+      <div>No available vehicles in stock.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="saleFormPanel" style="display:none">
     <h3>&#10133; Record Vehicle Sale</h3>
     <div class="form-grid">
       <div class="form-group">
@@ -754,7 +780,7 @@
     </div>
     <div class="form-actions">
       <button class="btn btn-success" onclick="addSale()">&#10003; Record Sale</button>
-      <button class="btn" onclick="clearSaleForm()" style="background:#f0f2f5;color:#555;">Clear</button>
+      <button class="btn" onclick="clearSaleForm(); hideSaleFormPanel();" style="background:#f0f2f5;color:#555;">Cancel</button>
     </div>
   </div>
 
@@ -801,56 +827,8 @@
       <div>No sales recorded yet.</div>
     </div>
   </div>
-</div>
 
-<!-- BOOKINGS TAB -->
-<div id="tab-pricelist" class="tab-content">
-  <div class="panel">
-    <h3>&#127991; Price List</h3>
-    <div class="toolbar">
-      <input type="text" id="pricelistSearch" oninput="renderPriceList()" placeholder="&#128269; Search by model, variant...">
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>Model</th><th>Variant</th><th>List Price (USD)</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="pricelistTableBody"></tbody>
-      </table>
-    </div>
-    <div id="pricelistEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">&#127991;</div>
-      <div>No list prices added yet.</div>
-    </div>
-  </div>
-
-  <div class="panel" id="pl_add_panel">
-    <h3 id="pl_form_heading">&#10133; Add List Price</h3>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Model</label>
-        <select id="pl_model" onchange="updatePriceListVariantSelect()"><option value="">-- Select Model --</option></select>
-      </div>
-      <div class="form-group">
-        <label>Variant</label>
-        <select id="pl_variant"><option value="">-- Select Model First --</option></select>
-      </div>
-      <div class="form-group">
-        <label>List Price (USD)</label>
-        <input type="text" inputmode="decimal" id="pl_price" placeholder="0.00" oninput="fmtInput(this)">
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="pl_save_btn" onclick="addPriceListEntry()">&#127991; Save Price</button>
-      <button class="btn" onclick="clearPriceListForm()" style="background:#f0f2f5;color:#555;">Clear</button>
-    </div>
-  </div>
-</div>
-
-<div id="tab-bookings" class="tab-content">
-  <div class="panel">
+  <div class="panel" id="bookingFormPanel" style="display:none">
     <h3>&#10133; Add Booking</h3>
     <div class="form-grid">
       <div class="form-group">
@@ -912,12 +890,12 @@
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="addBooking()">&#128197; Add Booking</button>
-      <button class="btn" onclick="clearBookingForm()" style="background:#f0f2f5;color:#555;">Clear</button>
+      <button class="btn" onclick="clearBookingForm(); hideBookingFormPanel();" style="background:#f0f2f5;color:#555;">Cancel</button>
     </div>
   </div>
 
   <div class="panel">
-    <h3>&#128197; Active Bookings</h3>
+    <h3>&#128197; Booking Records</h3>
     <div class="toolbar">
       <input type="text" id="bookingsSearch" oninput="renderBookingsTable()" placeholder="&#128269; Search by customer, model...">
     </div>
@@ -947,6 +925,52 @@
     <div id="bookingsEmpty" class="empty-state" style="display:none">
       <div class="empty-icon">&#128197;</div>
       <div>No active bookings.</div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICE LIST TAB -->
+<div id="tab-pricelist" class="tab-content">
+  <div class="panel">
+    <h3>&#127991; Price List</h3>
+    <div class="toolbar">
+      <input type="text" id="pricelistSearch" oninput="renderPriceList()" placeholder="&#128269; Search by model, variant...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Model</th><th>Variant</th><th>List Price (USD)</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pricelistTableBody"></tbody>
+      </table>
+    </div>
+    <div id="pricelistEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon">&#127991;</div>
+      <div>No list prices added yet.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="pl_add_panel">
+    <h3 id="pl_form_heading">&#10133; Add List Price</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Model</label>
+        <select id="pl_model" onchange="updatePriceListVariantSelect()"><option value="">-- Select Model --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Variant</label>
+        <select id="pl_variant"><option value="">-- Select Model First --</option></select>
+      </div>
+      <div class="form-group">
+        <label>List Price (USD)</label>
+        <input type="text" inputmode="decimal" id="pl_price" placeholder="0.00" oninput="fmtInput(this)">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="pl_save_btn" onclick="addPriceListEntry()">&#127991; Save Price</button>
+      <button class="btn" onclick="clearPriceListForm()" style="background:#f0f2f5;color:#555;">Clear</button>
     </div>
   </div>
 </div>
@@ -2118,7 +2142,7 @@ function getVehicleLabel(p) {
 // ============================================================
 // TABS
 // ============================================================
-const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','bookings','stock','financials','reports','credentials'];
+const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','purchases','sales','stock','financials','reports','credentials'];
 
 function showTab(name) {
   if (currentUser) sessionTabsVisited.add(name);
@@ -3006,6 +3030,63 @@ function updateVehicleSelects() {
   refreshPurchasePlanRowModelOptions();
 
   updatePurchaseDropdowns();
+  renderAvailableVehiclesTable();
+}
+
+let availVehSortCol = 'model';
+let availVehSortDir = 'asc';
+
+function setAvailVehSort(col) {
+  if (availVehSortCol === col) {
+    availVehSortDir = availVehSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    availVehSortCol = col;
+    availVehSortDir = col === 'date' ? 'desc' : 'asc';
+  }
+  renderAvailableVehiclesTable();
+}
+
+function renderAvailableVehiclesTable() {
+  const tbody = document.getElementById('availVehTableBody');
+  if (!tbody) return;
+  const search = (document.getElementById('availVehSearch')?.value || '').toLowerCase();
+  const data = purchases.filter(p => p.status === 'available' &&
+    [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(search));
+
+  data.sort((a, b) => {
+    let av = a[availVehSortCol] ?? '', bv = b[availVehSortCol] ?? '';
+    if (availVehSortCol === 'po') {
+      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      return availVehSortDir === 'asc' ? av - bv : bv - av;
+    }
+    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+    return availVehSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  document.querySelectorAll('#availVehThead .sortable-th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === availVehSortCol) th.classList.add('sort-' + availVehSortDir);
+  });
+
+  const empty = document.getElementById('availVehEmpty');
+  if (data.length === 0) { tbody.innerHTML = ''; if (empty) empty.style.display = ''; return; }
+  if (empty) empty.style.display = 'none';
+
+  tbody.innerHTML = data.map((p, i) => {
+    const hex = getColourHex(p.colour);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${fmtDate(p.date)}</td>
+      <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
+      <td><strong>${p.model}</strong></td>
+      <td>${p.variant || '-'}</td>
+      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>
+        <button class="btn btn-sm" style="background:#27ae60;color:white;" onclick="openSaleForVehicle('${p.id}')">&#128176; Sell</button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 // ============================================================
@@ -3766,6 +3847,7 @@ function addSale() {
   showToast(`Sale recorded: ${veh.model} to ${buyer}`);
   trackActivity('added sale');
   clearSaleForm();
+  hideSaleFormPanel();
   renderSalesTable();
   updateVehicleSelects();
   renderBookingsTable();
@@ -3991,6 +4073,7 @@ function addBooking() {
   showToast(`Booking added for ${customer}`);
   trackActivity('added booking');
   clearBookingForm();
+  hideBookingFormPanel();
   renderBookingsTable();
   updateVehicleSelects();
 }
@@ -4052,6 +4135,7 @@ function convertBookingToSale(id) {
 
   showTab('sales');
   setTimeout(() => {
+    showSaleFormPanel();
     setDateField('s_date', today());
     document.getElementById('s_vehicle').value = b.vehicleId;
     document.getElementById('s_buyer').value = b.customer;
@@ -4069,6 +4153,7 @@ function convertBookingToSale(id) {
     paidEl.value = b.deposit || ''; fmtInput(paidEl);
 
     calcSalePending();
+    document.getElementById('saleFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('Booking details loaded — complete and record the sale.', 'success');
   }, 100);
 }
@@ -4244,15 +4329,33 @@ function renderStockTable() {
 }
 
 function openBookingForVehicle(vehicleId) {
-  showTab('bookings');
+  showTab('sales');
   setTimeout(() => {
+    showBookingFormPanel();
     const sel = document.getElementById('b_vehicle');
     if (sel) { sel.value = vehicleId; autoFillBookingListPrice(); }
     setDateField('b_date', today());
-    document.getElementById('tab-bookings').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('bookingFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('Vehicle pre-selected — fill in booking details and save.', 'success');
   }, 100);
 }
+
+function openSaleForVehicle(vehicleId) {
+  showTab('sales');
+  setTimeout(() => {
+    showSaleFormPanel();
+    const sel = document.getElementById('s_vehicle');
+    if (sel) { sel.value = vehicleId; autoFillSaleListPrice(); }
+    setDateField('s_date', today());
+    document.getElementById('saleFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Vehicle pre-selected — fill in sale details and save.', 'success');
+  }, 100);
+}
+
+function showSaleFormPanel() { document.getElementById('saleFormPanel').style.display = ''; }
+function hideSaleFormPanel() { document.getElementById('saleFormPanel').style.display = 'none'; }
+function showBookingFormPanel() { document.getElementById('bookingFormPanel').style.display = ''; }
+function hideBookingFormPanel() { document.getElementById('bookingFormPanel').style.display = 'none'; }
 
 function renderModelGrid(elId, plans, badgeColour) {
   const el = document.getElementById(elId);
@@ -4878,8 +4981,8 @@ let sessionTabsVisited = new Set();
 
 const TAB_LABELS = {
   summary: 'Dashboard', pricelist: 'Price List', catalogue: 'Models/Colours',
-  purchaseplan: 'Purchase Plan', purchases: 'Purchases', sales: 'Sales',
-  bookings: 'Bookings', stock: 'Stock', financials: 'Financials',
+  purchaseplan: 'Purchase Plan', purchases: 'Purchases', sales: 'Sales/Bookings',
+  stock: 'Stock', financials: 'Financials',
   reports: 'Reports', credentials: 'Credential Mgmt'
 };
 
@@ -5062,8 +5165,7 @@ const MANAGEABLE_TABS = [
   { id: 'catalogue',    label: 'Catalogue'   },
   { id: 'purchaseplan', label: 'Purchase Plan'  },
   { id: 'purchases',    label: 'Purchases'   },
-  { id: 'sales',        label: 'Sales'       },
-  { id: 'bookings',     label: 'Bookings'    },
+  { id: 'sales',        label: 'Sales/Bookings' },
   { id: 'stock',        label: 'Stock'       },
   { id: 'financials',   label: 'Financials'  },
   { id: 'reports',      label: 'Reports'     },
