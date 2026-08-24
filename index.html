@@ -891,7 +891,6 @@
           <tr>
             <th>#</th>
             <th class="sortable-th" onclick="setSaleSort('date')" data-col="date">Date</th>
-            <th class="sortable-th" onclick="setSaleSort('po')" data-col="po">PO</th>
             <th class="sortable-th" onclick="setSaleSort('model')" data-col="model">Vehicle</th>
             <th class="sortable-th" onclick="setSaleSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th" onclick="setSaleSort('buyer')" data-col="buyer">Buyer</th>
@@ -3969,7 +3968,6 @@ function renderSalesTable() {
     return `<tr>
       <td>${i+1}</td>
       <td>${fmtDate(s.date)}</td>
-      <td>${veh ? veh.po || '-' : '-'}</td>
       <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''} ${veh.year||''}</small>` : 'N/A'}</td>
       <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
       <td>${s.buyer}</td>
