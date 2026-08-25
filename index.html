@@ -2369,6 +2369,13 @@ function isVehicleBookable(p) {
   return p.lcstage === 'opened' || p.lcstage === 'closed';
 }
 
+// A vehicle can only be sold (final sale/delivery) once its LC has Closed —
+// i.e. it has actually arrived. LC Pending or Opened is not enough, even if
+// the vehicle is currently booked.
+function isVehicleSellable(p) {
+  return p.lcstage === 'closed';
+}
+
 function refreshPurchasePlanRowModelOptions() {
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   document.querySelectorAll('#ppVehicleRows .pp-vehicle-row').forEach(row => {
@@ -3044,10 +3051,11 @@ function updateVehicleSelects() {
   const available = purchases.filter(p => p.status === 'available');
   const booked    = purchases.filter(p => p.status === 'booked');
   const bookable  = purchases.filter(p => (p.status === 'available' || p.status === 'in_transit') && isVehicleBookable(p));
+  const sellable  = [...available, ...booked].filter(isVehicleSellable);
 
   document.getElementById('s_vehicle').innerHTML =
     '<option value="">-- Select Vehicle --</option>' +
-    [...available, ...booked].map(p =>
+    sellable.map(p =>
       `<option value="${p.id}">[${p.status.toUpperCase()}] ${p.model}${p.variant ? ' ' + p.variant : ''} | ${p.colour}</option>`
     ).join('');
 
@@ -3107,9 +3115,9 @@ function renderAvailableVehiclesTable() {
     const bookBtn = bookable
       ? `<button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>`
       : `<button class="btn btn-sm" disabled title="LC still Pending — vehicle is not yet bookable" style="background:#ddd;color:#999;cursor:not-allowed">&#128197; Book</button>`;
-    const sellBtn = p.status === 'available'
+    const sellBtn = isVehicleSellable(p)
       ? `<button class="btn btn-sm" style="background:#27ae60;color:white;" onclick="openSaleForVehicle('${p.id}')">&#128176; Sell</button>`
-      : '';
+      : `<button class="btn btn-sm" disabled title="LC not yet Closed — vehicle is not yet sellable" style="background:#ddd;color:#999;cursor:not-allowed">&#128176; Sell</button>`;
     return `<tr>
       <td>${i+1}</td>
       <td><strong>${p.model}</strong></td>
@@ -3947,6 +3955,7 @@ function addSale() {
 
   const veh = getPurchase(vehicleId);
   if (!veh) { showToast('Vehicle not found.', 'error'); return; }
+  if (!isVehicleSellable(veh)) { showToast('Vehicle not available for sale — LC must be Closed first.', 'error'); return; }
 
   const discount    = parseNum('s_discount');
   const netPrice    = price - discount;
@@ -4250,6 +4259,10 @@ function cancelBooking(id) {
 function convertBookingToSale(id) {
   const b = bookings.find(x => x.id === id);
   if (!b) return;
+  if (b.vehicleId) {
+    const veh = getPurchase(b.vehicleId);
+    if (!veh || !isVehicleSellable(veh)) { showToast('Vehicle not available for sale — LC must be Closed first.', 'error'); return; }
+  }
   if (!confirm(`Convert booking for "${b.customer}" to a sale?`)) return;
 
   if (b.planId) {
@@ -4358,7 +4371,9 @@ function renderBookingsTable() {
       ? `<strong>${src.model}</strong><br><small>${src.variant||''}</small>${isPlan ? ' <span style="font-size:0.7rem;background:#8e44ad;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">ORDER PLAN</span>' : ''}`
       : 'N/A';
     return `<tr class="${overdue ? 'highlight-row' : ''}">
-      <td style="text-align:center">${b.vehicleId ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">` : ''}</td>
+      <td style="text-align:center">${b.vehicleId ? (src && isVehicleSellable(src)
+        ? `<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#27ae60;" title="Convert to Sale" onchange="if(this.checked){this.checked=false;convertBookingToSale('${b.id}');}">`
+        : `<input type="checkbox" disabled style="width:18px;height:18px;cursor:not-allowed;accent-color:#ccc;" title="LC not yet Closed — vehicle is not yet sellable">`) : ''}</td>
       <td>${i+1}</td>
       <td>${fmtDate(b.date)}</td>
       <td>${vehicleCell}</td>
