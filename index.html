@@ -4962,7 +4962,6 @@ function renderSummary() {
   const periodLabel   = periodPrefix ? year : 'All time';
 
   const allStock   = purchases.filter(p => p.status === 'available');
-  const allBooked  = purchases.filter(p => p.status === 'booked');
   const filtRev     = filtSales.reduce((s,x) => s + (x.netPrice||0), 0);
   const filtDeposit = filtBookings.reduce((s,b) => s + (b.deposit||0), 0);
 
@@ -4971,7 +4970,7 @@ function renderSummary() {
     <div class="card blue"><div class="card-label">Total Purchases</div><div class="card-value">${filtPurchases.length}</div><div class="card-sub">${periodLabel}</div></div>
     <div class="card green"><div class="card-label">Total Sales</div><div class="card-value">${filtSales.length}</div><div class="card-sub">${fmt(filtRev)} revenue</div></div>
     <div class="card orange"><div class="card-label">Bookings</div><div class="card-value">${filtBookings.length}</div><div class="card-sub">${fmt(filtDeposit)} deposits held</div></div>
-    <div class="card purple"><div class="card-label">Available Stock</div><div class="card-value">${allStock.length}</div><div class="card-sub">${allBooked.length} booked</div></div>
+    <div class="card purple"><div class="card-label">Available Stock</div><div class="card-value">${allStock.length}</div></div>
   `;
 
   // Helper: render a count bar chart
