@@ -737,11 +737,6 @@
   </div>
 
   <div class="panel">
-    <h3>&#128203; Stock by Model &amp; Colour (LC Closed)</h3>
-    <div class="model-stock-grid" id="orderPlanStockGrid"></div>
-  </div>
-
-  <div class="panel">
     <h3>&#128218; Current Stock List (in Showroom)</h3>
     <div class="toolbar">
       <input type="text" id="stockSearch" oninput="renderStockTable()" placeholder="&#128269; Search by model, colour...">
@@ -4657,10 +4652,8 @@ function renderOrderPlanStock() {
   // not yet Closed) are the other leg of "still on order, not bookable yet".
   const unbookedPlans = purchasePlans.filter(p => !bookings.find(b => b.planId === p.id));
   const inTransit     = purchases.filter(p => p.status === 'in_transit');
-  const arrivedViaLc  = purchases.filter(p => p.status === 'available' && p.lcstage === 'closed');
 
   renderModelGrid('inTransitStockGrid', inTransit, '#e67e22');
-  renderModelGrid('orderPlanStockGrid', arrivedViaLc, '#8e44ad');
 
   // Once LC Closes the vehicle becomes ordinary available stock (shown in the
   // Stock tables above) and drops off this "still on order" list.
