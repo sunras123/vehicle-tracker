@@ -586,6 +586,7 @@
             <th class="sortable-th" onclick="setAvailVehSort('variant')" data-col="variant">Variant</th>
             <th class="sortable-th" onclick="setAvailVehSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th" onclick="setAvailVehSort('date')" data-col="date">PO Date</th>
+            <th>LC Status</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -2361,6 +2362,13 @@ const PP_STATUS_COLOUR = { placed: '#e67e22', approved: '#27ae60' };
 const LC_STAGE_LABEL = { pending: 'LC Pending', opened: 'LC Opened', closed: 'LC Closed' };
 const LC_STAGE_COLOUR = { pending: '#e67e22', opened: '#2980b9', closed: '#27ae60' };
 
+// A purchase-record vehicle can be booked once its LC has been Opened or
+// Closed. While LC is still Pending (or unset — e.g. a manually-added record
+// that never went through the PO/LC flow) it is not yet bookable.
+function isVehicleBookable(p) {
+  return p.lcstage === 'opened' || p.lcstage === 'closed';
+}
+
 function refreshPurchasePlanRowModelOptions() {
   const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
   document.querySelectorAll('#ppVehicleRows .pp-vehicle-row').forEach(row => {
@@ -3035,6 +3043,7 @@ function autoFillBookingListPrice() {
 function updateVehicleSelects() {
   const available = purchases.filter(p => p.status === 'available');
   const booked    = purchases.filter(p => p.status === 'booked');
+  const bookable  = purchases.filter(p => (p.status === 'available' || p.status === 'in_transit') && isVehicleBookable(p));
 
   document.getElementById('s_vehicle').innerHTML =
     '<option value="">-- Select Vehicle --</option>' +
@@ -3044,8 +3053,8 @@ function updateVehicleSelects() {
 
   document.getElementById('b_vehicle').innerHTML =
     '<option value="">-- Select Available Vehicle --</option>' +
-    available.map(p =>
-      `<option value="${p.id}">${p.model}${p.variant ? ' ' + p.variant : ''} | ${p.colour}</option>`
+    bookable.map(p =>
+      `<option value="${p.id}">${p.model}${p.variant ? ' ' + p.variant : ''} | ${p.colour}${p.status === 'in_transit' ? ' (LC Opened — In Transit)' : ''}</option>`
     ).join('');
 
   refreshPurchasePlanRowModelOptions();
@@ -3071,7 +3080,7 @@ function renderAvailableVehiclesTable() {
   const tbody = document.getElementById('availVehTableBody');
   if (!tbody) return;
   const search = (document.getElementById('availVehSearch')?.value || '').toLowerCase();
-  const data = purchases.filter(p => p.status === 'available' &&
+  const data = purchases.filter(p => (p.status === 'available' || p.status === 'in_transit') &&
     [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(search));
 
   data.sort((a, b) => {
@@ -3091,16 +3100,27 @@ function renderAvailableVehiclesTable() {
 
   tbody.innerHTML = data.map((p, i) => {
     const hex = getColourHex(p.colour);
+    const lcStage = p.lcstage || (p.status === 'in_transit' ? 'opened' : '');
+    const lcColour = LC_STAGE_COLOUR[lcStage] || '#888';
+    const lcLabel = LC_STAGE_LABEL[lcStage] || 'LC Pending';
+    const bookable = isVehicleBookable(p);
+    const bookBtn = bookable
+      ? `<button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>`
+      : `<button class="btn btn-sm" disabled title="LC still Pending — vehicle is not yet bookable" style="background:#ddd;color:#999;cursor:not-allowed">&#128197; Book</button>`;
+    const sellBtn = p.status === 'available'
+      ? `<button class="btn btn-sm" style="background:#27ae60;color:white;" onclick="openSaleForVehicle('${p.id}')">&#128176; Sell</button>`
+      : '';
     return `<tr>
       <td>${i+1}</td>
       <td><strong>${p.model}</strong></td>
       <td>${p.variant || '-'}</td>
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
       <td>${fmtDate(p.date)}</td>
+      <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${lcColour};color:${lcColour};font-weight:600;font-size:0.82rem;background:${lcColour}18">${lcLabel}</span></td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:#2980b9;color:white;" onclick="openEditPurchase('${p.id}')">&#128269; Show Vehicle Details</button>
-        <button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>
-        <button class="btn btn-sm" style="background:#27ae60;color:white;" onclick="openSaleForVehicle('${p.id}')">&#128176; Sell</button>
+        ${bookBtn}
+        ${sellBtn}
       </td>
     </tr>`;
   }).join('');
@@ -4163,7 +4183,7 @@ function addBooking() {
   if (!/^\d{8}$/.test(phone_b)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
 
   const veh = getPurchase(vehicleId);
-  if (!veh || veh.status !== 'available') { showToast('Vehicle not available for booking.', 'error'); return; }
+  if (!veh || !(veh.status === 'available' || veh.status === 'in_transit') || !isVehicleBookable(veh)) { showToast('Vehicle not available for booking.', 'error'); return; }
 
   const deposit     = parseNum('b_deposit');
   const agreedPrice = parseNum('b_agreedprice');
@@ -4438,7 +4458,10 @@ function renderStockTable() {
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
       <td>
         <span class="badge badge-${p.status}">${p.status}</span>
-        ${p.status === 'available' ? `<button class="btn btn-sm" style="margin-left:6px;background:#8e44ad;color:white;padding:2px 8px;font-size:0.75rem" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>` : ''}
+        ${p.status === 'available' ? (isVehicleBookable(p)
+          ? `<button class="btn btn-sm" style="margin-left:6px;background:#8e44ad;color:white;padding:2px 8px;font-size:0.75rem" onclick="openBookingForVehicle('${p.id}')">&#128197; Book</button>`
+          : `<button class="btn btn-sm" disabled title="LC still Pending — vehicle is not yet bookable" style="margin-left:6px;background:#ddd;color:#999;padding:2px 8px;font-size:0.75rem;cursor:not-allowed">&#128197; Book</button>`
+        ) : ''}
       </td>
     </tr>`;
   }).join('');
