@@ -1905,9 +1905,23 @@ async function save() {
   await Promise.all(tasks);
 }
 
+// Postgres date columns reject '' ("invalid input syntax for type date").
+// Form fields left blank end up as '' on the JS object, so convert any
+// empty-string date-shaped field (name ends in "date", or is "eta"/"etd")
+// to null right before it goes over the wire.
+function sanitizeDates(row) {
+  const out = {...row};
+  Object.keys(out).forEach(k => {
+    if (out[k] !== '') return;
+    const lk = k.toLowerCase();
+    if (lk.endsWith('date') || lk === 'eta' || lk === 'etd') out[k] = null;
+  });
+  return out;
+}
+
 // ---- Targeted single-record save ----
 async function saveOne(table, record, mapFn) {
-  const row = mapFn ? mapFn(record) : record;
+  const row = sanitizeDates(mapFn ? mapFn(record) : record);
   const { error } = await sb.from(table).upsert([row], { onConflict: 'id' });
   if (error) { console.error('[saveOne]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); return false; }
   return true;
@@ -1916,7 +1930,7 @@ async function saveOne(table, record, mapFn) {
 // ---- Targeted batch save ----
 async function saveMany(table, records, mapFn) {
   if (!records.length) return true;
-  const rows = mapFn ? records.map(mapFn) : records;
+  const rows = (mapFn ? records.map(mapFn) : records).map(sanitizeDates);
   const { error } = await sb.from(table).upsert(rows, { onConflict: 'id' });
   if (error) { console.error('[saveMany]', table, error); showToast('⚠️ Save failed: ' + error.message, 'error'); return false; }
   return true;
