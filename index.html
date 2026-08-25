@@ -1290,6 +1290,71 @@
   </div>
 </div>
 
+<!-- EDIT VEHICLE DETAILS MODAL (single vehicle within a PO — model/variant/colour/notes only) -->
+<div class="modal-overlay" id="editVehicleDetailsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editVehicleDetailsModal')">&times;</button>
+    <h3>&#9998; Edit Vehicle Details</h3>
+    <input type="hidden" id="evd_id">
+    <div class="form-grid">
+      <div class="form-group"><label>Model</label><select id="evd_model" onchange="updateEvdVariantSelect()"><option value="">-- Select Model --</option></select></div>
+      <div class="form-group"><label>Variant</label><select id="evd_variant"><option value="">-- Select Model First --</option></select></div>
+      <div class="form-group"><label>Colour</label><select id="evd_colour"><option value="">-- Select Colour --</option></select></div>
+      <div class="form-group form-row-full"><label>Notes</label><input type="text" id="evd_notes" placeholder="Any notes"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-warning" onclick="saveEditVehicleDetails()">&#10003; Save Changes</button>
+      <button class="btn" onclick="closeModal('editVehicleDetailsModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PO DETAILS MODAL (applies to every vehicle sharing this PO number) -->
+<div class="modal-overlay" id="editPoDetailsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editPoDetailsModal')">&times;</button>
+    <h3>&#9998; Edit PO Details</h3>
+    <div id="editPoDetailsInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="epo_originalpo">
+    <div class="form-grid">
+      <div class="form-group"><label>PO Number</label><input type="text" id="epo_po" placeholder="Purchase Order number"></div>
+      <div class="form-group"><label>PO Date</label><input type="date" id="epo_date"></div>
+      <div class="form-group"><label>Order Status</label>
+        <select id="epo_orderstatus">
+          <option value="placed">Order Placed</option>
+          <option value="approved">Order Approved</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PI Status</label>
+        <select id="epo_pistatus">
+          <option value="pending">Pending</option>
+          <option value="issued">Issued</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PI Number</label><input type="text" id="epo_pinumber" placeholder="Performa Invoice number"></div>
+      <div class="form-group"><label>PI Date</label><input type="date" id="epo_pidate"></div>
+      <div class="form-group"><label>LC Status</label>
+        <select id="epo_lcstage">
+          <option value="">-- Not Set --</option>
+          <option value="pending">LC Pending</option>
+          <option value="opened">LC Opened</option>
+          <option value="closed">LC Closed</option>
+        </select>
+      </div>
+      <div class="form-group"><label>LC Number</label><input type="text" id="epo_lcnumber" placeholder="LC number"></div>
+      <div class="form-group"><label>LC Date</label><input type="date" id="epo_lcdate"></div>
+      <div class="form-group"><label>LC Closure Date</label><input type="date" id="epo_lcclosuredate"></div>
+      <div class="form-group"><label>Exchange Rate (Nu./USD)</label><input type="text" inputmode="decimal" id="epo_lcexrate" placeholder="0.00" oninput="fmtInput(this)"></div>
+      <div class="form-group"><label>ETD</label><input type="date" id="epo_etd"></div>
+      <div class="form-group"><label>ETA</label><input type="date" id="epo_eta"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-warning" onclick="saveEditPoDetails()">&#10003; Save Changes (applies to all vehicles in this PO)</button>
+      <button class="btn" onclick="closeModal('editPoDetailsModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT SALE MODAL -->
 <div class="modal-overlay" id="editSaleModal">
   <div class="modal">
@@ -2064,6 +2129,7 @@ const DATE_FIELD_IDS = ['pp_date','p_date','s_date','s_ca_date','s_cheque_date',
   'ep_date','es_date','es_ca_date','es_cheque_date','eb_date','eb_delivery','epp_date','bp_date','bp_delivery',
   'epp_pidate','popi_pidate','lcd_etd','lcd_eta','lcd_lcdate','lcc_closuredate',
   'ep_pidate','ep_lcdate','ep_etd','ep_eta',
+  'epo_date','epo_pidate','epo_lcdate','epo_lcclosuredate','epo_etd','epo_eta',
   'b_cheque_date','b_ca_date','eb_cheque_date','eb_ca_date','bp_cheque_date','bp_ca_date'];
 const datePickers = {};
 
@@ -3766,7 +3832,7 @@ function renderPurchasesTable() {
         <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
         <td>${p.notes || '-'}</td>
         <td style="white-space:nowrap">
-          <button class="btn btn-warning btn-sm" onclick="openEditPurchase('${p.id}')">&#9998; Edit</button>
+          <button class="btn btn-warning btn-sm" onclick="openEditVehicleDetails('${p.id}')">&#9998; Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>
         </td>
       </tr>`).join('');
@@ -3820,14 +3886,14 @@ function renderPurchasesTable() {
         <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
         <td><span class="badge badge-${p.status}">${p.status}</span></td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn btn-warning btn-sm" onclick="openEditPurchase('${p.id}')">&#9998; Edit</button>
+          <button class="btn btn-warning btn-sm" onclick="openEditVehicleDetails('${p.id}')">&#9998; Edit</button>
           ${p.status === 'available' ? `<button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>` : ''}
         </td>
       </tr>`;
     }).join('');
 
     return `<div class="po-group${isOpen ? ' open' : ''}" id="purch-grp-${poId}">
-      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="togglePurchGroup(this.dataset.po)">
+      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="if(event.target.closest('.po-group-actions'))return;togglePurchGroup(this.dataset.po)">
         <span class="po-group-chevron">&#9654;</span>
         <span class="po-group-title">PO ${po}</span>
         <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''} total</span>
@@ -3835,6 +3901,9 @@ function renderPurchasesTable() {
         <span style="background:#fdebd0;color:#ca6f1e;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${bookedCount} Booked</span>
         <span style="background:#fadbd8;color:#922b21;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${soldCount} Sold</span>
         <span style="color:#888;font-size:0.8rem">${fmtDate(poDate)}</span>
+        <span class="po-group-actions" style="margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px;justify-content:flex-end" onclick="event.stopPropagation()">
+          <button class="btn btn-warning btn-sm" onclick="openEditPoDetailsModal('${po.replace(/'/g,"\\'")}')">&#9998; Edit PO</button>
+        </span>
       </div>
       <div class="po-group-body">
         <div class="inner-wrap">
@@ -5520,6 +5589,143 @@ async function saveEditPurchase() {
   trackActivity('edited purchase');
   renderPurchasesTable();
   renderStockCards(); renderStockTable(); renderOrderPlanStock();
+  updateVehicleSelects();
+}
+
+// ============================================================
+// EDIT VEHICLE DETAILS — one vehicle within a PO (model/variant/colour/notes only).
+// PO-level fields (PO/PI/LC/dates) are edited in bulk via Edit PO Details instead.
+// ============================================================
+function updateEvdVariantSelect(currentVariant) {
+  const model = document.getElementById('evd_model').value;
+  const sel   = document.getElementById('evd_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; return; }
+  const cur = currentVariant !== undefined ? currentVariant : sel.value;
+  sel.innerHTML = variants.map(v => `<option value="${v}" ${v===cur?'selected':''}>${v || '(Base / No Variant)'}</option>`).join('');
+}
+
+function openEditVehicleDetails(id) {
+  const p = getPurchase(id);
+  if (!p) return;
+  document.getElementById('evd_id').value = id;
+  document.getElementById('evd_notes').value = p.notes || '';
+
+  const ms = document.getElementById('evd_model');
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
+  ms.innerHTML = '<option value="">-- Select Model --</option>' +
+    uniqueModels.map(m => `<option value="${m.name}"${m.name===p.model?' selected':''}>${m.name}</option>`).join('');
+  updateEvdVariantSelect(p.variant || '');
+
+  const cs = document.getElementById('evd_colour');
+  cs.innerHTML = colourOptionsForModel(p.model, p.variant, p.colour);
+
+  openModal('editVehicleDetailsModal');
+}
+
+async function saveEditVehicleDetails() {
+  const id = document.getElementById('evd_id').value;
+  const p  = getPurchase(id);
+  if (!p) return;
+  const model  = document.getElementById('evd_model').value;
+  const colour = document.getElementById('evd_colour').value;
+  if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+  p.model   = model;
+  p.variant = document.getElementById('evd_variant').value;
+  p.colour  = colour;
+  p.notes   = document.getElementById('evd_notes').value.trim();
+
+  const ok = await saveOne('purchases', p, purchaseToDB);
+  if (!ok) return;
+  closeModal('editVehicleDetailsModal');
+  showToast('Vehicle details updated.');
+  trackActivity('edited vehicle details');
+  renderPurchasesTable();
+  renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+  updateVehicleSelects();
+}
+
+// ============================================================
+// EDIT PO DETAILS — bulk edit applied to every vehicle sharing a PO number
+// (PO/PI/LC status and dates). Only reachable once a PO has arrived (its
+// vehicles sit in `purchases`, not `purchase_plans`).
+// ============================================================
+function openEditPoDetailsModal(po) {
+  const items = purchases.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) return;
+  const first = items[0];
+  document.getElementById('epo_originalpo').value = po;
+  document.getElementById('editPoDetailsInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  document.getElementById('epo_po').value = first.po || '';
+  setDateField('epo_date', first.date || '');
+  document.getElementById('epo_orderstatus').value = first.orderstatus || 'approved';
+  document.getElementById('epo_pistatus').value = first.pistatus || 'pending';
+  document.getElementById('epo_pinumber').value = first.pi || '';
+  setDateField('epo_pidate', first.pidate || '');
+  document.getElementById('epo_lcstage').value = first.lcstage || '';
+  document.getElementById('epo_lcnumber').value = first.lcnumber || '';
+  setDateField('epo_lcdate', first.lcdate || '');
+  setDateField('epo_lcclosuredate', first.lcclosuredate || '');
+  const exEl = document.getElementById('epo_lcexrate');
+  exEl.value = first.lcexrate || ''; fmtInput(exEl);
+  setDateField('epo_etd', first.etd || '');
+  setDateField('epo_eta', first.eta || '');
+  openModal('editPoDetailsModal');
+}
+
+async function saveEditPoDetails() {
+  const originalPo = document.getElementById('epo_originalpo').value;
+  const newPo = document.getElementById('epo_po').value.trim();
+  if (!newPo) { showToast('PO Number is required.', 'error'); return; }
+
+  const items = purchases.filter(p => (p.po || '(No PO)') === originalPo);
+  if (!items.length) { showToast('PO not found.', 'error'); return; }
+
+  const date          = document.getElementById('epo_date').value;
+  const orderstatus    = document.getElementById('epo_orderstatus').value;
+  const pistatus       = document.getElementById('epo_pistatus').value;
+  const pinumber       = document.getElementById('epo_pinumber').value.trim();
+  const pidate         = document.getElementById('epo_pidate').value;
+  const lcstage        = document.getElementById('epo_lcstage').value;
+  const lcnumber       = document.getElementById('epo_lcnumber').value.trim();
+  const lcdate         = document.getElementById('epo_lcdate').value;
+  const lcclosuredate  = document.getElementById('epo_lcclosuredate').value;
+  const lcexrate       = parseFloat((document.getElementById('epo_lcexrate').value || '').replace(/,/g,'')) || 0;
+  const etd            = document.getElementById('epo_etd').value;
+  const eta            = document.getElementById('epo_eta').value;
+
+  // Mirrors the single-vehicle LC-stage sync in saveEditPurchase, applied to
+  // every vehicle in the PO: never override a booked/sold vehicle's status,
+  // and dropping a still-open vehicle's LC back below Opened moves just that
+  // vehicle back to Purchase Plan Under Process.
+  const tasks = items.map(p => {
+    const oldLcstage = p.lcstage || '';
+    p.po = newPo; p.date = date; p.orderstatus = orderstatus; p.pistatus = pistatus;
+    p.pi = pinumber; p.pidate = pidate;
+    p.lcstage = lcstage; p.lcnumber = lcnumber; p.lcdate = lcdate;
+    p.lcclosuredate = lcclosuredate; p.lcexrate = lcexrate;
+    p.etd = etd; p.eta = eta;
+
+    if (p.status === 'available' || p.status === 'in_transit') {
+      if (lcstage === 'opened') { p.status = 'in_transit'; }
+      else if (lcstage === 'closed') { p.status = 'available'; }
+      else if (oldLcstage === 'opened' || oldLcstage === 'closed') {
+        return movePurchaseBackToPlan(p).then(moved => !!moved);
+      }
+    }
+    return saveOne('purchases', p, purchaseToDB);
+  });
+
+  const results = await Promise.all(tasks);
+  if (results.some(r => !r)) { showToast('⚠️ Some vehicles in this PO failed to update.', 'error'); return; }
+
+  closeModal('editPoDetailsModal');
+  showToast(`PO ${newPo} updated — applied to ${items.length} vehicle${items.length>1?'s':''}.`, 'success');
+  trackActivity('edited PO details (bulk)');
+  renderPurchasesTable(); renderPurchasePlanTable();
+  renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
   updateVehicleSelects();
 }
 
