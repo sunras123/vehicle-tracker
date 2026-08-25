@@ -3118,6 +3118,9 @@ function renderAvailableVehiclesTable() {
     const sellBtn = isVehicleSellable(p)
       ? `<button class="btn btn-sm" style="background:#27ae60;color:white;" onclick="openSaleForVehicle('${p.id}')">&#128176; Sell</button>`
       : `<button class="btn btn-sm" disabled title="LC not yet Closed — vehicle is not yet sellable" style="background:#ddd;color:#999;cursor:not-allowed">&#128176; Sell</button>`;
+    const etaBtn = (p.status === 'in_transit' && p.eta)
+      ? `<button class="btn btn-sm" title="Expected arrival — let the customer know" onclick="openEditPurchase('${p.id}')" style="background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;">&#128666; ETA ${fmtDate(p.eta)}</button>`
+      : '';
     return `<tr>
       <td>${i+1}</td>
       <td><strong>${p.model}</strong></td>
@@ -3129,6 +3132,7 @@ function renderAvailableVehiclesTable() {
         <button class="btn btn-sm" style="background:#2980b9;color:white;" onclick="openEditPurchase('${p.id}')">&#128269; Show Vehicle Details</button>
         ${bookBtn}
         ${sellBtn}
+        ${etaBtn}
       </td>
     </tr>`;
   }).join('');
