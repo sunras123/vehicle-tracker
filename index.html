@@ -109,6 +109,7 @@
   .badge-available { background: #d5f5e3; color: #1e8449; }
   .badge-booked { background: #fdebd0; color: #ca6f1e; }
   .badge-sold { background: #fadbd8; color: #922b21; }
+  .badge-in_transit { background: #d6eaf8; color: #2471a3; }
   .badge-new { background: #d6eaf8; color: #1a5276; }
 
   .color-dot {
@@ -505,6 +506,7 @@
 
   <div class="panel" id="ppMode_view">
     <h3>&#128196; Purchase Plan Under Process</h3>
+    <div style="font-size:0.82rem;color:#888;margin:-8px 0 12px">A PO moves to Purchase Records automatically as soon as its LC is marked Opened.</div>
     <div class="toolbar">
       <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour, PO...">
       <select id="ppStatusFilter" onchange="renderPurchasePlanTable()">
@@ -526,6 +528,7 @@
       <input type="text" id="purchaseSearch" oninput="renderPurchasesTable()" placeholder="&#128269; Search by model, colour, PO...">
       <select id="purchaseStatusFilter" onchange="renderPurchasesTable()">
         <option value="">All Status</option>
+        <option value="in_transit">In Transit (LC Opened)</option>
         <option value="available">Available</option>
         <option value="booked">Booked</option>
         <option value="sold">Sold</option>
@@ -784,7 +787,6 @@
             <th class="sortable-th op-sortable-th" onclick="setOpSort('colour')" data-col="colour">Colour</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('po')" data-col="po">PO No.</th>
             <th class="sortable-th op-sortable-th" onclick="setOpSort('lcstage')" data-col="lcstage">Order Status</th>
-            <th>Action</th>
           </tr>
         </thead>
         <tbody id="orderPlanStockBody"></tbody>
@@ -1883,6 +1885,7 @@ async function loadAll() {
   purchases     = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
   bookings      = (bok||[]).map(bookingFromDB);  catModels = (mod||[]).map(normCatModel); catColours = col||[];
   purchasePlans = ppl||[]; priceLists = (prl||[]).map(priceListFromDB);
+  sweepOpenedPlansToPurchases();
   showLoader(false);
   refreshAll();
 }
@@ -1972,7 +1975,7 @@ function setupRealtime() {
   sb.channel('rt-purchase-plans')
     .on('postgres_changes', {event:'*', schema:'public', table:'purchase_plans'}, async () => {
       const { data } = await sb.from('purchase_plans').select('*');
-      purchasePlans = data||[]; renderPurchasePlanTable();
+      purchasePlans = data||[]; renderPurchasePlanTable(); renderOrderPlanStock();
     })
     .subscribe(onStatus('purchase_plans'));
 
@@ -2484,24 +2487,25 @@ function clearPurchasePlanForm() {
 }
 
 function updatePoStatus(po, newStatus) {
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items, isPlan } = findPoGroup(po);
   items.forEach(p => {
-    p.lcstatus = newStatus;
+    if (isPlan) p.lcstatus = newStatus; else p.orderstatus = newStatus;
     if (newStatus === 'approved' && !p.pistatus) p.pistatus = 'pending';
-    saveOne('purchase_plans', p);
+    poSave(p, isPlan);
   });
   renderPurchasePlanTable();
+  renderPurchasesTable();
   if (newStatus === 'approved') openPoPiModal(po);
 }
 
 function openPoPiModal(po) {
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items, isPlan } = findPoGroup(po);
   if (!items.length) return;
   const first = items[0];
   document.getElementById('popi_po').value = po;
   document.getElementById('popiInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
   document.getElementById('popi_pistatus').value = first.pistatus || 'pending';
-  document.getElementById('popi_pinumber').value = first.pinumber || '';
+  document.getElementById('popi_pinumber').value = isPlan ? (first.pinumber || '') : (first.pi || '');
   setDateField('popi_pidate', first.pidate || '');
   updatePopiVisibility();
   document.getElementById('poPiModal').classList.add('open');
@@ -2524,33 +2528,41 @@ async function savePoPi() {
     return;
   }
 
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items, isPlan } = findPoGroup(po);
   const tasks = items.map(p => {
-    p.pistatus = pistatus; p.pinumber = pinumber; p.pidate = pidate;
-    return saveOne('purchase_plans', p);
+    p.pistatus = pistatus;
+    if (isPlan) p.pinumber = pinumber; else p.pi = pinumber;
+    p.pidate = pidate;
+    return poSave(p, isPlan);
   });
   const results = await Promise.all(tasks);
   if (results.some(r => !r)) return;
 
   closeModal('poPiModal');
   renderPurchasePlanTable();
+  renderPurchasesTable();
   showToast(`PI details saved for PO ${po}.`, 'success');
   trackActivity('updated PO PI details');
 }
 
 function updateLcStage(po, newStage) {
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items, isPlan } = findPoGroup(po);
   items.forEach(p => {
     p.lcstage = newStage;
-    saveOne('purchase_plans', p);
+    poSave(p, isPlan);
   });
   renderPurchasePlanTable();
-  if (newStage === 'opened') openLcDatesModal(po);
+  renderPurchasesTable();
+  renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+  if (newStage === 'opened') {
+    if (isPlan) movePoToPurchasesAuto(po);
+    openLcDatesModal(po);
+  }
   if (newStage === 'closed') openLcClosureModal(po);
 }
 
 function openLcDatesModal(po) {
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items } = findPoGroup(po);
   if (!items.length) return;
   const first = items[0];
   document.getElementById('lcd_po').value = po;
@@ -2573,22 +2585,23 @@ async function saveLcDates() {
     return;
   }
 
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items, isPlan } = findPoGroup(po);
   const tasks = items.map(p => {
     p.lcnumber = lcnumber; p.lcdate = lcdate; p.etd = etd; p.eta = eta;
-    return saveOne('purchase_plans', p);
+    return poSave(p, isPlan);
   });
   const results = await Promise.all(tasks);
   if (results.some(r => !r)) return;
 
   closeModal('lcDatesModal');
   renderPurchasePlanTable();
+  renderPurchasesTable();
   showToast(`LC details saved for PO ${po}.`, 'success');
   trackActivity('updated LC details');
 }
 
 function openLcClosureModal(po) {
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items } = findPoGroup(po);
   if (!items.length) return;
   const first = items[0];
   document.getElementById('lcc_po').value = po;
@@ -2608,16 +2621,20 @@ async function saveLcClosure() {
     return;
   }
 
-  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  const { items, isPlan } = findPoGroup(po);
   const tasks = items.map(p => {
     p.lcclosuredate = closuredate; p.lcexrate = exrate;
-    return saveOne('purchase_plans', p);
+    if (!isPlan && p.status === 'in_transit') p.status = 'available';
+    return poSave(p, isPlan);
   });
   const results = await Promise.all(tasks);
   if (results.some(r => !r)) return;
 
   closeModal('lcClosureModal');
   renderPurchasePlanTable();
+  renderPurchasesTable();
+  renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+  updateVehicleSelects();
   showToast(`LC closure details saved for PO ${po}.`, 'success');
   trackActivity('updated LC closure details');
 }
@@ -2632,32 +2649,20 @@ function autoCreatePurchaseFromPlan(plan) {
     pi: plan.pinumber || '', pidate: plan.pidate || '', po: plan.po || '',
     orderstatus: plan.lcstatus || 'approved', pistatus: plan.pistatus || 'issued',
     lcstage: plan.lcstage || '', lcnumber: plan.lcnumber || '', lcdate: plan.lcdate || '',
+    lcclosuredate: plan.lcclosuredate || '', lcexrate: plan.lcexrate || 0,
     etd: plan.etd || '', eta: plan.eta || '',
-    notes: 'From Purchase Plan', status: 'available'
+    notes: plan.notes || '', status: plan.lcstage === 'closed' ? 'available' : 'in_transit'
   };
   purchases.push(entry);
   saveOne('purchases', entry, purchaseToDB);
   return entry;
 }
 
-function movePlanToPurchase(id) {
-  const entry = purchasePlans.find(p => p.id === id);
-  if (!entry) return;
-  const label = `${entry.model}${entry.variant ? ' ' + entry.variant : ''} (${entry.colour})`;
-  if (!confirm(`Move to Purchases?\n\n${label} will be added to Purchase Records and removed from Purchase Plan Under Process.`)) return;
-  autoCreatePurchaseFromPlan(entry);
-  sbDelete('purchase_plans', id);
-  purchasePlans = purchasePlans.filter(p => p.id !== id);
-  renderPurchasePlanTable();
-  renderPurchasesTable();
-  showToast(`${entry.model} moved to Purchases.`, 'success');
-  trackActivity('moved purchase plan to purchases');
-}
-
-function movePoToPurchases(po) {
+// Moves every vehicle in a PO from Purchase Plan into Purchase Records.
+// Called automatically the moment a PO's LC is marked Opened — no manual trigger.
+function movePoToPurchasesAuto(po) {
   const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
   if (items.length === 0) return;
-  if (!confirm(`Move all ${items.length} vehicle(s) in PO ${po} to Purchases?\n\nThey will be removed from Purchase Plan.`)) return;
   items.forEach(entry => {
     autoCreatePurchaseFromPlan(entry);
     sbDelete('purchase_plans', entry.id);
@@ -2666,8 +2671,35 @@ function movePoToPurchases(po) {
   purchasePlans = purchasePlans.filter(p => !ids.has(p.id));
   renderPurchasePlanTable();
   renderPurchasesTable();
-  showToast(`PO ${po} moved to Purchases (${items.length} vehicles).`, 'success');
-  trackActivity('moved purchase plan PO to purchases');
+  renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+  showToast(`PO ${po} moved to Purchase Records — LC Opened.`, 'success');
+  trackActivity('moved purchase plan to purchase records (LC opened)');
+}
+
+// One-time startup sweep: migrates any purchase_plans rows already sitting at
+// LC Opened/Closed (e.g. from before this automatic-move behaviour shipped)
+// into purchases, so the invariant "no plan row has lcstage opened/closed" holds.
+function sweepOpenedPlansToPurchases() {
+  const staleIds = new Set(purchasePlans.filter(p => p.lcstage === 'opened' || p.lcstage === 'closed').map(p => p.id));
+  if (!staleIds.size) return;
+  purchasePlans.filter(p => staleIds.has(p.id)).forEach(entry => {
+    autoCreatePurchaseFromPlan(entry);
+    sbDelete('purchase_plans', entry.id);
+  });
+  purchasePlans = purchasePlans.filter(p => !staleIds.has(p.id));
+}
+
+// A PO's vehicles live in purchase_plans until LC Opened, then in purchases
+// (status 'in_transit') until LC Closed. These PO-level LC/PI actions need to
+// find and mutate the record wherever it currently lives.
+function findPoGroup(po) {
+  const planItems = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (planItems.length) return { items: planItems, isPlan: true };
+  const purchItems = purchases.filter(p => (p.po || '(No PO)') === po && p.status === 'in_transit');
+  return { items: purchItems, isPlan: false };
+}
+function poSave(item, isPlan) {
+  return saveOne(isPlan ? 'purchase_plans' : 'purchases', item, isPlan ? undefined : purchaseToDB);
 }
 
 function deletePurchasePlan(id) {
@@ -2808,21 +2840,16 @@ function renderPurchasePlanTable() {
           : `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to enter PI details" style="cursor:pointer;background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`)
       : '';
 
+    // Once LC is marked Opened, the whole PO auto-moves to Purchase Records —
+    // so a PO can never be seen here with lcstage 'opened' or 'closed'.
     const lcStage = items[0].lcstage || (piStatus === 'issued' ? 'pending' : '');
     const lcColour = LC_STAGE_COLOUR[lcStage] || '#888';
     const lcSelect = piStatus === 'issued'
       ? `<select onchange="updateLcStage('${po.replace(/'/g,"\\'")}', this.value)"
           style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcColour};color:${lcColour};font-weight:600;font-size:0.82rem;background:${lcColour}18;cursor:pointer;">
           <option value="pending" ${lcStage==='pending'?'selected':''}>LC Pending</option>
-          <option value="opened" ${lcStage==='opened'?'selected':''}>LC Opened</option>
-          <option value="closed" ${lcStage==='closed'?'selected':''}>LC Closed</option>
+          <option value="opened">LC Opened</option>
         </select>`
-      : '';
-    const lcDatesBadge = piStatus === 'issued' && (lcStage === 'opened' || lcStage === 'closed') && (items[0].lcnumber || items[0].lcdate || items[0].etd || items[0].eta)
-      ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC details" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${items[0].lcnumber ? 'LC #'+items[0].lcnumber+' ' : ''}${items[0].lcdate ? '('+fmtDate(items[0].lcdate)+') ' : ''}ETD ${fmtDate(items[0].etd) || '—'} &#8594; ETA ${fmtDate(items[0].eta) || '—'}</span>`
-      : '';
-    const lcClosureBadge = piStatus === 'issued' && lcStage === 'closed' && (items[0].lcclosuredate || items[0].lcexrate)
-      ? `<span onclick="openLcClosureModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC closure details" style="cursor:pointer;background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">Closed${items[0].lcclosuredate ? ' '+fmtDate(items[0].lcclosuredate) : ''} @ ${fmtNum(items[0].lcexrate||0)} Nu/USD</span>`
       : '';
 
     const sortedItems = [...items].sort((a, b) => {
@@ -2838,37 +2865,15 @@ function renderPurchasePlanTable() {
     };
 
     const rows = sortedItems.map((p, i) => {
-      const pb = bookings.find(b => b.planId === p.id);
-      const bookingCell = pb
-        ? `<div style="font-size:0.8rem;line-height:1.5">
-             <span style="color:#27ae60;font-weight:700">&#10003; ${pb.customer}</span><br>
-             ${pb.phone    ? `<span style="color:#555">&#128222; ${pb.phone}</span><br>` : ''}
-             ${pb.cid      ? `<span style="color:#555">ID: ${pb.cid}</span><br>` : ''}
-             ${pb.delivery ? `<span style="color:#e67e22">Delivery: ${fmtDate(pb.delivery)}</span><br>` : ''}
-             ${pb.deposit  ? `<span style="color:#2980b9">Deposit: ${fmt(pb.deposit)}</span>` : ''}
-           </div>`
-        : `<span style="color:#aaa;">&#8212;</span>`;
-      const lcReady   = p.lcstage === 'opened' || p.lcstage === 'closed';
-      const bookReady = p.lcstage === 'closed';
-      const bookBtn = pb
-        ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#27ae60;color:white;margin-right:4px;">&#9998; Booking</button>`
-        : bookReady
-          ? `<button class="btn btn-sm" onclick="openBookPlanModal('${p.id}')" style="background:#8e44ad;color:white;margin-right:4px;">&#128197; Book</button>`
-          : `<button class="btn btn-sm" disabled title="LC must be Closed before booking" style="background:#ccc;color:#888;margin-right:4px;cursor:not-allowed;">&#128197; Book</button>`;
       return `<tr>
         <td>${i+1}</td>
         <td>${fmtDate(p.date)}</td>
         <td><strong>${p.model}</strong></td>
         <td>${p.variant || '-'}</td>
         <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
-        <td>${bookingCell}</td>
         <td>${p.notes || '-'}</td>
         <td style="white-space:nowrap">
-          ${bookBtn}
           <button class="btn btn-sm" onclick="openEditPurchasePlan('${p.id}')" style="background:#2980b9;color:white;margin-right:4px;">Edit</button>
-          ${lcReady
-            ? `<button class="btn btn-sm" onclick="movePlanToPurchase('${p.id}')" style="background:#16a085;color:white;margin-right:4px;">&#128230; To Purchases</button>`
-            : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before moving to Purchases" style="background:#ccc;color:#888;margin-right:4px;cursor:not-allowed;">&#128230; To Purchases</button>`}
           <button class="btn btn-danger btn-sm" onclick="deletePurchasePlan('${p.id}')">Delete</button>
         </td>
       </tr>`;
@@ -2889,11 +2894,6 @@ function renderPurchasePlanTable() {
           </select>
           ${piBadge}
           ${lcSelect}
-          ${lcDatesBadge}
-          ${lcClosureBadge}
-          ${(lcStage === 'opened' || lcStage === 'closed')
-            ? `<button class="btn btn-sm" onclick="movePoToPurchases('${po.replace(/'/g,"\\'")}')" style="background:#16a085;color:white;">&#128230; Move All to Purchases</button>`
-            : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before moving to Purchases" style="background:#ccc;color:#888;cursor:not-allowed;">&#128230; Move All to Purchases</button>`}
         </span>
       </div>
       <div class="po-group-body">
@@ -2901,7 +2901,7 @@ function renderPurchasePlanTable() {
           <table>
             <thead><tr>
               <th>#</th>${ppTh('date','Date')}${ppTh('model','Model')}${ppTh('variant','Variant')}${ppTh('colour','Colour')}
-              <th>Booking</th>${ppTh('notes','Notes')}<th>Action</th>
+              ${ppTh('notes','Notes')}<th>Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -3512,7 +3512,7 @@ function clearPurchaseForm() {
 
 function deletePurchase(id) {
   const p = getPurchase(id);
-  if (p && p.status !== 'available') { showToast('Cannot delete a booked or sold vehicle.', 'error'); return; }
+  if (p && (p.status === 'booked' || p.status === 'sold')) { showToast('Cannot delete a booked or sold vehicle.', 'error'); return; }
   if (!confirm('Delete this purchase record?')) return;
   sbDelete('purchases', id);
   purchases = purchases.filter(p => p.id !== id);
@@ -3646,31 +3646,93 @@ function renderPurchasesTable() {
     return an !== bn ? bn - an : b.localeCompare(a);
   });
 
-  container.innerHTML = poKeys.map(po => {
-    const items = groups[po];
-    const isOpen = purchExpandedPos.has(po);
+  const pTh = (col, label, style='') => {
+    const active = purchInnerSortCol === col;
+    const cls = active ? `sortable-th sort-${purchInnerSortDir}` : 'sortable-th';
+    return `<th class="${cls}" onclick="setPurchInnerSort('${col}')" data-col="${col}"${style ? ` style="${style}"` : ''}>${label}</th>`;
+  };
+  const sortItems = items => [...items].sort((a, b) => {
+    let av = a[purchInnerSortCol] ?? '', bv = b[purchInnerSortCol] ?? '';
+    if (purchInnerSortCol === 'totalCost' || purchInnerSortCol === 'year') {
+      av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      return purchInnerSortDir === 'asc' ? av - bv : bv - av;
+    }
+    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+    return purchInnerSortDir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  // A PO whose LC is Opened but not yet Closed keeps showing the same
+  // Order Status / PI / LC fields it had in Purchase Plan, instead of the
+  // plain Purchase Records view — that only appears once the LC is Closed.
+  const renderInTransitGroup = (po, items, isOpen, poId) => {
+    const first = items[0];
+    const poStatus = first.orderstatus || 'approved';
+    const poColour = PP_STATUS_COLOUR[poStatus] || '#888';
+    const piStatus = first.pistatus || '';
+    const piBadge = piStatus === 'issued'
+      ? `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to edit PI number and date" style="cursor:pointer;background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Issued${first.pi ? ' #'+first.pi : ''}${first.pidate ? ' ('+fmtDate(first.pidate)+')' : ''}</span>`
+      : `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to enter PI details" style="cursor:pointer;background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`;
+    const lcColour = LC_STAGE_COLOUR.opened;
+    const lcSelect = `<select onchange="updateLcStage('${po.replace(/'/g,"\\'")}', this.value)"
+        style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcColour};color:${lcColour};font-weight:600;font-size:0.82rem;background:${lcColour}18;cursor:pointer;">
+        <option value="opened" selected>LC Opened</option>
+        <option value="closed">LC Closed</option>
+      </select>`;
+    const lcDatesBadge = (first.lcnumber || first.lcdate || first.etd || first.eta)
+      ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC details" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${first.lcnumber ? 'LC #'+first.lcnumber+' ' : ''}${first.lcdate ? '('+fmtDate(first.lcdate)+') ' : ''}ETD ${fmtDate(first.etd) || '—'} &#8594; ETA ${fmtDate(first.eta) || '—'}</span>`
+      : '';
+
+    const rows = sortItems(items).map((p, i) => `<tr>
+        <td>${i+1}</td>
+        <td>${fmtDate(p.date)}</td>
+        <td><strong>${p.model}</strong></td>
+        <td>${p.variant || '-'}</td>
+        <td><span class="color-dot" style="background:${getColourHex(p.colour)}"></span>${p.colour}</td>
+        <td>${p.notes || '-'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-warning btn-sm" onclick="openEditPurchase('${p.id}')">&#9998; Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>
+        </td>
+      </tr>`).join('');
+
+    return `<div class="po-group${isOpen ? ' open' : ''}" id="purch-grp-${poId}">
+      <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="if(event.target.closest('.po-group-actions'))return;togglePurchGroup(this.dataset.po)">
+        <span class="po-group-chevron">&#9654;</span>
+        <span class="po-group-title">PO ${po}</span>
+        <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''}</span>
+        <span style="color:#888;font-size:0.8rem">${fmtDate(first.date)}</span>
+        <span class="po-group-actions" style="margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px;justify-content:flex-end" onclick="event.stopPropagation()">
+          <select onchange="updatePoStatus('${po.replace(/'/g,"\\'")}', this.value)"
+            style="border-radius:6px;padding:4px 8px;border:1.5px solid ${poColour};color:${poColour};font-weight:600;font-size:0.82rem;background:${poColour}18;cursor:pointer;">
+            <option value="placed"   ${poStatus==='placed'   ?'selected':''}>Order Placed</option>
+            <option value="approved" ${poStatus==='approved' ?'selected':''}>Order Approved</option>
+          </select>
+          ${piBadge}
+          ${lcSelect}
+          ${lcDatesBadge}
+        </span>
+      </div>
+      <div class="po-group-body">
+        <div class="inner-wrap">
+          <table>
+            <thead><tr>
+              <th>#</th>${pTh('date','Date')}${pTh('model','Model')}${pTh('variant','Variant')}${pTh('colour','Colour')}
+              <th>Notes</th><th>Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const renderPlainGroup = (po, items, isOpen, poId) => {
     const poDate = items[0].date || '';
     const availableCount = items.filter(p => p.status === 'available').length;
     const bookedCount    = items.filter(p => p.status === 'booked').length;
     const soldCount      = items.filter(p => p.status === 'sold').length;
 
-    const sortedItems = [...items].sort((a, b) => {
-      let av = a[purchInnerSortCol] ?? '', bv = b[purchInnerSortCol] ?? '';
-      if (purchInnerSortCol === 'totalCost' || purchInnerSortCol === 'year') {
-        av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
-        return purchInnerSortDir === 'asc' ? av - bv : bv - av;
-      }
-      av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
-      return purchInnerSortDir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-
-    const pTh = (col, label, style='') => {
-      const active = purchInnerSortCol === col;
-      const cls = active ? `sortable-th sort-${purchInnerSortDir}` : 'sortable-th';
-      return `<th class="${cls}" onclick="setPurchInnerSort('${col}')" data-col="${col}"${style ? ` style="${style}"` : ''}>${label}</th>`;
-    };
-
-    const rows = sortedItems.map((p, i) => {
+    const rows = sortItems(items).map((p, i) => {
       const hex = getColourHex(p.colour);
       return `<tr>
         <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
@@ -3688,7 +3750,6 @@ function renderPurchasesTable() {
       </tr>`;
     }).join('');
 
-    const poId = po.replace(/[^a-zA-Z0-9._-]/g, '_');
     return `<div class="po-group${isOpen ? ' open' : ''}" id="purch-grp-${poId}">
       <div class="po-group-header" data-po="${po.replace(/"/g,'&quot;')}" onclick="togglePurchGroup(this.dataset.po)">
         <span class="po-group-chevron">&#9654;</span>
@@ -3710,6 +3771,14 @@ function renderPurchasesTable() {
         </div>
       </div>
     </div>`;
+  };
+
+  container.innerHTML = poKeys.map(po => {
+    const items = groups[po];
+    const isOpen = purchExpandedPos.has(po);
+    const poId = po.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const inTransit = items.every(p => p.status === 'in_transit');
+    return inTransit ? renderInTransitGroup(po, items, isOpen, poId) : renderPlainGroup(po, items, isOpen, poId);
   }).join('');
 }
 
@@ -4279,16 +4348,16 @@ function renderBookingsTable() {
 function renderStockCards() {
   const stock    = purchases.filter(p => p.status === 'available');
   const booked   = purchases.filter(p => p.status === 'booked');
-  const lcOpened = purchasePlans.filter(p => p.lcstage === 'opened' && !bookings.find(b => b.planId === p.id));
-  const lcClosed = purchasePlans.filter(p => p.lcstage === 'closed' && !bookings.find(b => b.planId === p.id));
+  const lcOpened = purchases.filter(p => p.status === 'in_transit');
+  const lcClosed = purchases.filter(p => p.status === 'available' && p.lcstage === 'closed');
 
   const container = document.getElementById('stockCards');
   if (!container) return;
   container.innerHTML = `
     <div class="card green"><div class="card-label">Available Stock in Showroom</div><div class="card-value">${stock.length}</div></div>
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery</div></div>
-    <div class="card blue"><div class="card-label">LC Opened</div><div class="card-value">${lcOpened.length}</div><div class="card-sub">Purchase Plan — LC Opened</div></div>
-    <div class="card purple"><div class="card-label">LC Closed</div><div class="card-value">${lcClosed.length}</div><div class="card-sub">Purchase Plan — LC Closed</div></div>
+    <div class="card blue"><div class="card-label">LC Opened</div><div class="card-value">${lcOpened.length}</div><div class="card-sub">In Transit — Purchase Records</div></div>
+    <div class="card purple"><div class="card-label">LC Closed</div><div class="card-value">${lcClosed.length}</div><div class="card-sub">Arrived — Purchase Records</div></div>
   `;
 }
 
@@ -4310,7 +4379,7 @@ function renderStockTable() {
 
   const todayStrSort = today();
   let stock = purchases.filter(p => {
-    if (p.status === 'sold') return false;
+    if (p.status === 'sold' || p.status === 'in_transit') return false;
     const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
     return match && (!modelF || p.model === modelF) && (!colF || p.colour === colF);
   });
@@ -4391,23 +4460,27 @@ function renderModelGrid(elId, plans, badgeColour) {
 }
 
 function renderOrderPlanStock() {
-  const unbooked = p => !bookings.find(b => b.planId === p.id);
-  const approved = purchasePlans.filter(p => p.lcstatus === 'approved' && unbooked(p));
-  const placed   = purchasePlans.filter(p => p.lcstatus === 'placed'   && unbooked(p));
-  const allPlans = [...approved, ...placed];
+  // A PO leaves purchase_plans the moment its LC is Opened (see updateLcStage),
+  // so plan items here are always pre-LC-open. In-transit purchases (LC Opened,
+  // not yet Closed) are the other leg of "still on order, not bookable yet".
+  const unbookedPlans = purchasePlans.filter(p => !bookings.find(b => b.planId === p.id));
+  const inTransit     = purchases.filter(p => p.status === 'in_transit');
+  const arrivedViaLc  = purchases.filter(p => p.status === 'available' && p.lcstage === 'closed');
 
-  const lcOpened = purchasePlans.filter(p => p.lcstage === 'opened' && unbooked(p));
-  const lcClosed = purchasePlans.filter(p => p.lcstage === 'closed' && unbooked(p));
-  renderModelGrid('inTransitStockGrid', lcOpened, '#e67e22');
-  renderModelGrid('orderPlanStockGrid', lcClosed, '#8e44ad');
+  renderModelGrid('inTransitStockGrid', inTransit, '#e67e22');
+  renderModelGrid('orderPlanStockGrid', arrivedViaLc, '#8e44ad');
+
+  // Once LC Closes the vehicle becomes ordinary available stock (shown in the
+  // Stock tables above) and drops off this "still on order" list.
+  const allRows = [...unbookedPlans, ...inTransit.map(p => ({...p, lcstage: p.lcstage || 'opened'}))];
 
   const tbody = document.getElementById('orderPlanStockBody');
   const empty = document.getElementById('orderPlanStockEmpty');
   if (!tbody) return;
-  if (allPlans.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  if (allRows.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
-  allPlans.sort((a, b) => {
+  allRows.sort((a, b) => {
     let av = a[opSortCol] ?? '', bv = b[opSortCol] ?? '';
     if (av < bv) return opSortDir === 'asc' ? -1 : 1;
     if (av > bv) return opSortDir === 'asc' ? 1 : -1;
@@ -4419,7 +4492,7 @@ function renderOrderPlanStock() {
     th.classList.toggle('sort-desc', th.dataset.col === opSortCol && opSortDir === 'desc');
   });
 
-  tbody.innerHTML = allPlans.map((p, i) => {
+  tbody.innerHTML = allRows.map((p, i) => {
     const hex = getColourHex(p.colour);
     const sc  = LC_STAGE_COLOUR[p.lcstage] || '#888';
     const sl  = LC_STAGE_LABEL[p.lcstage]  || 'LC Pending';
@@ -4431,9 +4504,6 @@ function renderOrderPlanStock() {
       <td><span class="color-dot" style="background:${hex}"></span>${p.colour || '-'}</td>
       <td style="font-size:0.78rem;font-family:monospace">${p.po || '-'}</td>
       <td><span style="border-radius:6px;padding:3px 8px;border:1.5px solid ${sc};color:${sc};font-weight:600;font-size:0.82rem;background:${sc}18">${sl}</span></td>
-      <td>${(p.lcstage === 'opened' || p.lcstage === 'closed')
-        ? `<button class="btn btn-sm" style="background:#8e44ad;color:white;" onclick="openBookPlanModal('${p.id}')">&#128197; Book</button>`
-        : `<button class="btn btn-sm" disabled title="LC must be Opened or Closed before booking" style="background:#ccc;color:#888;cursor:not-allowed;">&#128197; Book</button>`}</td>
     </tr>`;
   }).join('');
 }
