@@ -2648,8 +2648,30 @@ async function savePoPi() {
   trackActivity('updated PO PI details');
 }
 
-function updateLcStage(po, newStage) {
+async function updateLcStage(po, newStage) {
   const { items, isPlan } = findPoGroup(po);
+
+  // Dropping an in-transit PO's LC back to Pending moves every still-open
+  // vehicle in it back to Purchase Plan Under Process — the whole-PO mirror
+  // of what a single-vehicle edit already does when its LC drops below Opened.
+  if (newStage === 'pending' && !isPlan) {
+    const results = await Promise.all(items.map(p => {
+      p.lcstage = 'pending';
+      if (p.status === 'available' || p.status === 'in_transit') {
+        return movePurchaseBackToPlan(p).then(moved => !!moved);
+      }
+      return poSave(p, isPlan);
+    }));
+    if (results.some(r => !r)) { showToast('⚠️ Could not move the whole PO back to Purchase Plan.', 'error'); return; }
+    renderPurchasePlanTable();
+    renderPurchasesTable();
+    renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+    updateVehicleSelects();
+    showToast(`PO ${po} moved back to Purchase Plan Under Process — LC Pending.`, 'success');
+    trackActivity('moved purchase plan back from purchase records (LC pending)');
+    return;
+  }
+
   items.forEach(p => {
     p.lcstage = newStage;
     poSave(p, isPlan);
@@ -3816,7 +3838,9 @@ function renderPurchasesTable() {
     const lcStage = first.lcstage === 'closed' ? 'closed' : 'opened';
     const lcColour = LC_STAGE_COLOUR[lcStage];
     const lcSelect = `<select onchange="updateLcStage('${po.replace(/'/g,"\\'")}', this.value)"
+        title="Setting LC Pending moves this whole PO back to Purchase Plan Under Process"
         style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcColour};color:${lcColour};font-weight:600;font-size:0.82rem;background:${lcColour}18;cursor:pointer;">
+        <option value="pending">LC Pending</option>
         <option value="opened" ${lcStage==='opened'?'selected':''}>LC Opened</option>
         <option value="closed" ${lcStage==='closed'?'selected':''}>LC Closed</option>
       </select>`;
