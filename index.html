@@ -4540,7 +4540,6 @@ function renderStockCards() {
   const stock    = purchases.filter(p => p.status === 'available');
   const booked   = purchases.filter(p => p.status === 'booked');
   const lcOpened = purchases.filter(p => p.status === 'in_transit');
-  const lcClosed = purchases.filter(p => p.status === 'available' && p.lcstage === 'closed');
 
   const container = document.getElementById('stockCards');
   if (!container) return;
@@ -4548,7 +4547,6 @@ function renderStockCards() {
     <div class="card green"><div class="card-label">Available Stock in Showroom</div><div class="card-value">${stock.length}</div></div>
     <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery</div></div>
     <div class="card blue"><div class="card-label">LC Opened</div><div class="card-value">${lcOpened.length}</div><div class="card-sub">In Transit — Purchase Records</div></div>
-    <div class="card purple"><div class="card-label">LC Closed</div><div class="card-value">${lcClosed.length}</div><div class="card-sub">Arrived — Purchase Records</div></div>
   `;
 }
 
