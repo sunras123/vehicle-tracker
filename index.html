@@ -2689,6 +2689,27 @@ function sweepOpenedPlansToPurchases() {
   purchasePlans = purchasePlans.filter(p => !staleIds.has(p.id));
 }
 
+// Reverse of autoCreatePurchaseFromPlan — used when a purchase record's LC
+// stage is manually edited back down below Opened (e.g. to Pending), so it
+// belongs back in Purchase Plan Under Process.
+async function movePurchaseBackToPlan(p) {
+  const entry = {
+    id: genId(), date: p.date || today(), model: p.model, variant: p.variant || '', colour: p.colour,
+    po: p.po || '', notes: p.notes || '',
+    lcstatus: p.orderstatus || 'approved', pistatus: p.pistatus || 'pending',
+    pinumber: p.pi || '', pidate: p.pidate || '',
+    lcstage: p.lcstage || '', lcnumber: p.lcnumber || '', lcdate: p.lcdate || '',
+    etd: p.etd || '', eta: p.eta || '',
+    lcclosuredate: p.lcclosuredate || '', lcexrate: p.lcexrate || 0
+  };
+  const ok = await saveOne('purchase_plans', entry);
+  if (!ok) return null;
+  purchasePlans.push(entry);
+  sbDelete('purchases', p.id);
+  purchases = purchases.filter(x => x.id !== p.id);
+  return entry;
+}
+
 // A PO's vehicles live in purchase_plans until LC Opened, then in purchases
 // (status 'in_transit') until LC Closed. These PO-level LC/PI actions need to
 // find and mutate the record wherever it currently lives.
@@ -3672,11 +3693,12 @@ function renderPurchasesTable() {
     const piBadge = piStatus === 'issued'
       ? `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to edit PI number and date" style="cursor:pointer;background:#27ae6022;color:#27ae60;border:1px solid #27ae6055;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Issued${first.pi ? ' #'+first.pi : ''}${first.pidate ? ' ('+fmtDate(first.pidate)+')' : ''}</span>`
       : `<span onclick="openPoPiModal('${po.replace(/'/g,"\\'")}')" title="Click to enter PI details" style="cursor:pointer;background:#e67e2222;color:#e67e22;border:1px solid #e67e2255;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">PI Pending</span>`;
-    const lcColour = LC_STAGE_COLOUR.opened;
+    const lcStage = first.lcstage === 'closed' ? 'closed' : 'opened';
+    const lcColour = LC_STAGE_COLOUR[lcStage];
     const lcSelect = `<select onchange="updateLcStage('${po.replace(/'/g,"\\'")}', this.value)"
         style="border-radius:6px;padding:4px 8px;border:1.5px solid ${lcColour};color:${lcColour};font-weight:600;font-size:0.82rem;background:${lcColour}18;cursor:pointer;">
-        <option value="opened" selected>LC Opened</option>
-        <option value="closed">LC Closed</option>
+        <option value="opened" ${lcStage==='opened'?'selected':''}>LC Opened</option>
+        <option value="closed" ${lcStage==='closed'?'selected':''}>LC Closed</option>
       </select>`;
     const lcDatesBadge = (first.lcnumber || first.lcdate || first.etd || first.eta)
       ? `<span onclick="openLcDatesModal('${po.replace(/'/g,"\\'")}')" title="Click to edit LC details" style="cursor:pointer;background:#2980b922;color:#2980b9;border:1px solid #2980b955;border-radius:12px;padding:2px 9px;font-size:0.74rem;font-weight:600;white-space:nowrap">${first.lcnumber ? 'LC #'+first.lcnumber+' ' : ''}${first.lcdate ? '('+fmtDate(first.lcdate)+') ' : ''}ETD ${fmtDate(first.etd) || '—'} &#8594; ETA ${fmtDate(first.eta) || '—'}</span>`
@@ -5388,6 +5410,7 @@ async function saveEditPurchase() {
   const model  = document.getElementById('ep_model').value;
   const colour = document.getElementById('ep_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+  const oldLcstage = p.lcstage || '';
   p.date        = document.getElementById('ep_date').value;
   p.model       = model;
   p.variant     = document.getElementById('ep_variant').value;
@@ -5403,6 +5426,29 @@ async function saveEditPurchase() {
   p.etd         = document.getElementById('ep_etd').value;
   p.eta         = document.getElementById('ep_eta').value;
   p.notes       = document.getElementById('ep_notes').value.trim();
+
+  // Keep status in sync with a manually-edited LC stage (never touch a vehicle
+  // that's already booked/sold). Dropping back below LC Opened moves the
+  // vehicle back to Purchase Plan Under Process — the mirror image of the
+  // automatic forward move that happens when LC is marked Opened.
+  if (p.status === 'available' || p.status === 'in_transit') {
+    if (p.lcstage === 'opened') {
+      p.status = 'in_transit';
+    } else if (p.lcstage === 'closed') {
+      p.status = 'available';
+    } else if (oldLcstage === 'opened' || oldLcstage === 'closed') {
+      const moved = await movePurchaseBackToPlan(p);
+      if (!moved) { showToast('⚠️ Could not move back to Purchase Plan.', 'error'); return; }
+      closeModal('editPurchaseModal');
+      showToast('LC reverted below Opened — moved back to Purchase Plan Under Process.', 'success');
+      trackActivity('moved purchase back to purchase plan');
+      renderPurchasePlanTable(); renderPurchasesTable();
+      renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+      updateVehicleSelects();
+      return;
+    }
+  }
+
   const ok = await saveOne('purchases', p, purchaseToDB);
   if (!ok) return;
   closeModal('editPurchaseModal');
