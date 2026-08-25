@@ -2112,6 +2112,19 @@ function fmt(n) {
 }
 function fmtNum(n) { return Number(n || 0).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
+// Blocks a save with a native browser alert when a "later" date isn't
+// actually after its paired "earlier" date (e.g. ETA vs ETD, LC Date vs LC
+// Closure Date). Dates are ISO YYYY-MM-DD so plain string comparison works.
+// Skips the check (returns true) if either side is blank — only enforced
+// once both dates are actually entered.
+function checkDateOrder(earlierVal, earlierLabel, laterVal, laterLabel) {
+  if (earlierVal && laterVal && laterVal <= earlierVal) {
+    alert(`${laterLabel} must be later than ${earlierLabel}.`);
+    return false;
+  }
+  return true;
+}
+
 // Display dates as DD/MM/YYYY. Storage/sorting/filtering stays on the raw YYYY-MM-DD value — only pass through here at render time.
 function fmtDate(d) {
   if (!d) return '';
@@ -2709,6 +2722,7 @@ async function saveLcDates() {
     showToast('Both ETD and ETA dates are required.', 'error');
     return;
   }
+  if (!checkDateOrder(etd, 'ETD', eta, 'ETA')) return;
 
   const { items, isPlan } = findPoGroup(po);
   const tasks = items.map(p => {
@@ -2747,6 +2761,7 @@ async function saveLcClosure() {
   }
 
   const { items, isPlan } = findPoGroup(po);
+  if (items.length && !checkDateOrder(items[0].lcdate, 'LC Date', closuredate, 'LC Closure Date')) return;
   const tasks = items.map(p => {
     p.lcclosuredate = closuredate; p.lcexrate = exrate;
     if (!isPlan && p.status === 'in_transit') p.status = 'available';
@@ -5566,6 +5581,9 @@ async function saveEditPurchase() {
   const model  = document.getElementById('ep_model').value;
   const colour = document.getElementById('ep_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+  const etd = document.getElementById('ep_etd').value;
+  const eta = document.getElementById('ep_eta').value;
+  if (!checkDateOrder(etd, 'ETD', eta, 'ETA')) return;
   const oldLcstage = p.lcstage || '';
   p.date        = document.getElementById('ep_date').value;
   p.model       = model;
@@ -5579,8 +5597,8 @@ async function saveEditPurchase() {
   p.lcstage     = document.getElementById('ep_lcstage').value;
   p.lcnumber    = document.getElementById('ep_lcnumber').value.trim();
   p.lcdate      = document.getElementById('ep_lcdate').value;
-  p.etd         = document.getElementById('ep_etd').value;
-  p.eta         = document.getElementById('ep_eta').value;
+  p.etd         = etd;
+  p.eta         = eta;
   p.notes       = document.getElementById('ep_notes').value.trim();
 
   // Keep status in sync with a manually-edited LC stage (never touch a vehicle
@@ -5718,6 +5736,9 @@ async function saveEditPoDetails() {
   const lcexrate       = parseFloat((document.getElementById('epo_lcexrate').value || '').replace(/,/g,'')) || 0;
   const etd            = document.getElementById('epo_etd').value;
   const eta            = document.getElementById('epo_eta').value;
+
+  if (!checkDateOrder(etd, 'ETD', eta, 'ETA')) return;
+  if (!checkDateOrder(lcdate, 'LC Date', lcclosuredate, 'LC Closure Date')) return;
 
   // Mirrors the single-vehicle LC-stage sync in saveEditPurchase, applied to
   // every vehicle in the PO: never override a booked/sold vehicle's status,
