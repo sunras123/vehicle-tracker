@@ -2479,7 +2479,7 @@ function showSalesRecordsMode(mode) {
   if (mode === 'sales')    renderSalesTable();
 }
 
-function addPurchasePlan() {
+async function addPurchasePlan() {
   const po     = document.getElementById('pp_po').value.trim();
   const date   = document.getElementById('pp_date').value || today();
   const notes  = document.getElementById('pp_notes').value.trim();
@@ -2500,7 +2500,15 @@ function addPurchasePlan() {
   });
   if (entries.length === 0) { showToast('Add at least one vehicle with Model and Colour.', 'error'); return; }
 
-  entries.forEach(entry => { purchasePlans.push(entry); saveOne('purchase_plans', entry); });
+  // Wait for every row to actually persist before treating this as saved —
+  // previously the form cleared and showed "success" immediately, so a
+  // refresh before the (unawaited) network write landed silently lost the PO.
+  const results = await Promise.all(entries.map(entry => saveOne('purchase_plans', entry)));
+  if (results.some(r => !r)) {
+    showToast('⚠️ Purchase plan was not fully saved — please try again before leaving this page.', 'error');
+    return;
+  }
+  entries.forEach(entry => purchasePlans.push(entry));
   showToast(`Purchase plan saved: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''})`, 'success');
   trackActivity('added purchase plan');
   clearPurchasePlanForm();
