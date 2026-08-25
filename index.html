@@ -391,10 +391,6 @@
       <h3>&#128218; Stock (Available by Period)</h3>
       <div id="dashStockChart"></div>
     </div>
-    <div class="panel" style="flex:1;min-width:300px;margin-bottom:0">
-      <h3>&#128200; Gross Profit (Nu.)</h3>
-      <div id="dashProfitChart"></div>
-    </div>
   </div>
 
 </div>
@@ -4719,7 +4715,6 @@ function renderSummary() {
   const allStock   = purchases.filter(p => p.status === 'available');
   const allBooked  = purchases.filter(p => p.status === 'booked');
   const filtRev     = filtSales.reduce((s,x) => s + (x.netPrice||0), 0);
-  const filtProfit  = filtSales.reduce((s,x) => s + (x.profit||0), 0);
   const filtDeposit = filtBookings.reduce((s,b) => s + (b.deposit||0), 0);
 
   const sc = document.getElementById('summaryCards');
@@ -4728,7 +4723,6 @@ function renderSummary() {
     <div class="card green"><div class="card-label">Total Sales</div><div class="card-value">${filtSales.length}</div><div class="card-sub">${fmt(filtRev)} revenue</div></div>
     <div class="card orange"><div class="card-label">Bookings</div><div class="card-value">${filtBookings.length}</div><div class="card-sub">${fmt(filtDeposit)} deposits held</div></div>
     <div class="card purple"><div class="card-label">Available Stock</div><div class="card-value">${allStock.length}</div><div class="card-sub">${allBooked.length} booked</div></div>
-    <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.3rem;color:${filtProfit>=0?'#27ae60':'#e74c3c'}">${fmt(filtProfit)}</div><div class="card-sub">${periodLabel}</div></div>
   `;
 
   // Helper: render a count bar chart
@@ -4766,7 +4760,6 @@ function renderSummary() {
   renderMoneyChart('dashSalesChart',     'revenue',   BAR_COLORS.sales);
   renderCountChart('dashBookingsChart',  'bookings',  BAR_COLORS.bookings);
   renderCountChart('dashStockChart',     'stock',     BAR_COLORS.stock);
-  renderMoneyChart('dashProfitChart',    'profit',    null);
 
   // Monthly vehicle sales for the selected year (always Jan–Dec)
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
