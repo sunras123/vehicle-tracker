@@ -126,6 +126,16 @@
   .toolbar input:focus, .toolbar select:focus { border-color: #e94560; }
   .toolbar input { flex: 1; min-width: 200px; }
 
+  .sort-pill-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sort-pill-label { font-size: 0.75rem; color: #888; margin-right: 2px; }
+  .sort-pill {
+    padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+    border: 1.5px solid #e0e0e0; background: white; color: #555; cursor: pointer; transition: all 0.15s;
+  }
+  .sort-pill:hover { border-color: #e94560; color: #e94560; }
+  .sort-pill.active { background: #e94560; border-color: #e94560; color: white; }
+  .search-count { font-size: 0.78rem; color: #888; margin: -4px 0 0 26px; }
+
   /* Charts / Summary blocks */
   .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 480px) { .summary-grid { grid-template-columns: 1fr; } }
@@ -507,13 +517,31 @@
   <div class="panel" id="ppMode_view">
     <h3>&#128196; Purchase Plan Under Process</h3>
     <div style="font-size:0.82rem;color:#888;margin:-8px 0 12px">A PO moves to Purchase Records automatically as soon as its LC is marked Opened.</div>
-    <div class="toolbar">
-      <input type="text" id="ppSearch" oninput="renderPurchasePlanTable()" placeholder="&#128269; Search by model, colour, PO...">
-      <select id="ppStatusFilter" onchange="renderPurchasePlanTable()">
-        <option value="">All Statuses</option>
-        <option value="placed">Order Placed</option>
-        <option value="approved">Order Approved</option>
-      </select>
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="ppSearchField" onchange="onPpSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="po">PO Number</option>
+          <option value="date">PO Date</option>
+          <option value="model">Model</option>
+          <option value="variant">Variant</option>
+          <option value="colour">Colour</option>
+          <option value="lcstatus">Order Status</option>
+          <option value="pinumber">PI Number</option>
+          <option value="pidate">PI Date</option>
+        </select>
+        <input type="text" id="ppSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderPurchasePlanTable()" placeholder="Type a keyword to search...">
+        <select id="ppSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderPurchasePlanTable()"></select>
+        <button type="button" id="ppSearchClearBtn" onclick="clearPpSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+      </div>
+      <div id="ppSearchCount" class="search-count"></div>
+      <div class="sort-pill-row">
+        <span class="sort-pill-label">Sort by</span>
+        <button type="button" class="sort-pill" id="ppSortPill-po" onclick="setPlanSort('po')">PO Number</button>
+        <button type="button" class="sort-pill" id="ppSortPill-date" onclick="setPlanSort('date')">PO Date</button>
+      </div>
     </div>
     <div id="ppGroupContainer"></div>
     <div id="ppEmpty" class="empty-state" style="display:none">
@@ -524,17 +552,36 @@
 
   <div class="panel">
     <h3>&#128218; Purchase Records</h3>
-    <div class="toolbar">
-      <input type="text" id="purchaseSearch" oninput="renderPurchasesTable()" placeholder="&#128269; Search by model, colour, PO...">
-      <select id="purchaseStatusFilter" onchange="renderPurchasesTable()">
-        <option value="">All Status</option>
-        <option value="in_transit">In Transit (LC Opened)</option>
-        <option value="available">Available</option>
-        <option value="booked">Booked</option>
-        <option value="sold">Sold</option>
-      </select>
-      <button class="btn btn-success btn-sm" style="white-space:nowrap;display:none" onclick="importPurchasesFromExcel()">&#128229; Import from Excel</button>
-      <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="purchSearchField" onchange="onPurchSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="po">PO Number</option>
+          <option value="date">PO Date</option>
+          <option value="model">Model</option>
+          <option value="variant">Variant</option>
+          <option value="colour">Colour</option>
+          <option value="status">Status</option>
+          <option value="orderstatus">Order Status</option>
+          <option value="pi">PI Number</option>
+          <option value="pidate">PI Date</option>
+          <option value="lcnumber">LC Number</option>
+          <option value="lcdate">LC Date</option>
+        </select>
+        <input type="text" id="purchSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderPurchasesTable()" placeholder="Type a keyword to search...">
+        <select id="purchSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderPurchasesTable()"></select>
+        <button type="button" id="purchSearchClearBtn" onclick="clearPurchSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+        <button class="btn btn-success btn-sm" style="white-space:nowrap;display:none;margin-left:auto" onclick="importPurchasesFromExcel()">&#128229; Import from Excel</button>
+        <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
+      </div>
+      <div id="purchSearchCount" class="search-count"></div>
+      <div class="sort-pill-row">
+        <span class="sort-pill-label">Sort by</span>
+        <button type="button" class="sort-pill" id="purchSortPill-po" onclick="setPurchaseSort('po')">PO Number</button>
+        <button type="button" class="sort-pill" id="purchSortPill-date" onclick="setPurchaseSort('date')">PO Date</button>
+      </div>
     </div>
     <div id="purchGroupContainer"></div>
     <div id="purchasesEmpty" class="empty-state" style="display:none">
@@ -2960,14 +3007,88 @@ async function saveEditPurchasePlan() {
   trackActivity('edited purchase plan');
 }
 
-function renderPurchasePlanTable() {
-  const search = (document.getElementById('ppSearch')?.value || '').toLowerCase();
-  const statusF = document.getElementById('ppStatusFilter')?.value || '';
+const PP_SEARCH_FIELDS = {
+  po:       { label: 'PO Number',    get: p => p.po || '' },
+  date:     { label: 'PO Date',      get: p => fmtDate(p.date) },
+  model:    { label: 'Model',        get: p => p.model || '' },
+  variant:  { label: 'Variant',      get: p => p.variant || '' },
+  colour:   { label: 'Colour',       get: p => p.colour || '' },
+  lcstatus: { label: 'Order Status', get: p => p.lcstatus === 'approved' ? 'Order Approved' : (p.lcstatus === 'placed' ? 'Order Placed' : '') },
+  pinumber: { label: 'PI Number',    get: p => p.pinumber || '' },
+  pidate:   { label: 'PI Date',      get: p => fmtDate(p.pidate) },
+};
 
-  const data = purchasePlans.filter(p =>
-    [p.model, p.colour, p.variant, p.po].join(' ').toLowerCase().includes(search) &&
-    (!statusF || p.lcstatus === statusF)
-  );
+function onPpSearchFieldChange() {
+  const field = document.getElementById('ppSearchField').value;
+  const kwEl = document.getElementById('ppSearchKeyword');
+  const valEl = document.getElementById('ppSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = PP_SEARCH_FIELDS[field];
+    const opts = new Set();
+    purchasePlans.forEach(p => { const v = cfg.get(p); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('ppSearchClearBtn').style.display = field ? '' : 'none';
+  renderPurchasePlanTable();
+}
+
+function clearPpSearch() {
+  document.getElementById('ppSearchField').value = '';
+  document.getElementById('ppSearchKeyword').value = '';
+  document.getElementById('ppSearchKeyword').style.display = 'none';
+  document.getElementById('ppSearchValue').innerHTML = '';
+  document.getElementById('ppSearchValue').style.display = 'none';
+  document.getElementById('ppSearchClearBtn').style.display = 'none';
+  renderPurchasePlanTable();
+}
+
+function ppMatchesFilter(p) {
+  const field = document.getElementById('ppSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('ppSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    return [p.model, p.variant, p.colour, p.po, p.notes, p.pinumber].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('ppSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = PP_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(p) === value : true;
+}
+
+function updatePpSortPills() {
+  ['po', 'date'].forEach(col => {
+    const btn = document.getElementById('ppSortPill-' + col);
+    if (!btn) return;
+    const active = ppSortCol === col;
+    btn.classList.toggle('active', active);
+    const label = col === 'po' ? 'PO Number' : 'PO Date';
+    btn.innerHTML = label + (active ? (ppSortDir === 'asc' ? ' &#9650;' : ' &#9660;') : '');
+  });
+}
+
+function renderPurchasePlanTable() {
+  updatePpSortPills();
+  const data = purchasePlans.filter(ppMatchesFilter);
+
+  const countEl = document.getElementById('ppSearchCount');
+  if (countEl) {
+    const field = document.getElementById('ppSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('ppSearchKeyword')?.value
+      : !!document.getElementById('ppSearchValue')?.value;
+    countEl.textContent = (field && hasValue)
+      ? `Showing ${data.length} of ${purchasePlans.length} vehicle${data.length !== 1 ? 's' : ''}`
+      : '';
+  }
 
   const container = document.getElementById('ppGroupContainer');
   const empty = document.getElementById('ppEmpty');
@@ -2978,9 +3099,16 @@ function renderPurchasePlanTable() {
   // Group by PO number
   const groups = {};
   data.forEach(p => { const po = p.po || '(No PO)'; if (!groups[po]) groups[po] = []; groups[po].push(p); });
+  const ppGroupDate = po => groups[po].reduce((max, p) => (p.date || '') > max ? (p.date || '') : max, '');
   const poKeys = Object.keys(groups).sort((a, b) => {
-    const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
-    return an !== bn ? an - bn : a.localeCompare(b);
+    let cmp;
+    if (ppSortCol === 'date') {
+      cmp = ppGroupDate(a).localeCompare(ppGroupDate(b));
+    } else {
+      const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
+      cmp = an !== bn ? an - bn : a.localeCompare(b);
+    }
+    return ppSortDir === 'asc' ? cmp : -cmp;
   });
 
   container.innerHTML = poKeys.map(po => {
@@ -3743,8 +3871,8 @@ function setPurchInnerSort(col) {
 let salesSortCol = 'date';
 let salesSortDir = 'desc';
 
-let ppSortCol = 'date';
-let ppSortDir = 'desc';
+let ppSortCol = 'po';
+let ppSortDir = 'asc';
 const ppExpandedPos = new Set();
 let ppInnerSortCol = 'date';
 let ppInnerSortDir = 'asc';
@@ -3754,7 +3882,7 @@ function setPlanSort(col) {
     ppSortDir = ppSortDir === 'asc' ? 'desc' : 'asc';
   } else {
     ppSortCol = col;
-    ppSortDir = col === 'fob' ? 'desc' : 'asc';
+    ppSortDir = col === 'date' ? 'desc' : 'asc';
   }
   renderPurchasePlanTable();
 }
@@ -3789,18 +3917,96 @@ function setPurchaseSort(col) {
     purchaseSortDir = purchaseSortDir === 'asc' ? 'desc' : 'asc';
   } else {
     purchaseSortCol = col;
-    purchaseSortDir = col === 'totalCost' ? 'desc' : 'asc';
+    purchaseSortDir = col === 'date' ? 'desc' : 'asc';
   }
   renderPurchasesTable();
 }
 
-function renderPurchasesTable() {
-  const search  = document.getElementById('purchaseSearch').value.toLowerCase();
-  const statusF = document.getElementById('purchaseStatusFilter').value;
-  const data = purchases.filter(p => {
-    const match = [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(search);
-    return match && (!statusF || p.status === statusF);
+function updatePurchSortPills() {
+  ['po', 'date'].forEach(col => {
+    const btn = document.getElementById('purchSortPill-' + col);
+    if (!btn) return;
+    const active = purchaseSortCol === col;
+    btn.classList.toggle('active', active);
+    const label = col === 'po' ? 'PO Number' : 'PO Date';
+    btn.innerHTML = label + (active ? (purchaseSortDir === 'asc' ? ' &#9650;' : ' &#9660;') : '');
   });
+}
+
+const PURCH_SEARCH_FIELDS = {
+  po:          { label: 'PO Number',    get: p => p.po || '' },
+  date:        { label: 'PO Date',      get: p => fmtDate(p.date) },
+  model:       { label: 'Model',        get: p => p.model || '' },
+  variant:     { label: 'Variant',      get: p => p.variant || '' },
+  colour:      { label: 'Colour',       get: p => p.colour || '' },
+  status:      { label: 'Status',       get: p => ({available:'Available',booked:'Booked',sold:'Sold',in_transit:'In Transit'}[p.status] || '') },
+  orderstatus: { label: 'Order Status', get: p => p.orderstatus === 'approved' ? 'Order Approved' : (p.orderstatus === 'placed' ? 'Order Placed' : '') },
+  pi:          { label: 'PI Number',    get: p => p.pi || '' },
+  pidate:      { label: 'PI Date',      get: p => fmtDate(p.pidate) },
+  lcnumber:    { label: 'LC Number',    get: p => p.lcnumber || '' },
+  lcdate:      { label: 'LC Date',      get: p => fmtDate(p.lcdate) },
+};
+
+function onPurchSearchFieldChange() {
+  const field = document.getElementById('purchSearchField').value;
+  const kwEl = document.getElementById('purchSearchKeyword');
+  const valEl = document.getElementById('purchSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = PURCH_SEARCH_FIELDS[field];
+    const opts = new Set();
+    purchases.forEach(p => { const v = cfg.get(p); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('purchSearchClearBtn').style.display = field ? '' : 'none';
+  renderPurchasesTable();
+}
+
+function clearPurchSearch() {
+  document.getElementById('purchSearchField').value = '';
+  document.getElementById('purchSearchKeyword').value = '';
+  document.getElementById('purchSearchKeyword').style.display = 'none';
+  document.getElementById('purchSearchValue').innerHTML = '';
+  document.getElementById('purchSearchValue').style.display = 'none';
+  document.getElementById('purchSearchClearBtn').style.display = 'none';
+  renderPurchasesTable();
+}
+
+function purchMatchesFilter(p) {
+  const field = document.getElementById('purchSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('purchSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    return [p.model, p.variant, p.colour, p.po, p.notes, p.pi, p.lcnumber].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('purchSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = PURCH_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(p) === value : true;
+}
+
+function renderPurchasesTable() {
+  updatePurchSortPills();
+  const data = purchases.filter(purchMatchesFilter);
+
+  const countEl = document.getElementById('purchSearchCount');
+  if (countEl) {
+    const field = document.getElementById('purchSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('purchSearchKeyword')?.value
+      : !!document.getElementById('purchSearchValue')?.value;
+    countEl.textContent = (field && hasValue)
+      ? `Showing ${data.length} of ${purchases.length} vehicle${data.length !== 1 ? 's' : ''}`
+      : '';
+  }
 
   const container = document.getElementById('purchGroupContainer');
   const empty = document.getElementById('purchasesEmpty');
@@ -3813,10 +4019,14 @@ function renderPurchasesTable() {
   data.forEach(p => { const po = p.po || '(No PO)'; if (!groups[po]) groups[po] = []; groups[po].push(p); });
   const groupLatestDate = po => groups[po].reduce((max, p) => (p.date || '') > max ? (p.date || '') : max, '');
   const poKeys = Object.keys(groups).sort((a, b) => {
-    const ad = groupLatestDate(a), bd = groupLatestDate(b);
-    if (ad !== bd) return bd.localeCompare(ad);
-    const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
-    return an !== bn ? bn - an : b.localeCompare(a);
+    let cmp;
+    if (purchaseSortCol === 'date') {
+      cmp = groupLatestDate(a).localeCompare(groupLatestDate(b));
+    } else {
+      const an = parseFloat(a) || 0, bn = parseFloat(b) || 0;
+      cmp = an !== bn ? an - bn : a.localeCompare(b);
+    }
+    return purchaseSortDir === 'asc' ? cmp : -cmp;
   });
 
   const pTh = (col, label, style='') => {
@@ -3963,12 +4173,7 @@ function renderPurchasesTable() {
 
 function exportPurchasesExcel() {
   if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
-  const search  = document.getElementById('purchaseSearch').value.toLowerCase();
-  const statusF = document.getElementById('purchaseStatusFilter').value;
-  const data = purchases.filter(p => {
-    const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
-    return match && (!statusF || p.status === statusF);
-  }).sort((a,b) => b.date.localeCompare(a.date));
+  const data = purchases.filter(purchMatchesFilter).sort((a,b) => b.date.localeCompare(a.date));
 
   if (!data.length) { showToast('No records to export.', 'error'); return; }
 
