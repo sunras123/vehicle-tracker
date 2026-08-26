@@ -627,8 +627,24 @@
 
   <div class="panel" id="srMode_vehicles" style="display:none">
     <h3>&#128665; Available Vehicles</h3>
-    <div class="toolbar">
-      <input type="text" id="availVehSearch" oninput="renderAvailableVehiclesTable()" placeholder="&#128269; Search by model, colour, PO...">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="availVehSearchField" onchange="onAvailVehSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="model">Model</option>
+          <option value="variant">Variant</option>
+          <option value="colour">Colour</option>
+          <option value="po">PO Number</option>
+          <option value="date">PO Date</option>
+          <option value="lcstatus">LC Status</option>
+        </select>
+        <input type="text" id="availVehSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderAvailableVehiclesTable()" placeholder="Type a keyword to search...">
+        <select id="availVehSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderAvailableVehiclesTable()"></select>
+        <button type="button" id="availVehSearchClearBtn" onclick="clearAvailVehSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+      </div>
+      <div id="availVehSearchCount" class="search-count"></div>
     </div>
     <div class="table-wrap">
       <table>
@@ -654,8 +670,26 @@
 
   <div class="panel" id="srMode_bookings" style="display:none">
     <h3>&#128197; Booking Records</h3>
-    <div class="toolbar">
-      <input type="text" id="bookingsSearch" oninput="renderBookingsTable()" placeholder="&#128269; Search by customer, model...">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="bookingsSearchField" onchange="onBookingsSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="customer">Customer</option>
+          <option value="cid">CID No.</option>
+          <option value="phone">Phone</option>
+          <option value="model">Model</option>
+          <option value="colour">Colour</option>
+          <option value="po">PO Number</option>
+          <option value="date">Booking Date</option>
+          <option value="delivery">Expected Delivery</option>
+        </select>
+        <input type="text" id="bookingsSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderBookingsTable()" placeholder="Type a keyword to search...">
+        <select id="bookingsSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderBookingsTable()"></select>
+        <button type="button" id="bookingsSearchClearBtn" onclick="clearBookingsSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+      </div>
+      <div id="bookingsSearchCount" class="search-count"></div>
     </div>
     <div class="table-wrap">
       <table>
@@ -687,16 +721,30 @@
 
   <div class="panel" id="srMode_sales" style="display:none">
     <h3>&#128176; Sales Records</h3>
-    <div class="toolbar">
-      <input type="text" id="salesSearch" oninput="renderSalesTable()" placeholder="&#128269; Search by buyer, model...">
-      <select id="salesPaymentFilter" onchange="renderSalesTable()">
-        <option value="">All Payment Methods</option>
-        <option value="Cash">Cash</option>
-        <option value="Cheque">Cheque</option>
-        <option value="Loan">Loan</option>
-      </select>
-      <button class="btn btn-success btn-sm" style="white-space:nowrap;display:none" onclick="importSalesFromExcel()">&#128229; Import from Excel</button>
-      <input type="file" id="salesExcelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleSalesExcelImport(event)">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="salesSearchField" onchange="onSalesSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="buyer">Buyer</option>
+          <option value="cid">CID No.</option>
+          <option value="phone">Phone</option>
+          <option value="model">Model</option>
+          <option value="colour">Colour</option>
+          <option value="po">PO Number</option>
+          <option value="date">Date</option>
+          <option value="payment">Payment Method</option>
+          <option value="salesperson">Salesperson</option>
+          <option value="pi">Invoice No.</option>
+        </select>
+        <input type="text" id="salesSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderSalesTable()" placeholder="Type a keyword to search...">
+        <select id="salesSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderSalesTable()"></select>
+        <button type="button" id="salesSearchClearBtn" onclick="clearSalesSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+        <button class="btn btn-success btn-sm" style="white-space:nowrap;display:none;margin-left:auto" onclick="importSalesFromExcel()">&#128229; Import from Excel</button>
+        <input type="file" id="salesExcelImportInput" accept=".xlsx,.xls" style="display:none" onchange="handleSalesExcelImport(event)">
+      </div>
+      <div id="salesSearchCount" class="search-count"></div>
     </div>
     <div class="table-wrap">
       <table>
@@ -3339,12 +3387,76 @@ function setAvailVehSort(col) {
   renderAvailableVehiclesTable();
 }
 
+const AVAIL_VEH_SEARCH_FIELDS = {
+  model:    { label: 'Model',     get: p => p.model || '' },
+  variant:  { label: 'Variant',   get: p => p.variant || '' },
+  colour:   { label: 'Colour',    get: p => p.colour || '' },
+  po:       { label: 'PO Number', get: p => p.po || '' },
+  date:     { label: 'PO Date',   get: p => fmtDate(p.date) },
+  lcstatus: { label: 'LC Status', get: p => LC_STAGE_LABEL[p.lcstage || (p.status === 'in_transit' ? 'opened' : '')] || 'LC Pending' },
+};
+
+function onAvailVehSearchFieldChange() {
+  const field = document.getElementById('availVehSearchField').value;
+  const kwEl = document.getElementById('availVehSearchKeyword');
+  const valEl = document.getElementById('availVehSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = AVAIL_VEH_SEARCH_FIELDS[field];
+    const opts = new Set();
+    purchases.filter(p => p.status === 'available' || p.status === 'in_transit').forEach(p => { const v = cfg.get(p); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('availVehSearchClearBtn').style.display = field ? '' : 'none';
+  renderAvailableVehiclesTable();
+}
+
+function clearAvailVehSearch() {
+  document.getElementById('availVehSearchField').value = '';
+  document.getElementById('availVehSearchKeyword').value = '';
+  document.getElementById('availVehSearchKeyword').style.display = 'none';
+  document.getElementById('availVehSearchValue').innerHTML = '';
+  document.getElementById('availVehSearchValue').style.display = 'none';
+  document.getElementById('availVehSearchClearBtn').style.display = 'none';
+  renderAvailableVehiclesTable();
+}
+
+function availVehMatchesFilter(p) {
+  const field = document.getElementById('availVehSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('availVehSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    return [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('availVehSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = AVAIL_VEH_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(p) === value : true;
+}
+
 function renderAvailableVehiclesTable() {
   const tbody = document.getElementById('availVehTableBody');
   if (!tbody) return;
-  const search = (document.getElementById('availVehSearch')?.value || '').toLowerCase();
-  const data = purchases.filter(p => (p.status === 'available' || p.status === 'in_transit') &&
-    [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(search));
+  const data = purchases.filter(p => (p.status === 'available' || p.status === 'in_transit') && availVehMatchesFilter(p));
+
+  const countEl = document.getElementById('availVehSearchCount');
+  if (countEl) {
+    const field = document.getElementById('availVehSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('availVehSearchKeyword')?.value
+      : !!document.getElementById('availVehSearchValue')?.value;
+    countEl.textContent = (field && hasValue)
+      ? `Showing ${data.length} vehicle${data.length !== 1 ? 's' : ''}`
+      : '';
+  }
 
   data.sort((a, b) => {
     let av = a[availVehSortCol] ?? '', bv = b[availVehSortCol] ?? '';
@@ -4363,15 +4475,80 @@ function deleteSale(id) {
   }
 }
 
-function renderSalesTable() {
-  const search = document.getElementById('salesSearch').value.toLowerCase();
-  const payF   = document.getElementById('salesPaymentFilter').value;
-  let data = sales.filter(s => {
-    const veh   = getPurchase(s.vehicleId);
+const SALES_SEARCH_FIELDS = {
+  buyer:       { label: 'Buyer',          get: s => s.buyer || '' },
+  cid:         { label: 'CID No.',        get: s => s.cid || '' },
+  phone:       { label: 'Phone',          get: s => s.phone || '' },
+  model:       { label: 'Model',          get: s => { const v = getPurchase(s.vehicleId); return v ? v.model || '' : ''; } },
+  colour:      { label: 'Colour',         get: s => { const v = getPurchase(s.vehicleId); return v ? v.colour || '' : ''; } },
+  po:          { label: 'PO Number',      get: s => { const v = getPurchase(s.vehicleId); return v ? v.po || '' : ''; } },
+  date:        { label: 'Date',           get: s => fmtDate(s.date) },
+  payment:     { label: 'Payment Method', get: s => s.payment || '' },
+  salesperson: { label: 'Salesperson',    get: s => s.salesperson || '' },
+  pi:          { label: 'Invoice No.',    get: s => s.pi || '' },
+};
+
+function onSalesSearchFieldChange() {
+  const field = document.getElementById('salesSearchField').value;
+  const kwEl = document.getElementById('salesSearchKeyword');
+  const valEl = document.getElementById('salesSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = SALES_SEARCH_FIELDS[field];
+    const opts = new Set();
+    sales.forEach(s => { const v = cfg.get(s); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('salesSearchClearBtn').style.display = field ? '' : 'none';
+  renderSalesTable();
+}
+
+function clearSalesSearch() {
+  document.getElementById('salesSearchField').value = '';
+  document.getElementById('salesSearchKeyword').value = '';
+  document.getElementById('salesSearchKeyword').style.display = 'none';
+  document.getElementById('salesSearchValue').innerHTML = '';
+  document.getElementById('salesSearchValue').style.display = 'none';
+  document.getElementById('salesSearchClearBtn').style.display = 'none';
+  renderSalesTable();
+}
+
+function saleMatchesFilter(s) {
+  const field = document.getElementById('salesSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('salesSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    const veh = getPurchase(s.vehicleId);
     const label = veh ? `${veh.model} ${veh.colour}` : '';
-    return [s.buyer, s.phone, label].join(' ').toLowerCase().includes(search)
-        && (!payF || s.payment === payF);
-  });
+    return [s.buyer, s.cid, s.phone, s.address, s.pi, s.salesperson, label].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('salesSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = SALES_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(s) === value : true;
+}
+
+function renderSalesTable() {
+  let data = sales.filter(saleMatchesFilter);
+
+  const countEl = document.getElementById('salesSearchCount');
+  if (countEl) {
+    const field = document.getElementById('salesSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('salesSearchKeyword')?.value
+      : !!document.getElementById('salesSearchValue')?.value;
+    countEl.textContent = (field && hasValue)
+      ? `Showing ${data.length} of ${sales.length} sale${data.length !== 1 ? 's' : ''}`
+      : '';
+  }
 
   const numCols = ['salePrice','discount','netPrice','amountPaid','pendingAmount','totalCost','profit'];
   data.sort((a, b) => {
@@ -4448,14 +4625,7 @@ function renderSalesTable() {
 
 function exportSalesExcel() {
   if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
-  const search = document.getElementById('salesSearch').value.toLowerCase();
-  const payF   = document.getElementById('salesPaymentFilter').value;
-  const data = sales.filter(s => {
-    const veh   = getPurchase(s.vehicleId);
-    const label = veh ? `${veh.model} ${veh.colour}` : '';
-    return [s.buyer, s.phone, label].join(' ').toLowerCase().includes(search)
-        && (!payF || s.payment === payF);
-  }).sort((a,b) => b.date.localeCompare(a.date));
+  const data = sales.filter(saleMatchesFilter).sort((a,b) => b.date.localeCompare(a.date));
 
   if (!data.length) { showToast('No records to export.', 'error'); return; }
 
@@ -4658,13 +4828,78 @@ function getPlanSrc(b) {
   return null;
 }
 
-function renderBookingsTable() {
-  const search = document.getElementById('bookingsSearch').value.toLowerCase();
-  let data = bookings.filter(b => {
+const BOOKING_SEARCH_FIELDS = {
+  customer: { label: 'Customer',           get: b => b.customer || '' },
+  cid:      { label: 'CID No.',            get: b => b.cid || '' },
+  phone:    { label: 'Phone',              get: b => b.phone || '' },
+  model:    { label: 'Model',              get: b => { const s = getPlanSrc(b); return s ? s.model || '' : ''; } },
+  colour:   { label: 'Colour',             get: b => { const s = getPlanSrc(b); return s ? s.colour || '' : ''; } },
+  po:       { label: 'PO Number',          get: b => { const s = getPlanSrc(b); return s ? s.po || '' : ''; } },
+  date:     { label: 'Booking Date',       get: b => fmtDate(b.date) },
+  delivery: { label: 'Expected Delivery',  get: b => fmtDate(b.delivery) },
+};
+
+function onBookingsSearchFieldChange() {
+  const field = document.getElementById('bookingsSearchField').value;
+  const kwEl = document.getElementById('bookingsSearchKeyword');
+  const valEl = document.getElementById('bookingsSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = BOOKING_SEARCH_FIELDS[field];
+    const opts = new Set();
+    bookings.forEach(b => { const v = cfg.get(b); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('bookingsSearchClearBtn').style.display = field ? '' : 'none';
+  renderBookingsTable();
+}
+
+function clearBookingsSearch() {
+  document.getElementById('bookingsSearchField').value = '';
+  document.getElementById('bookingsSearchKeyword').value = '';
+  document.getElementById('bookingsSearchKeyword').style.display = 'none';
+  document.getElementById('bookingsSearchValue').innerHTML = '';
+  document.getElementById('bookingsSearchValue').style.display = 'none';
+  document.getElementById('bookingsSearchClearBtn').style.display = 'none';
+  renderBookingsTable();
+}
+
+function bookingMatchesFilter(b) {
+  const field = document.getElementById('bookingsSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('bookingsSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
     const src = getPlanSrc(b);
     const label = src ? `${src.model} ${src.colour} ${src.po||''}` : '';
-    return [b.customer, b.phone, label].join(' ').toLowerCase().includes(search);
-  });
+    return [b.customer, b.cid, b.phone, b.address, b.notes, label].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('bookingsSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = BOOKING_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(b) === value : true;
+}
+
+function renderBookingsTable() {
+  let data = bookings.filter(bookingMatchesFilter);
+
+  const countEl = document.getElementById('bookingsSearchCount');
+  if (countEl) {
+    const field = document.getElementById('bookingsSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('bookingsSearchKeyword')?.value
+      : !!document.getElementById('bookingsSearchValue')?.value;
+    countEl.textContent = (field && hasValue)
+      ? `Showing ${data.length} of ${bookings.length} booking${data.length !== 1 ? 's' : ''}`
+      : '';
+  }
 
   const numCols = ['deposit','agreedPrice','discount','salePrice','balance'];
   data.sort((a, b) => {
