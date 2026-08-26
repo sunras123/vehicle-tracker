@@ -1370,6 +1370,8 @@
         <input type="password" id="cred_confirm" placeholder="Confirm new password" autocomplete="new-password">
       </div>
     </div>
+    <div id="cred_error" style="display:none;background:#fdecea;color:#c0392b;border:1px solid #f5b7b1;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:0.85rem;font-weight:600"></div>
+    <div id="cred_success" style="display:none;background:#eafaf1;color:#1e8449;border:1px solid #a9dfbf;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:0.85rem;font-weight:600"></div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="changeCredential()">&#10003; Update Password</button>
       <button class="btn" onclick="closeModal('changePasswordModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
@@ -5891,12 +5893,22 @@ async function credDelete(id) {
 // field in the modal is always derived from currentUser (never trusted
 // from the DOM), so this can only ever act on the caller's own account —
 // a user can pick a password only they know, not one the super-admin set.
+function setCredMessage(kind, msg) {
+  const errEl = document.getElementById('cred_error');
+  const okEl  = document.getElementById('cred_success');
+  errEl.style.display = kind === 'error' ? '' : 'none';
+  errEl.textContent   = kind === 'error' ? msg : '';
+  okEl.style.display  = kind === 'success' ? '' : 'none';
+  okEl.textContent    = kind === 'success' ? msg : '';
+}
+
 function openChangePasswordModal() {
   if (!currentUser) return;
   document.getElementById('cred_username').value = currentUser.username;
   document.getElementById('cred_current').value = '';
   document.getElementById('cred_new').value = '';
   document.getElementById('cred_confirm').value = '';
+  setCredMessage(null, '');
   document.getElementById('changePasswordModal').classList.add('open');
 }
 
@@ -5907,34 +5919,49 @@ async function changeCredential() {
   const newPw    = document.getElementById('cred_new').value;
   const confirm  = document.getElementById('cred_confirm').value;
 
+  // Every failure is shown BOTH as an inline message inside the modal
+  // (impossible to miss, unlike the auto-dismissing corner toast) and as
+  // a toast, and the modal stays open so a rejected change can't be
+  // mistaken for a successful one.
   if (!current || !newPw || !confirm) {
+    setCredMessage('error', 'All fields are required.');
     showToast('All fields are required.', 'error'); return;
   }
-  if (newPw !== confirm) { showToast('New passwords do not match.', 'error'); return; }
-  if (newPw.length < 6)  { showToast('Password must be at least 6 characters.', 'error'); return; }
+  if (newPw !== confirm) {
+    setCredMessage('error', 'New passwords do not match.');
+    showToast('New passwords do not match.', 'error'); return;
+  }
+  if (newPw.length < 6) {
+    setCredMessage('error', 'New password must be at least 6 characters.');
+    showToast('Password must be at least 6 characters.', 'error'); return;
+  }
 
   const users = credLoad();
   const idx   = users.findIndex(u => u.username === username);
-  if (idx === -1) { showToast('Username not found.', 'error'); return; }
+  if (idx === -1) {
+    setCredMessage('error', 'Your account could not be found — please contact a super-admin.');
+    showToast('Username not found.', 'error'); return;
+  }
 
   const currentHash = hashPassword(current);
   if (users[idx].passwordHash !== currentHash) {
+    setCredMessage('error', 'Current password is incorrect. Your password has NOT been changed.');
     showToast('Current password is incorrect.', 'error'); return;
   }
 
   users[idx].passwordHash = hashPassword(newPw);
   const ok = await credUpsert(users[idx]);
-  if (!ok) { users[idx].passwordHash = currentHash; return; }
+  if (!ok) {
+    users[idx].passwordHash = currentHash;
+    setCredMessage('error', 'Could not save the new password — please try again.');
+    return;
+  }
+  setCredMessage('success', 'Password updated. Use your new password next time you sign in.');
   showToast('Password updated successfully.');
-  clearCredentialForm();
-  closeModal('changePasswordModal');
+  document.getElementById('cred_current').value = '';
+  document.getElementById('cred_new').value = '';
+  document.getElementById('cred_confirm').value = '';
   if (isSuperAdmin()) renderCredUsers();
-}
-
-function clearCredentialForm() {
-  ['cred_current','cred_new','cred_confirm'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
 }
 
 function openAddUserModal() {
