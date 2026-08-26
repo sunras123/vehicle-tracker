@@ -361,7 +361,6 @@
   <button class="tab-btn" onclick="showTab('purchaseplan')">Purchase Plan</button>
   <button class="tab-btn" onclick="showTab('sales')">Sales/Bookings</button>
   <button class="tab-btn" onclick="showTab('stock')">Stock</button>
-  <button class="tab-btn" onclick="showTab('financials')">Financials</button>
   <button class="tab-btn" onclick="showTab('reports')">Reports</button>
   <button class="tab-btn" onclick="showTab('credentials')">Credential Management</button>
 </nav>
@@ -933,28 +932,45 @@
   </div>
 </div>
 
-<!-- FINANCIALS TAB -->
-<div id="tab-financials" class="tab-content">
+<!-- REPORTS TAB (merged Financials + Reports) -->
+<div id="tab-reports" class="tab-content">
 
-  <!-- Period controls -->
+  <div class="pp-mode-switch">
+    <button type="button" class="pp-mode-box" id="rptModeBox_financial" onclick="showReportsMode('financial')">
+      <span class="pp-mode-icon">&#128176;</span>
+      <span>
+        <div class="pp-mode-label">Financial</div>
+        <div class="pp-mode-sub">Sales value, receivables, stock value</div>
+      </span>
+    </button>
+    <button type="button" class="pp-mode-box" id="rptModeBox_physical" onclick="showReportsMode('physical')">
+      <span class="pp-mode-icon">&#128663;</span>
+      <span>
+        <div class="pp-mode-label">Physical</div>
+        <div class="pp-mode-sub">Units sold, breakdown by model</div>
+      </span>
+    </button>
+  </div>
+
+  <!-- Period controls (shared by both boxes) -->
   <div class="panel" style="margin-bottom:16px">
     <h3>&#128197; Select Period</h3>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
       <div class="form-group" style="min-width:160px">
         <label>Period Type</label>
-        <select id="fin_mode" onchange="onFinModeChange()">
+        <select id="rpt2_mode" onchange="onRpt2ModeChange()">
           <option value="all">All Time</option>
           <option value="yearly">Yearly</option>
           <option value="monthly">Monthly</option>
         </select>
       </div>
-      <div class="form-group" style="min-width:120px" id="fin_year_group" style="display:none">
+      <div class="form-group" style="min-width:120px;display:none" id="rpt2_year_group">
         <label>Year</label>
-        <select id="fin_year" onchange="renderFinancials()"></select>
+        <select id="rpt2_year" onchange="renderReportsHub()"></select>
       </div>
-      <div class="form-group" style="min-width:140px" id="fin_month_group" style="display:none">
+      <div class="form-group" style="min-width:140px;display:none" id="rpt2_month_group">
         <label>Month</label>
-        <select id="fin_month" onchange="renderFinancials()">
+        <select id="rpt2_month" onchange="renderReportsHub()">
           <option value="01">January</option><option value="02">February</option>
           <option value="03">March</option><option value="04">April</option>
           <option value="05">May</option><option value="06">June</option>
@@ -966,296 +982,47 @@
     </div>
   </div>
 
-  <div class="cards-grid" id="finCards"></div>
+  <div class="panel" id="rptMode_financial">
+    <h3>&#128176; Financial Summary</h3>
+    <div class="cards-grid" id="rptFinCards2"></div>
+    <div class="summary-grid">
+      <div class="panel">
+        <h3>&#128181; Sales by Payment Method</h3>
+        <div id="rptFinPayment2"></div>
+      </div>
+      <div class="panel">
+        <h3>&#9888; Pending Receivables</h3>
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead>
+              <tr><th>Date</th><th>Buyer</th><th>Vehicle</th><th>Net Price</th><th>Paid</th><th>Pending</th></tr>
+            </thead>
+            <tbody id="rptReceivablesBody"></tbody>
+          </table>
+          <div id="rptReceivablesEmpty" class="empty-state" style="display:none">
+            <div class="empty-icon">&#10003;</div>
+            <div>No outstanding balances — all sales fully paid.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="summary-grid">
+  <div class="panel" id="rptMode_physical" style="display:none">
+    <h3>&#128663; Physical Summary</h3>
+    <div class="cards-grid" id="rptPhysCards"></div>
     <div class="panel">
-      <h3>&#128200; Financial Overview</h3>
+      <h3>&#128202; Sales by Model</h3>
       <div class="table-wrap">
         <table class="fin-table">
           <thead>
-            <tr><th>Category</th><th>Units</th><th>Value (Nu.)</th></tr>
+            <tr><th>Model</th><th>Variant</th><th>Units Sold</th></tr>
           </thead>
-          <tbody id="finOverviewBody"></tbody>
+          <tbody id="rptModelBreakdownBody"></tbody>
         </table>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h3>&#127942; Profit Analysis</h3>
-      <div id="profitAnalysis"></div>
-    </div>
-
-    <div class="panel">
-      <h3>&#128181; Sales by Payment Method</h3>
-      <div id="paymentBreakdown"></div>
-    </div>
-
-    <div class="panel">
-      <h3>&#128202; Monthly Sales Performance</h3>
-      <div id="monthlyChart"></div>
-    </div>
-  </div>
-
-  <div class="panel" id="pendingSummaryPanel">
-    <h3>&#9888; Pending Receivables</h3>
-    <div class="table-wrap">
-      <table class="fin-table">
-        <thead>
-          <tr><th>Date</th><th>Buyer</th><th>Vehicle</th><th>Net Price</th><th>Paid</th><th>Pending</th></tr>
-        </thead>
-        <tbody id="pendingSummaryBody"></tbody>
-      </table>
-      <div id="pendingSummaryEmpty" class="empty-state" style="display:none">
-        <div class="empty-icon">&#10003;</div>
-        <div>No outstanding balances — all sales fully paid.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>&#128203; Detailed Financial Records</h3>
-    <div class="table-wrap">
-      <table class="fin-table">
-        <thead>
-          <tr>
-            <th>Date</th><th>Type</th><th>Vehicle</th><th>Colour</th>
-            <th>Buyer/Source</th><th>Cost (Nu.)</th><th>Sale Price</th><th>Profit/Loss</th>
-          </tr>
-        </thead>
-        <tbody id="finDetailBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- REPORTS TAB -->
-<div id="tab-reports" class="tab-content">
-
-  <!-- Period controls -->
-  <div class="panel" style="margin-bottom:16px">
-    <h3>&#128203; Report Generator</h3>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-      <div class="form-group" style="min-width:180px">
-        <label>Report Category</label>
-        <select id="rpt_category" onchange="onRptCategoryChange()">
-          <option value="sales">Sales</option>
-          <option value="purchases">Purchases</option>
-          <option value="bookings">Bookings</option>
-          <option value="orderplan">Purchase Plan</option>
-          <option value="financials">Financials</option>
-          <option value="stock">Stock</option>
-          <option value="pricelist">Price List</option>
-          <option value="models">Models &amp; Colours</option>
-        </select>
-      </div>
-      <div class="form-group" style="min-width:160px" id="rpt_period_group">
-        <label>Period</label>
-        <select id="rpt_mode" onchange="onRptModeChange()">
-          <option value="monthly">Monthly</option>
-          <option value="yearly">Yearly</option>
-        </select>
-      </div>
-      <div class="form-group" style="min-width:120px" id="rpt_year_group">
-        <label>Year</label>
-        <select id="rpt_year" onchange="renderReports()"></select>
-      </div>
-      <div class="form-group" style="min-width:140px" id="rpt_month_group">
-        <label>Month</label>
-        <select id="rpt_month" onchange="renderReports()">
-          <option value="01">January</option><option value="02">February</option>
-          <option value="03">March</option><option value="04">April</option>
-          <option value="05">May</option><option value="06">June</option>
-          <option value="07">July</option><option value="08">August</option>
-          <option value="09">September</option><option value="10">October</option>
-          <option value="11">November</option><option value="12">December</option>
-        </select>
-      </div>
-      <div>
-        <button class="btn btn-primary" onclick="exportExcel()">&#128196; Export Excel</button>
-        <button class="btn" onclick="printReport()" style="background:#f0f2f5;color:#555;">&#128424; Print / PDF</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SALES SECTION ─────────────────────────────────────────── -->
-  <div id="rptSec_sales">
-
-  <!-- KPI Cards -->
-  <div class="cards-grid" id="rptCards"></div>
-
-  <!-- Monthly breakdown table (only in yearly mode) -->
-  <div class="panel" id="rptMonthlyPanel">
-    <h3 id="rptMonthlyTitle">&#128202; Month-by-Month Breakdown</h3>
-    <div class="table-wrap">
-      <table class="fin-table">
-        <thead>
-          <tr>
-            <th>Month</th><th>Units Sold</th><th>Revenue (Nu.)</th>
-            <th>Cost of Sales (Nu.)</th><th>Gross Profit (Nu.)</th>
-            <th>Avg Profit/Unit</th><th>Vehicles Purchased</th>
-          </tr>
-        </thead>
-        <tbody id="rptMonthlyBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Sales detail table -->
-  <div class="panel">
-    <h3 id="rptSalesTitle">&#128176; Sales Detail</h3>
-    <div class="table-wrap">
-      <table class="fin-table">
-        <thead id="rptSalesThead"></thead>
-        <tbody id="rptSalesBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Two-column lower panels -->
-  <div class="summary-grid">
-    <div class="panel">
-      <h3>&#128663; Sales by Model</h3>
-      <div id="rptModelChart"></div>
-    </div>
-    <div class="panel">
-      <h3>&#128181; Sales by Payment Method</h3>
-      <div id="rptPaymentChart"></div>
-    </div>
-    <div class="panel">
-      <h3>&#127942; Salesperson Performance</h3>
-      <div id="rptSalesperson"></div>
-    </div>
-    <div class="panel">
-      <h3>&#128666; Purchases in Period</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead><tr><th>Date</th><th>Model</th><th>Colour</th><th>Cost (Nu.)</th></tr></thead>
-          <tbody id="rptPurchasesBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  </div><!-- /rptSec_sales -->
-
-  <!-- ── PURCHASES SECTION ──────────────────────────────────────── -->
-  <div id="rptSec_purchases" style="display:none">
-    <div class="cards-grid" id="rptPurCards"></div>
-    <div class="panel">
-      <h3>&#128666; Purchase Records</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead id="rptPurThead"></thead>
-          <tbody id="rptPurBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── BOOKINGS SECTION ───────────────────────────────────────── -->
-  <div id="rptSec_bookings" style="display:none">
-    <div class="cards-grid" id="rptBokCards"></div>
-    <div class="panel">
-      <h3>&#128197; Booking Records</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead id="rptBokThead"></thead>
-          <tbody id="rptBokBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── ORDER PLAN SECTION ─────────────────────────────────────── -->
-  <div id="rptSec_orderplan" style="display:none">
-    <div class="cards-grid" id="rptPPCards"></div>
-    <div class="panel">
-      <h3>&#128196; Purchase Plan Records</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead id="rptPPThead"></thead>
-          <tbody id="rptPPBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── FINANCIALS SECTION ─────────────────────────────────────── -->
-  <div id="rptSec_financials" style="display:none">
-    <div class="cards-grid" id="rptFinCards"></div>
-    <div class="summary-grid">
-      <div class="panel">
-        <h3>&#128200; Financial Overview</h3>
-        <div class="table-wrap">
-          <table class="fin-table">
-            <thead><tr><th>Category</th><th>Units</th><th>Value (Nu.)</th></tr></thead>
-            <tbody id="rptFinOverview"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="panel">
-        <h3>&#128181; Sales by Payment Method</h3>
-        <div id="rptFinPayment"></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h3>&#128203; Detailed Records</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead id="rptFinThead"></thead>
-          <tbody id="rptFinDetail"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── STOCK SECTION ──────────────────────────────────────────── -->
-  <div id="rptSec_stock" style="display:none">
-    <div class="cards-grid" id="rptStockCards"></div>
-    <div class="panel">
-      <h3>&#128218; Current Stock</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead id="rptStockThead"></thead>
-          <tbody id="rptStockBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── PRICE LIST SECTION ─────────────────────────────────────── -->
-  <div id="rptSec_pricelist" style="display:none">
-    <div class="panel">
-      <h3>&#127991; Price List</h3>
-      <div class="table-wrap">
-        <table class="fin-table">
-          <thead id="rptPLThead"></thead>
-          <tbody id="rptPLBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── MODELS & COLOURS SECTION ──────────────────────────────── -->
-  <div id="rptSec_models" style="display:none">
-    <div class="summary-grid">
-      <div class="panel">
-        <h3>&#128663; Models &amp; Variants</h3>
-        <div class="table-wrap">
-          <table class="fin-table">
-            <thead><tr><th>#</th><th>Model</th><th>Variant</th></tr></thead>
-            <tbody id="rptModelsBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="panel">
-        <h3>&#127912; Colours</h3>
-        <div class="table-wrap">
-          <table class="fin-table">
-            <thead><tr><th>#</th><th>Colour</th><th>Swatch</th></tr></thead>
-            <tbody id="rptColoursBody"></tbody>
-          </table>
+        <div id="rptModelBreakdownEmpty" class="empty-state" style="display:none">
+          <div class="empty-icon">&#128663;</div>
+          <div>No sales in this period.</div>
         </div>
       </div>
     </div>
@@ -1287,7 +1054,6 @@
             <th style="text-align:center">Purchase Plan</th>
             <th style="text-align:center">Sales/Bookings</th>
             <th style="text-align:center">Stock</th>
-            <th style="text-align:center">Financials</th>
             <th style="text-align:center">Reports</th>
             <th>Actions</th>
           </tr>
@@ -2262,7 +2028,7 @@ function setupRealtime() {
     .on('postgres_changes', {event:'*', schema:'public', table:'purchases'}, async () => {
       const { data } = await sb.from('purchases').select('*');
       purchases = (data||[]).map(purchaseFromDB);
-      renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock(); renderSummary(); renderFinancials(); renderPriceList();
+      renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock(); renderSummary(); renderReportsHub(); renderPriceList();
     })
     .subscribe(onStatus('purchases'));
 
@@ -2270,7 +2036,7 @@ function setupRealtime() {
     .on('postgres_changes', {event:'*', schema:'public', table:'sales'}, async () => {
       const { data } = await sb.from('sales').select('*');
       sales = (data||[]).map(saleFromDB);
-      renderSalesTable(); renderSummary(); renderFinancials(); renderPriceList();
+      renderSalesTable(); renderSummary(); renderReportsHub(); renderPriceList();
     })
     .subscribe(onStatus('sales'));
 
@@ -2278,7 +2044,7 @@ function setupRealtime() {
     .on('postgres_changes', {event:'*', schema:'public', table:'bookings'}, async () => {
       const { data } = await sb.from('bookings').select('*');
       bookings = (data||[]).map(bookingFromDB);
-      renderBookingsTable(); renderSummary(); renderFinancials();
+      renderBookingsTable(); renderSummary(); renderReportsHub();
     })
     .subscribe(onStatus('bookings'));
 
@@ -2466,7 +2232,7 @@ function getVehicleLabel(p) {
 // ============================================================
 // TABS
 // ============================================================
-const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','sales','stock','financials','reports','credentials'];
+const TAB_NAMES = ['summary','pricelist','catalogue','purchaseplan','sales','stock','reports','credentials'];
 
 function showTab(name) {
   if (currentUser) sessionTabsVisited.add(name);
@@ -5540,119 +5306,111 @@ function renderOrderPlanStock() {
 }
 
 // ============================================================
-// FINANCIALS
+// REPORTS (merged Financial + Physical summary)
 // ============================================================
-function initFinControls() {
+function showReportsMode(mode) {
+  document.getElementById('rptMode_financial').style.display = mode === 'financial' ? '' : 'none';
+  document.getElementById('rptMode_physical').style.display  = mode === 'physical'  ? '' : 'none';
+  document.getElementById('rptModeBox_financial').classList.toggle('active', mode === 'financial');
+  document.getElementById('rptModeBox_physical').classList.toggle('active', mode === 'physical');
+  renderReportsHub();
+}
+
+function initRpt2Controls() {
   const allYears = new Set();
   [...sales, ...purchases].forEach(r => { if (r.date) allYears.add(r.date.substr(0, 4)); });
   allYears.add(new Date().getFullYear().toString());
   const sorted = [...allYears].sort().reverse();
-  const fy = document.getElementById('fin_year');
-  if (!fy) return;
-  const cur = fy.value || sorted[0];
-  fy.innerHTML = sorted.map(y => `<option value="${y}" ${y===cur?'selected':''}>${y}</option>`).join('');
-  const fm = document.getElementById('fin_month');
-  if (fm && !fm.dataset.init) {
-    fm.value = String(new Date().getMonth() + 1).padStart(2, '0');
-    fm.dataset.init = '1';
+  const ry = document.getElementById('rpt2_year');
+  if (!ry) return;
+  const cur = ry.value || sorted[0];
+  ry.innerHTML = sorted.map(y => `<option value="${y}" ${y===cur?'selected':''}>${y}</option>`).join('');
+  const rm = document.getElementById('rpt2_month');
+  if (rm && !rm.dataset.init) {
+    rm.value = String(new Date().getMonth() + 1).padStart(2, '0');
+    rm.dataset.init = '1';
   }
 }
 
-function onFinModeChange() {
-  const mode = document.getElementById('fin_mode').value;
-  document.getElementById('fin_year_group').style.display  = mode === 'all' ? 'none' : '';
-  document.getElementById('fin_month_group').style.display = mode === 'monthly' ? '' : 'none';
-  renderFinancials();
+function onRpt2ModeChange() {
+  const mode = document.getElementById('rpt2_mode').value;
+  document.getElementById('rpt2_year_group').style.display  = mode === 'all' ? 'none' : '';
+  document.getElementById('rpt2_month_group').style.display = mode === 'monthly' ? '' : 'none';
+  renderReportsHub();
 }
 
-function getFinPeriodPrefix() {
-  const mode  = document.getElementById('fin_mode')?.value  || 'all';
-  const year  = document.getElementById('fin_year')?.value  || '';
-  const month = document.getElementById('fin_month')?.value || '';
+function getRpt2PeriodPrefix() {
+  const mode  = document.getElementById('rpt2_mode')?.value  || 'all';
+  const year  = document.getElementById('rpt2_year')?.value  || '';
+  const month = document.getElementById('rpt2_month')?.value || '';
   if (mode === 'monthly' && year && month) return year + '-' + month;
   if (mode === 'yearly'  && year)          return year;
   return '';
 }
 
-function renderFinancials() {
-  initFinControls();
-  const prefix = getFinPeriodPrefix();
+// What a vehicle in stock would sell for at list price — not what it cost —
+// so "stock value" here reflects sale value, not cost value.
+function stockSaleValue(p) {
+  const pl = priceLists.find(x => x.model === p.model && x.variant === (p.variant || ''))
+          || priceLists.find(x => x.model === p.model && x.variant === '');
+  return (pl && pl.listPrice && p.exrate) ? pl.listPrice * p.exrate : 0;
+}
 
+function renderReportsHub() {
+  initRpt2Controls();
+  const prefix = getRpt2PeriodPrefix();
   const periodSales     = prefix ? sales.filter(s => s.date && s.date.startsWith(prefix)) : sales;
   const periodPurchases = prefix ? purchases.filter(p => p.date && p.date.startsWith(prefix)) : purchases;
 
-  const stock  = purchases.filter(p => p.status === 'available');
-  const booked = purchases.filter(p => p.status === 'booked');
+  const financialVisible = document.getElementById('rptMode_financial')?.style.display !== 'none';
+  if (financialVisible) renderReportsFinancial(periodSales);
+  else renderReportsPhysical(periodSales, periodPurchases);
+}
 
-  const totalSalesValue  = periodSales.reduce((s,x) => s + x.netPrice, 0);
-  const totalCostSold    = periodSales.reduce((s,x) => { const v = getPurchase(x.vehicleId); return s + (v ? v.totalCost : 0); }, 0);
-  const totalProfit      = periodSales.reduce((s,x) => s + (x.profit||0), 0);
-  const stockValue       = stock.reduce((s,p) => s + (p.totalCost||0), 0);
-  const bookingValue     = bookings.reduce((s,b) => s + (b.agreedPrice||0), 0);
-  const bookingDeposits  = bookings.reduce((s,b) => s + (b.deposit||0), 0);
-  const totalPurchased   = periodPurchases.reduce((s,p) => s + (p.totalCost||0), 0);
-  const totalAmountPaid  = periodSales.reduce((s,x) => s + (x.amountPaid||0), 0);
-  const totalPending     = periodSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
-  const salesWithPending = periodSales.filter(x => (x.pendingAmount||0) > 0);
+function renderReportsFinancial(periodSales) {
+  const totalSalesValue = periodSales.reduce((s,x) => s + (x.netPrice||0), 0);
+  const totalProfit     = periodSales.reduce((s,x) => s + (x.profit||0), 0);
+  const totalCollected  = periodSales.reduce((s,x) => s + (x.amountPaid||0), 0);
 
-  const fc = document.getElementById('finCards');
+  // Receivables and stock value are current, point-in-time balances — money
+  // owed and stock on hand today — not scoped to the selected period.
+  const allPendingSales = sales.filter(s => (s.pendingAmount||0) > 0);
+  const totalReceivables = allPendingSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
+  const stock = purchases.filter(p => p.status === 'available');
+  const stockSaleValueTotal = stock.reduce((s,p) => s + stockSaleValue(p), 0);
+
+  const fc = document.getElementById('rptFinCards2');
   if (fc) fc.innerHTML = `
-    <div class="card green"><div class="card-label">Total Sales Revenue</div><div class="card-value" style="font-size:1.2rem">${fmt(totalSalesValue)}</div><div class="card-sub">${periodSales.length} vehicles sold</div></div>
-    <div class="card"><div class="card-label">Total Gross Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div><div class="card-sub">After cost of goods</div></div>
-    <div class="card blue"><div class="card-label">Stock Value (at cost)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockValue)}</div><div class="card-sub">${stock.length} units in stock</div></div>
-    <div class="card orange"><div class="card-label">Bookings Value</div><div class="card-value" style="font-size:1.2rem">${fmt(bookingValue)}</div><div class="card-sub">${fmt(bookingDeposits)} advance received</div></div>
-    <div class="card purple"><div class="card-label">Total Capital Deployed</div><div class="card-value" style="font-size:1.2rem">${fmt(totalPurchased)}</div><div class="card-sub">All purchases incl. costs</div></div>
-    <div class="card red"><div class="card-label">Avg Profit / Vehicle</div><div class="card-value" style="font-size:1.2rem">${periodSales.length ? fmt(totalProfit/periodSales.length) : 'Nu. 0.00'}</div><div class="card-sub">Per unit sold</div></div>
-    <div class="card" style="border-left:4px solid #e74c3c"><div class="card-label">Total Pending Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalPending>0?'#e74c3c':'#27ae60'}">${fmt(totalPending)}</div><div class="card-sub">${salesWithPending.length} sale${salesWithPending.length!==1?'s':''} with outstanding balance</div></div>
-    <div class="card" style="border-left:4px solid #27ae60"><div class="card-label">Total Amount Collected</div><div class="card-value" style="font-size:1.2rem;color:#27ae60">${fmt(totalAmountPaid)}</div><div class="card-sub">Cash received from sales</div></div>
+    <div class="card green"><div class="card-label">Total Sales Value</div><div class="card-value" style="font-size:1.2rem">${fmt(totalSalesValue)}</div><div class="card-sub">${periodSales.length} vehicle${periodSales.length!==1?'s':''} sold, selected period</div></div>
+    <div class="card"><div class="card-label">Total Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div><div class="card-sub">After cost of goods, selected period</div></div>
+    <div class="card" style="border-left:4px solid #e74c3c"><div class="card-label">Total Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalReceivables>0?'#e74c3c':'#27ae60'}">${fmt(totalReceivables)}</div><div class="card-sub">${allPendingSales.length} sale${allPendingSales.length!==1?'s':''} outstanding — all time</div></div>
+    <div class="card blue"><div class="card-label">Stock Value (at sale price)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockSaleValueTotal)}</div><div class="card-sub">${stock.length} unit${stock.length!==1?'s':''} in stock, current</div></div>
+    <div class="card" style="border-left:4px solid #27ae60"><div class="card-label">Amount Collected</div><div class="card-value" style="font-size:1.2rem;color:#27ae60">${fmt(totalCollected)}</div><div class="card-sub">Cash received from sales, selected period</div></div>
   `;
 
-  const fo = document.getElementById('finOverviewBody');
-  if (fo) fo.innerHTML = `
-    <tr><td>Vehicles Purchased</td><td>${periodPurchases.length}</td><td>${fmtNum(totalPurchased)}</td></tr>
-    <tr><td>Vehicles Sold</td><td>${periodSales.length}</td><td>${fmtNum(totalSalesValue)}</td></tr>
-    <tr><td>Cost of Goods Sold</td><td>${periodSales.length}</td><td>${fmtNum(totalCostSold)}</td></tr>
-    <tr class="fin-total"><td>Gross Profit (Sales)</td><td>-</td><td style="color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmtNum(totalProfit)}</td></tr>
-    <tr><td>Amount Collected from Sales</td><td>${periodSales.length}</td><td style="color:#27ae60">${fmtNum(totalAmountPaid)}</td></tr>
-    <tr><td style="color:#e74c3c">Pending Receivables</td><td style="color:#e74c3c">${salesWithPending.length}</td><td style="color:#e74c3c;font-weight:600">${fmtNum(totalPending)}</td></tr>
-    <tr><td>Current Stock (at cost)</td><td>${stock.length}</td><td>${fmtNum(stockValue)}</td></tr>
-    <tr><td>Active Bookings</td><td>${bookings.length}</td><td>${fmtNum(bookingValue)}</td></tr>
-    <tr><td>Advance Received</td><td>${bookings.length}</td><td>${fmtNum(bookingDeposits)}</td></tr>
-    <tr class="fin-total"><td>Total Assets (Stock + Cash from Sales)</td><td>-</td><td>${fmtNum(stockValue + totalAmountPaid)}</td></tr>
-  `;
-
-  const pa = document.getElementById('profitAnalysis');
-  if (pa) {
-    const sorted = [...periodSales].sort((a,b)=>(b.profit||0)-(a.profit||0));
-    const best = sorted.slice(0,3), worst = sorted.slice(-3).reverse();
-    pa.innerHTML = `
-      <div style="margin-bottom:12px">
-        <div style="font-size:0.78rem;color:#888;text-transform:uppercase;margin-bottom:6px">Top 3 Most Profitable</div>
-        ${best.map(s => { const v = getPurchase(s.vehicleId);
-          return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f5">
-            <span style="font-size:0.82rem">${v ? getVehicleLabel(v) : 'Unknown'}</span>
-            <span class="profit-positive">${fmt(s.profit)}</span></div>`; }).join('')
-          || '<div style="color:#aaa;font-size:0.82rem">No sales yet</div>'}
-      </div>
-      <div>
-        <div style="font-size:0.78rem;color:#888;text-transform:uppercase;margin-bottom:6px">Lowest Margin</div>
-        ${worst.map(s => { const v = getPurchase(s.vehicleId); const cls = (s.profit||0)<0?'profit-negative':'profit-positive';
-          return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f5">
-            <span style="font-size:0.82rem">${v ? getVehicleLabel(v) : 'Unknown'}</span>
-            <span class="${cls}">${fmt(s.profit)}</span></div>`; }).join('')
-          || '<div style="color:#aaa;font-size:0.82rem">No sales yet</div>'}
-      </div>`;
+  const pb = document.getElementById('rptFinPayment2');
+  if (pb) {
+    const pm = {};
+    periodSales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + s.netPrice; });
+    const total = Object.values(pm).reduce((a,b)=>a+b,0) || 1;
+    const colors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad'];
+    pb.innerHTML = Object.entries(pm).map(([method, val], i) => `
+      <div class="chart-bar-row">
+        <span class="chart-bar-label">${method}</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(val/total*100).toFixed(1)}%;background:${colors[i%5]}"></div></div>
+        <span class="chart-bar-val">${fmt(val)}</span>
+      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
   }
 
-  const psBody  = document.getElementById('pendingSummaryBody');
-  const psEmpty = document.getElementById('pendingSummaryEmpty');
-  if (psBody) {
-    if (salesWithPending.length === 0) {
-      psBody.innerHTML = '';
-      if (psEmpty) psEmpty.style.display = '';
+  const rb = document.getElementById('rptReceivablesBody');
+  const re = document.getElementById('rptReceivablesEmpty');
+  if (rb) {
+    if (allPendingSales.length === 0) {
+      rb.innerHTML = '';
+      if (re) re.style.display = '';
     } else {
-      if (psEmpty) psEmpty.style.display = 'none';
-      psBody.innerHTML = salesWithPending.sort((a,b) => b.date.localeCompare(a.date)).map(s => {
+      if (re) re.style.display = 'none';
+      rb.innerHTML = allPendingSales.sort((a,b) => b.date.localeCompare(a.date)).map(s => {
         const veh = getPurchase(s.vehicleId);
         return `<tr>
           <td>${fmtDate(s.date)}</td>
@@ -5665,74 +5423,42 @@ function renderFinancials() {
       }).join('');
     }
   }
-
-  const pb = document.getElementById('paymentBreakdown');
-  if (pb) {
-    const pm = {};
-    periodSales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + s.netPrice; });
-    const total = Object.values(pm).reduce((a,b)=>a+b,0) || 1;
-    const colors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad'];
-    pb.innerHTML = Object.entries(pm).map(([method, val], i) => `
-      <div class="chart-bar-row">
-        <span class="chart-bar-label">${method}</span>
-        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(val/total*100).toFixed(1)}%;background:${colors[i%5]}"></div></div>
-        <span class="chart-bar-val">${fmt(val)}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales yet</div>';
-  }
-
-  const mc = document.getElementById('monthlyChart');
-  if (mc) {
-    const monthly = {};
-    periodSales.forEach(s => {
-      const mon = s.date.substr(0,7);
-      if (!monthly[mon]) monthly[mon] = {revenue:0, profit:0, units:0};
-      monthly[mon].revenue += s.netPrice; monthly[mon].profit += (s.profit||0); monthly[mon].units++;
-    });
-    const maxRev = Math.max(...Object.values(monthly).map(m=>m.revenue), 1);
-    mc.innerHTML = Object.entries(monthly).sort().slice(-6).map(([mon, m]) => `
-      <div class="chart-bar-row">
-        <span class="chart-bar-label">${mon}</span>
-        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(m.revenue/maxRev*100).toFixed(1)}%;background:#2980b9"></div></div>
-        <span class="chart-bar-val">${m.units}u | ${fmt(m.revenue)}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales data yet</div>';
-  }
-
-  renderFinancialsDetail();
 }
 
-function renderFinancialsDetail() {
-  const prefix = getFinPeriodPrefix();
-  let data = (prefix ? sales.filter(s => s.date && s.date.startsWith(prefix)) : sales).sort((a,b)=>b.date.localeCompare(a.date));
+function renderReportsPhysical(periodSales, periodPurchases) {
+  const stock  = purchases.filter(p => p.status === 'available');
+  const booked = purchases.filter(p => p.status === 'booked');
 
-  const tbody = document.getElementById('finDetailBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No records</td></tr>'; return; }
+  const pc = document.getElementById('rptPhysCards');
+  if (pc) pc.innerHTML = `
+    <div class="card green"><div class="card-label">Vehicles Sold</div><div class="card-value">${periodSales.length}</div><div class="card-sub">Selected period</div></div>
+    <div class="card blue"><div class="card-label">Vehicles Purchased</div><div class="card-value">${periodPurchases.length}</div><div class="card-sub">Selected period</div></div>
+    <div class="card"><div class="card-label">Current Stock</div><div class="card-value">${stock.length}</div><div class="card-sub">Available in showroom, now</div></div>
+    <div class="card orange"><div class="card-label">Currently Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">Awaiting delivery, now</div></div>
+  `;
 
-  let totalRev = 0, totalCost = 0, totalProfit = 0;
-  tbody.innerHTML = data.map(s => {
-    const veh = getPurchase(s.vehicleId);
-    const cost = veh ? veh.totalCost : 0;
-    totalRev += s.netPrice; totalCost += cost; totalProfit += (s.profit||0);
-    const hex  = getColourHex(veh ? veh.colour : '');
-    const pCls = (s.profit||0) >= 0 ? 'profit-positive' : 'profit-negative';
-    return `<tr>
-      <td>${fmtDate(s.date)}</td>
-      <td><span class="badge badge-sold">SALE</span></td>
-      <td>${veh ? getVehicleLabel(veh) : 'N/A'}</td>
-      <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
-      <td>${s.buyer}</td>
-      <td>${fmtNum(cost)}</td>
-      <td>${fmtNum(s.netPrice)}</td>
-      <td class="${pCls}">${fmtNum(s.profit)}</td>
-    </tr>`;
-  }).join('') + `
-    <tr class="fin-total">
-      <td colspan="5">TOTALS</td>
-      <td>${fmtNum(totalCost)}</td>
-      <td>${fmtNum(totalRev)}</td>
-      <td class="${totalProfit>=0?'profit-positive':'profit-negative'}">${fmtNum(totalProfit)}</td>
-    </tr>`;
+  const byModel = {};
+  periodSales.forEach(s => {
+    const v = getPurchase(s.vehicleId); if (!v) return;
+    const key = v.model + '|' + (v.variant || '');
+    if (!byModel[key]) byModel[key] = { model: v.model, variant: v.variant || '', units: 0 };
+    byModel[key].units++;
+  });
+  const rows = Object.values(byModel).sort((a,b) => b.units - a.units);
+
+  const mb = document.getElementById('rptModelBreakdownBody');
+  const me = document.getElementById('rptModelBreakdownEmpty');
+  if (mb) {
+    if (rows.length === 0) {
+      mb.innerHTML = '';
+      if (me) me.style.display = '';
+    } else {
+      if (me) me.style.display = 'none';
+      mb.innerHTML = rows.map(r => `<tr><td><strong>${r.model}</strong></td><td>${r.variant || '-'}</td><td>${r.units}</td></tr>`).join('');
+    }
+  }
 }
+
 
 // ============================================================
 // DASHBOARD
@@ -6038,17 +5764,17 @@ function canEditTab(name) {
 // than by touching every button in the app, so it fails closed: any
 // control not explicitly listed here is treated as an edit action.
 const READONLY_SAFE_HANDLERS = new Set([
-  'showTab', 'showPPMode', 'showSalesRecordsMode', 'closeModal', 'logout', 'attemptLogin',
+  'showTab', 'showPPMode', 'showSalesRecordsMode', 'showReportsMode', 'closeModal', 'logout', 'attemptLogin',
   'togglePoGroup', 'togglePurchGroup',
   'setAvailVehSort', 'setBookingSort', 'setSaleSort', 'setPlanSort', 'setPurchaseSort',
-  'setPpInnerSort', 'setPurchInnerSort', 'setOpSort', 'setRptSort', 'setStockSort',
+  'setPpInnerSort', 'setPurchInnerSort', 'setOpSort', 'setStockSort',
   'onAvailVehSearchFieldChange', 'onBookingsSearchFieldChange', 'onPpSearchFieldChange',
   'onPurchSearchFieldChange', 'onSalesSearchFieldChange', 'onLogSearchFieldChange',
   'onStockSearchFieldChange', 'onOpSearchFieldChange',
   'clearAvailVehSearch', 'clearBookingsSearch', 'clearPpSearch', 'clearPurchSearch', 'clearSalesSearch', 'clearLogSearch',
   'clearStockSearch', 'clearOpSearch',
-  'onDashModeChange', 'onFinModeChange', 'onRptCategoryChange', 'onRptModeChange',
-  'exportExcel', 'printReport', 'exportPurchasesExcel', 'exportSalesExcel',
+  'onDashModeChange', 'onRpt2ModeChange',
+  'exportPurchasesExcel', 'exportSalesExcel',
   'loadLoginLogs',
 ]);
 
@@ -6207,8 +5933,7 @@ let sessionTabsVisited = new Set();
 const TAB_LABELS = {
   summary: 'Dashboard', pricelist: 'Price List', catalogue: 'Models/Colours',
   purchaseplan: 'Purchase Plan', sales: 'Sales/Bookings',
-  stock: 'Stock', financials: 'Financials',
-  reports: 'Reports', credentials: 'Credential Mgmt'
+  stock: 'Stock', reports: 'Reports', credentials: 'Credential Mgmt'
 };
 
 // Every add/edit/delete across the app calls this with a specific,
@@ -6537,7 +6262,6 @@ const MANAGEABLE_TABS = [
   { id: 'purchaseplan', label: 'Purchase Plan'  },
   { id: 'sales',        label: 'Sales/Bookings' },
   { id: 'stock',        label: 'Stock'       },
-  { id: 'financials',   label: 'Financials'  },
   { id: 'reports',      label: 'Reports'     },
 ];
 
@@ -6638,10 +6362,9 @@ function refreshAll() {
   renderModelStockGrid();
   renderStockTable();
   renderOrderPlanStock();
-  renderFinancials();
+  renderReportsHub();
   initDashControls();
   renderSummary();
-  renderReports();
   renderCredUsers();
 }
 
@@ -6663,6 +6386,7 @@ if (document.getElementById('ppVehicleRows') && !document.getElementById('ppVehi
 }
 showPPMode('view');
 showSalesRecordsMode('vehicles');
+showReportsMode('financial');
 
 loadAll();
 setupRealtime();
@@ -7000,7 +6724,7 @@ async function saveEditSale() {
   showToast('Sale record updated.');
   trackActivity('edited sale');
   renderSalesTable();
-  renderFinancials();
+  renderReportsHub();
 }
 
 // ============================================================
@@ -7192,726 +6916,6 @@ async function savePlanBooking() {
   renderPurchasePlanTable();
   renderBookingsTable();
 }
-
-// ============================================================
-// REPORTS
-// ============================================================
-function initReportControls() {
-  // Populate year dropdown from data
-  const allYears = new Set();
-  [...sales, ...purchases].forEach(r => {
-    if (r.date) allYears.add(r.date.substr(0, 4));
-  });
-  // Always include current year
-  allYears.add(new Date().getFullYear().toString());
-  const sorted = [...allYears].sort().reverse();
-
-  const ry = document.getElementById('rpt_year');
-  if (!ry) return;
-  const cur = ry.value || sorted[0];
-  ry.innerHTML = sorted.map(y => `<option value="${y}" ${y===cur?'selected':''}>${y}</option>`).join('');
-
-  // Default month to current month
-  const rm = document.getElementById('rpt_month');
-  if (rm && !rm.dataset.init) {
-    rm.value = String(new Date().getMonth() + 1).padStart(2, '0');
-    rm.dataset.init = '1';
-  }
-}
-
-function onRptModeChange() {
-  const mode = document.getElementById('rpt_mode').value;
-  document.getElementById('rpt_month_group').style.display = mode === 'monthly' ? '' : 'none';
-  renderReports();
-}
-
-const RPT_PERIOD_CATS = ['sales','purchases','bookings','orderplan','financials'];
-
-function onRptCategoryChange() {
-  const cat      = document.getElementById('rpt_category').value;
-  const hasPer   = RPT_PERIOD_CATS.includes(cat);
-  const mode     = document.getElementById('rpt_mode').value;
-  document.getElementById('rpt_period_group').style.display = hasPer ? '' : 'none';
-  document.getElementById('rpt_year_group').style.display   = hasPer ? '' : 'none';
-  document.getElementById('rpt_month_group').style.display  = (hasPer && mode === 'monthly') ? '' : 'none';
-  renderReports();
-}
-
-function getRptPrefix() {
-  const mode  = document.getElementById('rpt_mode')?.value  || 'monthly';
-  const year  = document.getElementById('rpt_year')?.value  || '';
-  const month = document.getElementById('rpt_month')?.value || '';
-  return mode === 'yearly' ? year : (year + '-' + month);
-}
-
-// ── Report table sort state ──────────────────────────────────────
-const rptSort = {
-  sales:      { col: 'date',  dir: 1 },
-  purchases:  { col: 'date',  dir: 1 },
-  bookings:   { col: 'date',  dir: 1 },
-  orderplan:  { col: 'date',  dir: 1 },
-  financials: { col: 'date',  dir: 1 },
-  stock:      { col: 'model', dir: 1 },
-  pricelist:  { col: 'model', dir: 1 },
-};
-
-function setRptSort(section, col) {
-  const s = rptSort[section];
-  if (s.col === col) s.dir *= -1; else { s.col = col; s.dir = 1; }
-  renderReports();
-}
-
-function rptTh(section, col, label, extra) {
-  const s = rptSort[section];
-  const arrow = s && s.col === col ? (s.dir === 1 ? ' &#9650;' : ' &#9660;') : '';
-  const active = s && s.col === col ? 'color:#e94560;' : '';
-  return `<th style="cursor:pointer;user-select:none;white-space:nowrap;${active}${extra||''}" onclick="setRptSort('${section}','${col}')">${label}${arrow}</th>`;
-}
-
-function rptCmp(section, getVal, numericCols) {
-  const { col, dir } = rptSort[section];
-  return (a, b) => {
-    const av = getVal(a, col), bv = getVal(b, col);
-    const isNum = numericCols && numericCols.includes(col);
-    const cmp = isNum ? (av - bv) : String(av||'').localeCompare(String(bv||''));
-    return cmp * dir;
-  };
-}
-
-function renderReports() {
-  initReportControls();
-  const cat = document.getElementById('rpt_category')?.value || 'sales';
-  const allCats = ['sales','purchases','bookings','orderplan','financials','stock','pricelist','models'];
-  allCats.forEach(c => {
-    const el = document.getElementById('rptSec_' + c);
-    if (el) el.style.display = c === cat ? '' : 'none';
-  });
-  const dispatch = {
-    sales:      renderRptSales,
-    purchases:  renderRptPurchases,
-    bookings:   renderRptBookings,
-    orderplan:  renderRptOrderPlan,
-    financials: renderRptFinancials,
-    stock:      renderRptStock,
-    pricelist:  renderRptPriceList,
-    models:     renderRptModels,
-  };
-  if (dispatch[cat]) dispatch[cat]();
-}
-
-function renderRptSales() {
-  const mode  = document.getElementById('rpt_mode')?.value || 'monthly';
-  const year  = document.getElementById('rpt_year')?.value || '';
-  const month = document.getElementById('rpt_month')?.value || '';
-  const prefix = getRptPrefix();
-
-  const periodSales     = sales.filter(s => s.date && s.date.startsWith(prefix));
-  const periodPurchases = purchases.filter(p => p.date && p.date.startsWith(prefix));
-
-  const totalRevenue  = periodSales.reduce((s,x) => s + (x.netPrice||0), 0);
-  const totalCost     = periodSales.reduce((s,x) => { const v = getPurchase(x.vehicleId); return s + (v ? v.totalCost : 0); }, 0);
-  const totalProfit   = periodSales.reduce((s,x) => s + (x.profit||0), 0);
-  const totalPurchCost = periodPurchases.reduce((s,p) => s + (p.totalCost||0), 0);
-  const totalPending  = periodSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
-
-  // Period label for headings
-  const MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
-  const periodLabel = mode === 'yearly' ? year : (MONTHS[parseInt(month)] + ' ' + year);
-
-  // KPI cards
-  const rptCards = document.getElementById('rptCards');
-  if (rptCards) {
-    const avgProfit = periodSales.length ? totalProfit / periodSales.length : 0;
-    rptCards.innerHTML = `
-      <div class="card blue"><div class="card-label">Units Sold</div><div class="card-value">${periodSales.length}</div><div class="card-sub">${periodLabel}</div></div>
-      <div class="card green"><div class="card-label">Total Revenue</div><div class="card-value" style="font-size:1.2rem">${fmt(totalRevenue)}</div><div class="card-sub">Net of discounts</div></div>
-      <div class="card ${totalProfit>=0?'green':'red'}"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div><div class="card-sub">After cost of goods</div></div>
-      <div class="card orange"><div class="card-label">Avg Profit / Unit</div><div class="card-value" style="font-size:1.2rem">${fmt(avgProfit)}</div><div class="card-sub">Per vehicle sold</div></div>
-      <div class="card purple"><div class="card-label">Vehicles Purchased</div><div class="card-value">${periodPurchases.length}</div><div class="card-sub">${fmt(totalPurchCost)} invested</div></div>
-      <div class="card red"><div class="card-label">Pending Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalPending>0?'#e74c3c':'#27ae60'}">${fmt(totalPending)}</div><div class="card-sub">${periodSales.filter(x=>(x.pendingAmount||0)>0).length} unpaid sale(s)</div></div>
-    `;
-  }
-
-  // Monthly breakdown panel (yearly mode only)
-  const rptMonthlyPanel = document.getElementById('rptMonthlyPanel');
-  const rptMonthlyTitle = document.getElementById('rptMonthlyTitle');
-  const rptMonthlyBody  = document.getElementById('rptMonthlyBody');
-  const rptSalesTitle   = document.getElementById('rptSalesTitle');
-
-  if (mode === 'yearly') {
-    rptMonthlyPanel.style.display = '';
-    if (rptMonthlyTitle) rptMonthlyTitle.textContent = `📊 Month-by-Month Breakdown — ${year}`;
-    if (rptSalesTitle)   rptSalesTitle.textContent   = `🧾 All Sales in ${year}`;
-
-    if (rptMonthlyBody) {
-      let grandRev = 0, grandCost = 0, grandProfit = 0, grandUnits = 0, grandPurch = 0;
-      const rows = Array.from({length:12}, (_,i) => {
-        const mm  = String(i+1).padStart(2,'0');
-        const pfx = year + '-' + mm;
-        const ms  = sales.filter(s => s.date && s.date.startsWith(pfx));
-        const mp  = purchases.filter(p => p.date && p.date.startsWith(pfx));
-        const rev = ms.reduce((s,x) => s+(x.netPrice||0), 0);
-        const cst = ms.reduce((s,x) => { const v=getPurchase(x.vehicleId); return s+(v?v.totalCost:0); }, 0);
-        const prf = ms.reduce((s,x) => s+(x.profit||0), 0);
-        grandRev += rev; grandCost += cst; grandProfit += prf;
-        grandUnits += ms.length; grandPurch += mp.length;
-        const pCls = prf >= 0 ? 'profit-positive' : 'profit-negative';
-        const avg  = ms.length ? prf / ms.length : 0;
-        return `<tr>
-          <td><strong>${MONTHS[i+1]}</strong></td>
-          <td style="text-align:right">${ms.length}</td>
-          <td style="text-align:right">${fmtNum(rev)}</td>
-          <td style="text-align:right">${fmtNum(cst)}</td>
-          <td class="${pCls}" style="text-align:right">${fmtNum(prf)}</td>
-          <td class="${pCls}" style="text-align:right">${ms.length ? fmtNum(avg) : '-'}</td>
-          <td style="text-align:right">${mp.length}</td>
-        </tr>`;
-      });
-      const gCls = grandProfit >= 0 ? 'profit-positive' : 'profit-negative';
-      rptMonthlyBody.innerHTML = rows.join('') + `
-        <tr class="fin-total">
-          <td>TOTAL</td>
-          <td style="text-align:right">${grandUnits}</td>
-          <td style="text-align:right">${fmtNum(grandRev)}</td>
-          <td style="text-align:right">${fmtNum(grandCost)}</td>
-          <td class="${gCls}" style="text-align:right">${fmtNum(grandProfit)}</td>
-          <td class="${gCls}" style="text-align:right">${grandUnits ? fmtNum(grandProfit/grandUnits) : '-'}</td>
-          <td style="text-align:right">${grandPurch}</td>
-        </tr>`;
-    }
-  } else {
-    rptMonthlyPanel.style.display = 'none';
-    if (rptSalesTitle) rptSalesTitle.textContent = `Sales Detail — ${periodLabel}`;
-  }
-
-  // Sales detail table
-  const rptSalesThead = document.getElementById('rptSalesThead');
-  if (rptSalesThead) rptSalesThead.innerHTML = `<tr><th>#</th>${rptTh('sales','date','Date')}${rptTh('sales','model','Model')}${rptTh('sales','colour','Colour')}${rptTh('sales','buyer','Buyer')}${rptTh('sales','payment','Payment')}${rptTh('sales','salesperson','Salesperson')}${rptTh('sales','cost','Cost (Nu.)','text-align:right')}${rptTh('sales','netPrice','Net Price (Nu.)','text-align:right')}${rptTh('sales','profit','Profit (Nu.)','text-align:right')}</tr>`;
-
-  const rptSalesBody = document.getElementById('rptSalesBody');
-  if (rptSalesBody) {
-    if (periodSales.length === 0) {
-      rptSalesBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No sales in this period</td></tr>';
-    } else {
-      let tRev = 0, tCost = 0, tProfit = 0;
-      const numCols = ['cost','netPrice','profit'];
-      const getVal = (s, col) => {
-        const veh = getPurchase(s.vehicleId);
-        if (col === 'model')      return veh ? veh.model : '';
-        if (col === 'colour')     return veh ? veh.colour : '';
-        if (col === 'cost')       return veh ? veh.totalCost : 0;
-        if (col === 'netPrice')   return s.netPrice || 0;
-        if (col === 'profit')     return s.profit || 0;
-        return s[col] || '';
-      };
-      const rows = [...periodSales].sort(rptCmp('sales', getVal, numCols)).map((s, i) => {
-        const veh  = getPurchase(s.vehicleId);
-        const cost = veh ? veh.totalCost : 0;
-        const hex  = getColourHex(veh ? veh.colour : '');
-        tRev += s.netPrice; tCost += cost; tProfit += (s.profit||0);
-        const pCls = (s.profit||0) >= 0 ? 'profit-positive' : 'profit-negative';
-        return `<tr>
-          <td>${i+1}</td>
-          <td>${fmtDate(s.date)}</td>
-          <td>${veh ? `<strong>${veh.model}</strong><br><small>${veh.variant||''}</small>` : 'N/A'}</td>
-          <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
-          <td>${s.buyer}</td>
-          <td><span class="badge badge-new">${s.payment}</span></td>
-          <td>${s.salesperson || '-'}</td>
-          <td style="text-align:right">${fmtNum(cost)}</td>
-          <td style="text-align:right">${fmtNum(s.netPrice)}</td>
-          <td class="${pCls}" style="text-align:right">${fmtNum(s.profit)}</td>
-        </tr>`;
-      });
-      const gCls = tProfit >= 0 ? 'profit-positive' : 'profit-negative';
-      rptSalesBody.innerHTML = rows.join('') + `
-        <tr class="fin-total">
-          <td colspan="7">TOTALS</td>
-          <td style="text-align:right">${fmtNum(tCost)}</td>
-          <td style="text-align:right">${fmtNum(tRev)}</td>
-          <td class="${gCls}" style="text-align:right">${fmtNum(tProfit)}</td>
-        </tr>`;
-    }
-  }
-
-  // Model sales bar chart
-  const rptModelChart = document.getElementById('rptModelChart');
-  if (rptModelChart) {
-    const byModel = {};
-    periodSales.forEach(s => {
-      const v = getPurchase(s.vehicleId); if (!v) return;
-      if (!byModel[v.model]) byModel[v.model] = {units:0, revenue:0};
-      byModel[v.model].units++; byModel[v.model].revenue += (s.netPrice||0);
-    });
-    const maxUnits = Math.max(...Object.values(byModel).map(m=>m.units), 1);
-    const colors   = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad','#1abc9c','#e74c3c'];
-    rptModelChart.innerHTML = Object.entries(byModel).sort((a,b)=>b[1].units-a[1].units).map(([model, d], i) => `
-      <div class="chart-bar-row">
-        <span class="chart-bar-label" title="${model}">${model.length>14?model.substr(0,14)+'...':model}</span>
-        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(d.units/maxUnits*100).toFixed(1)}%;background:${colors[i%7]}"></div></div>
-        <span class="chart-bar-val">${d.units} unit${d.units!==1?'s':''} | ${fmt(d.revenue)}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
-  }
-
-  // Payment method chart
-  const rptPaymentChart = document.getElementById('rptPaymentChart');
-  if (rptPaymentChart) {
-    const pm = {};
-    periodSales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + (s.netPrice||0); });
-    const total = Object.values(pm).reduce((a,b)=>a+b,0) || 1;
-    const colors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad'];
-    rptPaymentChart.innerHTML = Object.entries(pm).sort((a,b)=>b[1]-a[1]).map(([method, val], i) => `
-      <div class="chart-bar-row">
-        <span class="chart-bar-label">${method}</span>
-        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(val/total*100).toFixed(1)}%;background:${colors[i%5]}"></div></div>
-        <span class="chart-bar-val">${fmt(val)}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
-  }
-
-  // Salesperson performance
-  const rptSalesperson = document.getElementById('rptSalesperson');
-  if (rptSalesperson) {
-    const sp = {};
-    periodSales.forEach(s => {
-      const name = s.salesperson || 'Unassigned';
-      if (!sp[name]) sp[name] = {units:0, profit:0};
-      sp[name].units++; sp[name].profit += (s.profit||0);
-    });
-    rptSalesperson.innerHTML = Object.entries(sp).sort((a,b)=>b[1].units-a[1].units).map(([name, d], i) => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f2f5">
-        <div>
-          <span style="font-size:0.78rem;font-weight:700;color:#1a1a2e;margin-right:8px">#${i+1}</span>
-          <span style="font-size:0.85rem">${name}</span>
-          <span style="font-size:0.75rem;color:#888;margin-left:6px">${d.units} sold</span>
-        </div>
-        <span class="${d.profit>=0?'profit-positive':'profit-negative'}">${fmt(d.profit)}</span>
-      </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
-  }
-
-  // Purchases in period
-  const rptPurchasesBody = document.getElementById('rptPurchasesBody');
-  if (rptPurchasesBody) {
-    if (periodPurchases.length === 0) {
-      rptPurchasesBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:16px">No purchases in this period</td></tr>';
-    } else {
-      let tCost = 0;
-      const rows = [...periodPurchases].sort((a,b)=>a.date.localeCompare(b.date)).map(p => {
-        tCost += p.totalCost||0;
-        const hex = getColourHex(p.colour);
-        return `<tr>
-          <td>${fmtDate(p.date)}</td>
-          <td><strong>${p.model}</strong>${p.variant?' <small>'+p.variant+'</small>':''}</td>
-          <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-          <td style="text-align:right">${fmtNum(p.totalCost)}</td>
-        </tr>`;
-      });
-      rptPurchasesBody.innerHTML = rows.join('') + `
-        <tr class="fin-total"><td colspan="3">TOTAL</td><td style="text-align:right">${fmtNum(tCost)}</td></tr>`;
-    }
-  }
-}
-
-// ── NEW SECTION RENDERERS ────────────────────────────────────────
-
-function renderRptPurchases() {
-  const prefix = getRptPrefix();
-  const data   = prefix ? purchases.filter(p => p.date && p.date.startsWith(prefix)) : purchases;
-  const totalCost = data.reduce((s,p) => s + (p.totalCost||0), 0);
-  const byStatus  = { available: 0, booked: 0, sold: 0 };
-  data.forEach(p => { if (byStatus[p.status] !== undefined) byStatus[p.status]++; });
-
-  const cards = document.getElementById('rptPurCards');
-  if (cards) cards.innerHTML = `
-    <div class="card blue"><div class="card-label">Total Purchased</div><div class="card-value">${data.length}</div><div class="card-sub">vehicles</div></div>
-    <div class="card purple"><div class="card-label">Total Cost</div><div class="card-value" style="font-size:1.2rem">${fmt(totalCost)}</div><div class="card-sub">capital deployed</div></div>
-    <div class="card green"><div class="card-label">Available</div><div class="card-value">${byStatus.available}</div><div class="card-sub">in stock</div></div>
-    <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${byStatus.booked}</div><div class="card-sub">reserved</div></div>
-    <div class="card"><div class="card-label">Sold</div><div class="card-value">${byStatus.sold}</div><div class="card-sub">delivered</div></div>`;
-
-  const rptPurThead = document.getElementById('rptPurThead');
-  if (rptPurThead) rptPurThead.innerHTML = `<tr><th>#</th>${rptTh('purchases','date','Date')}${rptTh('purchases','model','Model')}${rptTh('purchases','variant','Variant')}${rptTh('purchases','colour','Colour')}${rptTh('purchases','year','Year')}${rptTh('purchases','po','PO No.')}${rptTh('purchases','totalCost','Total Cost (Nu.)','text-align:right')}${rptTh('purchases','status','Status')}</tr>`;
-
-  const tbody = document.getElementById('rptPurBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:20px">No records in this period</td></tr>'; return; }
-  let tCost = 0;
-  const purGetVal = (p, col) => col === 'totalCost' ? (p.totalCost||0) : (p[col]||'');
-  tbody.innerHTML = [...data].sort(rptCmp('purchases', purGetVal, ['totalCost'])).map((p,i) => {
-    tCost += p.totalCost||0;
-    const hex = getColourHex(p.colour);
-    return `<tr>
-      <td>${i+1}</td><td>${fmtDate(p.date)}</td>
-      <td><strong>${p.model}</strong></td>
-      <td>${p.variant||'-'}</td>
-      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td>${p.year||'-'}</td>
-      <td>${p.po||'-'}</td>
-      <td style="text-align:right">${fmtNum(p.totalCost)}</td>
-      <td><span class="badge badge-new">${p.status}</span></td>
-    </tr>`;
-  }).join('') + `<tr class="fin-total"><td colspan="7">TOTAL</td><td style="text-align:right">${fmtNum(tCost)}</td><td></td></tr>`;
-}
-
-function renderRptBookings() {
-  const prefix = getRptPrefix();
-  const data   = prefix ? bookings.filter(b => b.date && b.date.startsWith(prefix)) : bookings;
-  const totalAdv  = data.reduce((s,b) => s + (b.deposit||0), 0);
-  const totalBal  = data.reduce((s,b) => s + (b.balance||0), 0);
-
-  const cards = document.getElementById('rptBokCards');
-  if (cards) cards.innerHTML = `
-    <div class="card blue"><div class="card-label">Total Bookings</div><div class="card-value">${data.length}</div><div class="card-sub">active reservations</div></div>
-    <div class="card green"><div class="card-label">Advance Collected</div><div class="card-value" style="font-size:1.2rem">${fmt(totalAdv)}</div><div class="card-sub">deposits received</div></div>
-    <div class="card orange"><div class="card-label">Balance Pending</div><div class="card-value" style="font-size:1.2rem">${fmt(totalBal)}</div><div class="card-sub">outstanding</div></div>`;
-
-  const rptBokThead = document.getElementById('rptBokThead');
-  if (rptBokThead) rptBokThead.innerHTML = `<tr><th>#</th>${rptTh('bookings','date','Date')}${rptTh('bookings','model','Vehicle')}${rptTh('bookings','colour','Colour')}${rptTh('bookings','customer','Customer')}${rptTh('bookings','cid','CID')}${rptTh('bookings','phone','Phone')}${rptTh('bookings','deposit','Advance (Nu.)','text-align:right')}${rptTh('bookings','agreedPrice','List Price (Nu.)','text-align:right')}${rptTh('bookings','discount','Discount (Nu.)','text-align:right')}${rptTh('bookings','salePrice','Sale Price (Nu.)','text-align:right')}${rptTh('bookings','balance','Balance (Nu.)','text-align:right')}${rptTh('bookings','delivery','Delivery')}</tr>`;
-
-  const tbody = document.getElementById('rptBokBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:20px">No bookings in this period</td></tr>'; return; }
-  const bokNumCols = ['deposit','agreedPrice','discount','salePrice','balance'];
-  const bokGetVal = (b, col) => {
-    if (col === 'model') { const v = getPurchase(b.vehicleId); return v ? v.model : ''; }
-    if (col === 'colour') { const v = getPurchase(b.vehicleId); return v ? v.colour : ''; }
-    if (bokNumCols.includes(col)) return b[col] || 0;
-    return b[col] || '';
-  };
-  tbody.innerHTML = [...data].sort(rptCmp('bookings', bokGetVal, bokNumCols)).map((b,i) => {
-    const veh = getPurchase(b.vehicleId);
-    const hex = getColourHex(veh ? veh.colour : '');
-    return `<tr>
-      <td>${i+1}</td><td>${fmtDate(b.date)}</td>
-      <td>${veh ? `<strong>${veh.model}</strong>${veh.variant?' <small>'+veh.variant+'</small>':''}` : '-'}</td>
-      <td>${veh ? `<span class="color-dot" style="background:${hex}"></span>${veh.colour}` : '-'}</td>
-      <td>${b.customer}</td><td>${b.cid||'-'}</td><td>${b.phone||'-'}</td>
-      <td style="text-align:right">${fmtNum(b.deposit||0)}</td>
-      <td style="text-align:right">${fmtNum(b.agreedPrice||0)}</td>
-      <td style="text-align:right">${fmtNum(b.discount||0)}</td>
-      <td style="text-align:right">${fmtNum(b.salePrice||0)}</td>
-      <td style="text-align:right;color:#e74c3c;font-weight:600">${fmtNum(b.balance||0)}</td>
-      <td>${fmtDate(b.delivery)||'-'}</td>
-    </tr>`;
-  }).join('');
-}
-
-function renderRptOrderPlan() {
-  const prefix = getRptPrefix();
-  const data   = prefix ? purchasePlans.filter(p => p.date && p.date.startsWith(prefix)) : purchasePlans;
-
-  const cards = document.getElementById('rptPPCards');
-  if (cards) {
-    const byStatus = {};
-    data.forEach(p => { byStatus[p.lcstatus] = (byStatus[p.lcstatus]||0) + 1; });
-    cards.innerHTML = `
-      <div class="card blue"><div class="card-label">Plan Entries</div><div class="card-value">${data.length}</div></div>
-      <div class="card orange"><div class="card-label">Order Placed</div><div class="card-value">${byStatus.placed||0}</div></div>
-      <div class="card green"><div class="card-label">Order Approved</div><div class="card-value">${byStatus.approved||0}</div></div>`;
-  }
-
-  const rptPPThead = document.getElementById('rptPPThead');
-  if (rptPPThead) rptPPThead.innerHTML = `<tr><th>#</th>${rptTh('orderplan','date','Date')}${rptTh('orderplan','model','Model')}${rptTh('orderplan','variant','Variant')}${rptTh('orderplan','colour','Colour')}${rptTh('orderplan','po','PO No.')}${rptTh('orderplan','lcstatus','Order Status')}${rptTh('orderplan','notes','Notes')}</tr>`;
-
-  const tbody = document.getElementById('rptPPBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px">No purchase plans in this period</td></tr>'; return; }
-  const ppGetVal = (p, col) => p[col] || '';
-  tbody.innerHTML = [...data].sort(rptCmp('orderplan', ppGetVal, ['qty'])).map((p,i) => {
-    const sCls = PP_STATUS_COLOUR[p.lcstatus] || '#888';
-    const sLbl = PP_STATUS_LABEL[p.lcstatus] || p.lcstatus;
-    return `<tr>
-      <td>${i+1}</td><td>${fmtDate(p.date)}</td>
-      <td><strong>${p.model}</strong></td><td>${p.variant||'-'}</td>
-      <td>${p.colour||'-'}</td>
-      <td>${p.po||'-'}</td>
-      <td><span style="color:${sCls};font-weight:600">${sLbl}</span></td>
-      <td>${p.notes||'-'}</td>
-    </tr>`;
-  }).join('');
-}
-
-function renderRptFinancials() {
-  const prefix = getRptPrefix();
-  const pSales = prefix ? sales.filter(s => s.date && s.date.startsWith(prefix)) : sales;
-  const pPur   = prefix ? purchases.filter(p => p.date && p.date.startsWith(prefix)) : purchases;
-  const totalRev    = pSales.reduce((s,x) => s + (x.netPrice||0), 0);
-  const totalCost   = pSales.reduce((s,x) => { const v=getPurchase(x.vehicleId); return s+(v?v.totalCost:0); }, 0);
-  const totalProfit = pSales.reduce((s,x) => s + (x.profit||0), 0);
-  const totalPaid   = pSales.reduce((s,x) => s + (x.amountPaid||0), 0);
-  const totalPend   = pSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
-  const purCost     = pPur.reduce((s,p) => s + (p.totalCost||0), 0);
-
-  const cards = document.getElementById('rptFinCards');
-  if (cards) cards.innerHTML = `
-    <div class="card green"><div class="card-label">Revenue</div><div class="card-value" style="font-size:1.2rem">${fmt(totalRev)}</div><div class="card-sub">${pSales.length} sales</div></div>
-    <div class="card ${totalProfit>=0?'':'red'}"><div class="card-label">Gross Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div></div>
-    <div class="card blue"><div class="card-label">Collected</div><div class="card-value" style="font-size:1.2rem">${fmt(totalPaid)}</div></div>
-    <div class="card orange"><div class="card-label">Pending Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalPend>0?'#e74c3c':'#27ae60'}">${fmt(totalPend)}</div></div>
-    <div class="card purple"><div class="card-label">Capital Deployed</div><div class="card-value" style="font-size:1.2rem">${fmt(purCost)}</div><div class="card-sub">${pPur.length} purchases</div></div>`;
-
-  const ov = document.getElementById('rptFinOverview');
-  if (ov) ov.innerHTML = `
-    <tr><td>Vehicles Purchased</td><td>${pPur.length}</td><td>${fmtNum(purCost)}</td></tr>
-    <tr><td>Vehicles Sold</td><td>${pSales.length}</td><td>${fmtNum(totalRev)}</td></tr>
-    <tr><td>Cost of Goods Sold</td><td>-</td><td>${fmtNum(totalCost)}</td></tr>
-    <tr class="fin-total"><td>Gross Profit</td><td>-</td><td style="color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmtNum(totalProfit)}</td></tr>
-    <tr><td>Amount Collected</td><td>-</td><td style="color:#27ae60">${fmtNum(totalPaid)}</td></tr>
-    <tr><td style="color:#e74c3c">Pending Receivables</td><td>-</td><td style="color:#e74c3c">${fmtNum(totalPend)}</td></tr>`;
-
-  const pm = {}; const colors = ['#e94560','#2980b9','#27ae60','#e67e22','#8e44ad'];
-  pSales.forEach(s => { pm[s.payment] = (pm[s.payment]||0) + (s.netPrice||0); });
-  const pmTotal = Object.values(pm).reduce((a,b)=>a+b,0)||1;
-  const fp = document.getElementById('rptFinPayment');
-  if (fp) fp.innerHTML = Object.entries(pm).sort((a,b)=>b[1]-a[1]).map(([m,v],i) => `
-    <div class="chart-bar-row">
-      <span class="chart-bar-label">${m}</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${(v/pmTotal*100).toFixed(1)}%;background:${colors[i%5]}"></div></div>
-      <span class="chart-bar-val">${fmt(v)}</span>
-    </div>`).join('') || '<div style="color:#aaa;font-size:0.82rem">No sales in this period</div>';
-
-  const rptFinThead = document.getElementById('rptFinThead');
-  if (rptFinThead) rptFinThead.innerHTML = `<tr><th>#</th>${rptTh('financials','date','Date')}${rptTh('financials','model','Vehicle')}${rptTh('financials','buyer','Buyer')}${rptTh('financials','cost','Cost (Nu.)','text-align:right')}${rptTh('financials','netPrice','Net Price (Nu.)','text-align:right')}${rptTh('financials','profit','Profit (Nu.)','text-align:right')}${rptTh('financials','payment','Payment')}</tr>`;
-
-  const det = document.getElementById('rptFinDetail');
-  if (!det) return;
-  if (pSales.length === 0) { det.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No records</td></tr>'; return; }
-  let tRev=0, tCost2=0, tPrf=0;
-  const finNumCols = ['cost','netPrice','profit'];
-  const finGetVal = (s, col) => {
-    const veh = getPurchase(s.vehicleId);
-    if (col === 'model')    return veh ? veh.model : '';
-    if (col === 'cost')     return veh ? veh.totalCost : 0;
-    if (col === 'netPrice') return s.netPrice || 0;
-    if (col === 'profit')   return s.profit || 0;
-    return s[col] || '';
-  };
-  det.innerHTML = [...pSales].sort(rptCmp('financials', finGetVal, finNumCols)).map((s,i) => {
-    const veh=getPurchase(s.vehicleId); const c=veh?veh.totalCost:0;
-    tRev+=s.netPrice||0; tCost2+=c; tPrf+=s.profit||0;
-    const pCls=(s.profit||0)>=0?'profit-positive':'profit-negative';
-    return `<tr>
-      <td>${i+1}</td><td>${fmtDate(s.date)}</td>
-      <td>${veh?`<strong>${veh.model}</strong>${veh.variant?' <small>'+veh.variant+'</small>':''}`:'-'}</td>
-      <td>${s.buyer}</td>
-      <td style="text-align:right">${fmtNum(c)}</td>
-      <td style="text-align:right">${fmtNum(s.netPrice)}</td>
-      <td class="${pCls}" style="text-align:right">${fmtNum(s.profit)}</td>
-      <td><span class="badge badge-new">${s.payment}</span></td>
-    </tr>`;
-  }).join('') + `<tr class="fin-total"><td colspan="4">TOTALS</td><td style="text-align:right">${fmtNum(tCost2)}</td><td style="text-align:right">${fmtNum(tRev)}</td><td class="${tPrf>=0?'profit-positive':'profit-negative'}" style="text-align:right">${fmtNum(tPrf)}</td><td></td></tr>`;
-}
-
-function renderRptStock() {
-  const stock    = purchases.filter(p => p.status !== 'sold');
-  const avail    = stock.filter(p => p.status === 'available');
-  const booked   = stock.filter(p => p.status === 'booked');
-  const stockVal = avail.reduce((s,p) => s + (p.totalCost||0), 0);
-
-  const cards = document.getElementById('rptStockCards');
-  if (cards) cards.innerHTML = `
-    <div class="card blue"><div class="card-label">Total Units</div><div class="card-value">${stock.length}</div><div class="card-sub">in inventory</div></div>
-    <div class="card green"><div class="card-label">Available</div><div class="card-value">${avail.length}</div><div class="card-sub">ready to sell</div></div>
-    <div class="card orange"><div class="card-label">Booked</div><div class="card-value">${booked.length}</div><div class="card-sub">reserved</div></div>
-    <div class="card purple"><div class="card-label">Stock Value (at cost)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockVal)}</div><div class="card-sub">available units only</div></div>`;
-
-  const rptStockThead = document.getElementById('rptStockThead');
-  if (rptStockThead) rptStockThead.innerHTML = `<tr><th>#</th>${rptTh('stock','model','Model')}${rptTh('stock','variant','Variant')}${rptTh('stock','colour','Colour')}${rptTh('stock','year','Year')}${rptTh('stock','po','PO No.')}${rptTh('stock','totalCost','Total Cost (Nu.)','text-align:right')}${rptTh('stock','status','Status')}</tr>`;
-
-  const tbody = document.getElementById('rptStockBody');
-  if (!tbody) return;
-  if (stock.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">No stock</td></tr>'; return; }
-  const stGetVal = (p, col) => col === 'totalCost' ? (p.totalCost||0) : (p[col]||'');
-  tbody.innerHTML = [...stock].sort(rptCmp('stock', stGetVal, ['totalCost'])).map((p,i) => {
-    const hex = getColourHex(p.colour);
-    const sCls = p.status==='available'?'#27ae60':'#e67e22';
-    return `<tr>
-      <td>${i+1}</td><td><strong>${p.model}</strong></td><td>${p.variant||'-'}</td>
-      <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-      <td>${p.year||'-'}</td><td>${p.po||'-'}</td>
-      <td style="text-align:right">${fmtNum(p.totalCost)}</td>
-      <td><span style="color:${sCls};font-weight:600;text-transform:capitalize">${p.status}</span></td>
-    </tr>`;
-  }).join('');
-}
-
-function renderRptPriceList() {
-  const rptPLThead = document.getElementById('rptPLThead');
-  if (rptPLThead) rptPLThead.innerHTML = `<tr><th>#</th>${rptTh('pricelist','model','Model')}${rptTh('pricelist','variant','Variant')}${rptTh('pricelist','listPrice','List Price (USD)','text-align:right')}</tr>`;
-
-  const tbody = document.getElementById('rptPLBody');
-  if (!tbody) return;
-  const plGetVal = (pl, col) => col === 'listPrice' ? (pl.listPrice||0) : (pl[col]||'');
-  const sorted = [...priceLists].sort(rptCmp('pricelist', plGetVal, ['listPrice']));
-  if (sorted.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">No price list entries</td></tr>'; return; }
-  tbody.innerHTML = sorted.map((pl,i) => `
-    <tr><td>${i+1}</td><td><strong>${pl.model}</strong></td><td>${pl.variant||'(Base)'}</td><td style="text-align:right;font-weight:600">${fmtNum(pl.listPrice)}</td></tr>`).join('');
-}
-
-function renderRptModels() {
-  const mb = document.getElementById('rptModelsBody');
-  if (mb) {
-    const sorted = [...catModels].sort((a,b)=>a.name.localeCompare(b.name)||a.variant.localeCompare(b.variant));
-    mb.innerHTML = sorted.length === 0
-      ? '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No models</td></tr>'
-      : sorted.map((m,i) => `<tr><td>${i+1}</td><td><strong>${m.name}</strong></td><td>${m.variant||'—'}</td></tr>`).join('');
-  }
-  const cb = document.getElementById('rptColoursBody');
-  if (cb) {
-    const sorted = [...catColours].sort((a,b)=>a.name.localeCompare(b.name));
-    cb.innerHTML = sorted.length === 0
-      ? '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No colours</td></tr>'
-      : sorted.map((c,i) => `<tr><td>${i+1}</td><td>${c.name}</td><td><span class="color-dot" style="background:${c.hex||'#ccc'};width:24px;height:24px;border-radius:4px;display:inline-block;border:1px solid #ddd"></span></td></tr>`).join('');
-  }
-}
-
-function printReport() {
-  window.print();
-}
-
-function exportExcel() {
-  if (typeof XLSX === 'undefined') {
-    showToast('Excel library not loaded. Check your internet connection.', 'error');
-    return;
-  }
-
-  const mode  = document.getElementById('rpt_mode')?.value || 'monthly';
-  const year  = document.getElementById('rpt_year')?.value || '';
-  const month = document.getElementById('rpt_month')?.value || '';
-  const prefix = mode === 'yearly' ? year : (year + '-' + month);
-
-  const MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
-  const periodLabel = mode === 'yearly' ? year : (MONTHS[parseInt(month)] + ' ' + year);
-
-  const periodSales     = sales.filter(s => s.date && s.date.startsWith(prefix));
-  const periodPurchases = purchases.filter(p => p.date && p.date.startsWith(prefix));
-
-  const wb = XLSX.utils.book_new();
-
-  // ── Sheet 1: Summary ──────────────────────────────────────
-  const totalRevenue = periodSales.reduce((s,x) => s + (x.netPrice||0), 0);
-  const totalCost    = periodSales.reduce((s,x) => { const v=getPurchase(x.vehicleId); return s+(v?v.totalCost:0); }, 0);
-  const totalProfit  = periodSales.reduce((s,x) => s + (x.profit||0), 0);
-  const totalPending = periodSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
-  const totalPurchCost = periodPurchases.reduce((s,p) => s+(p.totalCost||0), 0);
-  const avgProfit    = periodSales.length ? totalProfit / periodSales.length : 0;
-
-  const summaryRows = [
-    ['Asanga Mobility — Dealership Management System'],
-    [`Report Period: ${periodLabel}`],
-    [`Generated: ${new Date().toLocaleString()}`],
-    [],
-    ['Metric', 'Value'],
-    ['Units Sold', periodSales.length],
-    ['Total Revenue (Nu.)', totalRevenue],
-    ['Cost of Goods Sold (Nu.)', totalCost],
-    ['Gross Profit (Nu.)', totalProfit],
-    ['Avg Profit per Unit (Nu.)', avgProfit],
-    ['Vehicles Purchased', periodPurchases.length],
-    ['Total FOB Price (USD)', totalPurchCost],
-    ['Pending Receivables (Nu.)', totalPending],
-  ];
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-  wsSummary['!cols'] = [{wch:35},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-
-  // ── Sheet 2: Monthly Breakdown (yearly mode only) ─────────
-  if (mode === 'yearly') {
-    const mbHeader = ['Month','Units Sold','Revenue (Nu.)','Cost of Sales (Nu.)','Gross Profit (Nu.)','Avg Profit/Unit (Nu.)','Vehicles Purchased'];
-    const mbRows = [mbHeader];
-    let gRev=0, gCost=0, gProfit=0, gUnits=0, gPurch=0;
-    for (let i = 1; i <= 12; i++) {
-      const mm  = String(i).padStart(2,'0');
-      const pfx = year + '-' + mm;
-      const ms  = sales.filter(s => s.date && s.date.startsWith(pfx));
-      const mp  = purchases.filter(p => p.date && p.date.startsWith(pfx));
-      const rev = ms.reduce((s,x) => s+(x.netPrice||0), 0);
-      const cst = ms.reduce((s,x) => { const v=getPurchase(x.vehicleId); return s+(v?v.totalCost:0); }, 0);
-      const prf = ms.reduce((s,x) => s+(x.profit||0), 0);
-      const avg = ms.length ? prf/ms.length : 0;
-      gRev+=rev; gCost+=cst; gProfit+=prf; gUnits+=ms.length; gPurch+=mp.length;
-      mbRows.push([MONTHS[i], ms.length, rev, cst, prf, ms.length ? avg : '', mp.length]);
-    }
-    mbRows.push(['TOTAL', gUnits, gRev, gCost, gProfit, gUnits ? gProfit/gUnits : '', gPurch]);
-    const wsMonthly = XLSX.utils.aoa_to_sheet(mbRows);
-    wsMonthly['!cols'] = [{wch:14},{wch:12},{wch:20},{wch:22},{wch:20},{wch:22},{wch:20}];
-    XLSX.utils.book_append_sheet(wb, wsMonthly, 'Monthly Breakdown');
-  }
-
-  // ── Sheet 3: Sales Detail ─────────────────────────────────
-  const sdHeader = ['#','Date','Model','Variant','Colour','Buyer','Phone','Address','Invoice No.','Payment','Salesperson','Sale Price (Nu.)','Discount (Nu.)','Net Price (Nu.)','Cost (Nu.)','Profit (Nu.)','Amount Paid (Nu.)','Pending (Nu.)'];
-  const sdRows   = [sdHeader];
-  let sdRev=0, sdCost=0, sdProfit=0;
-  [...periodSales].sort((a,b)=>a.date.localeCompare(b.date)).forEach((s, i) => {
-    const veh  = getPurchase(s.vehicleId);
-    const cost = veh ? veh.totalCost : 0;
-    sdRev += s.netPrice; sdCost += cost; sdProfit += (s.profit||0);
-    sdRows.push([
-      i+1, fmtDate(s.date), veh?veh.model:'N/A', veh?veh.variant||'':'-',
-      veh?veh.colour:'-', s.buyer, s.phone||'', s.address||'', s.pi||'',
-      s.payment, s.salesperson||'',
-      s.salePrice||0, s.discount||0, s.netPrice||0,
-      cost, s.profit||0, s.amountPaid||0, s.pendingAmount||0
-    ]);
-  });
-  if (periodSales.length) {
-    sdRows.push(['','TOTALS','','','','','','','','','','','',sdRev,sdCost,sdProfit,'','']);
-  }
-  const wsSales = XLSX.utils.aoa_to_sheet(sdRows);
-  wsSales['!cols'] = [{wch:4},{wch:12},{wch:14},{wch:12},{wch:14},{wch:20},{wch:14},{wch:20},{wch:14},{wch:16},{wch:16},{wch:18},{wch:16},{wch:18},{wch:18},{wch:16},{wch:18},{wch:16}];
-  XLSX.utils.book_append_sheet(wb, wsSales, 'Sales Detail');
-
-  // ── Sheet 4: Purchases ────────────────────────────────────
-  const ppHeader = ['#','Date','Model','Variant','Year','Colour','PO No.','Invoice No.','FOB Price (USD)','Ex. Rate (Nu./USD)','Shipping China→Kolkata (USD)','Transport Kolkata→Phuentsholing (Nu.)','Customs Duty (Nu.)','Excise Duty (Nu.)','GST (Nu.)','DV Charges (Nu.)','Permit Charges (Nu.)','Unloading & Loading (Nu.)','Service Charge & Commission (Nu.)','Driver Charges (Nu.)','Fuel Cost (Nu.)','Transit Insurance (Nu.)','Add. Costs (Nu.)','Total Cost (Nu.)','Status'];
-  const ppRows   = [ppHeader];
-  let ppTotal = 0;
-  [...periodPurchases].sort((a,b)=>a.date.localeCompare(b.date)).forEach((p, i) => {
-    ppTotal += p.totalCost||0;
-    ppRows.push([i+1, fmtDate(p.date), p.model, p.variant||'', p.year||'', p.colour, p.po||'', p.pi||'', p.cost||0, p.exrate||0, p.shipping||0, p.transport||0, p.customs||0, p.excise||0, p.gst||0, p.dv||0, p.permit||0, p.loading||0, p.service||0, p.driver||0, p.fuel||0, p.insurance||0, p.addcost||0, p.totalCost||0, p.status]);
-  });
-  if (periodPurchases.length) ppRows.push(['','TOTAL','','','','','','','','','','','','','','','','','','','','','',ppTotal,'']);
-  const wsPurchases = XLSX.utils.aoa_to_sheet(ppRows);
-  wsPurchases['!cols'] = [{wch:4},{wch:12},{wch:14},{wch:12},{wch:6},{wch:14},{wch:10},{wch:14},{wch:18},{wch:16},{wch:22},{wch:28},{wch:18},{wch:18},{wch:12},{wch:18},{wch:18},{wch:22},{wch:26},{wch:18},{wch:16},{wch:20},{wch:18},{wch:18},{wch:12}];
-  XLSX.utils.book_append_sheet(wb, wsPurchases, 'Purchases');
-
-  // ── Sheet 5: Model Performance ────────────────────────────
-  const byModel = {};
-  periodSales.forEach(s => {
-    const v = getPurchase(s.vehicleId); if (!v) return;
-    if (!byModel[v.model]) byModel[v.model] = {units:0, revenue:0, cost:0, profit:0};
-    byModel[v.model].units++; byModel[v.model].revenue += (s.netPrice||0);
-    byModel[v.model].cost += (v.totalCost||0); byModel[v.model].profit += (s.profit||0);
-  });
-  const mpHeader = ['Model','Units Sold','Total Revenue (Nu.)','Total Cost (Nu.)','Total Profit (Nu.)','Avg Profit/Unit (Nu.)'];
-  const mpRows   = [mpHeader];
-  Object.entries(byModel).sort((a,b)=>b[1].units-a[1].units).forEach(([model, d]) => {
-    mpRows.push([model, d.units, d.revenue, d.cost, d.profit, d.units ? d.profit/d.units : 0]);
-  });
-  const wsModels = XLSX.utils.aoa_to_sheet(mpRows);
-  wsModels['!cols'] = [{wch:16},{wch:12},{wch:22},{wch:20},{wch:20},{wch:22}];
-  XLSX.utils.book_append_sheet(wb, wsModels, 'Model Performance');
-
-  // ── Sheet 6: Salesperson Performance ─────────────────────
-  const bySP = {};
-  periodSales.forEach(s => {
-    const name = s.salesperson || 'Unassigned';
-    if (!bySP[name]) bySP[name] = {units:0, revenue:0, profit:0};
-    bySP[name].units++; bySP[name].revenue += (s.netPrice||0); bySP[name].profit += (s.profit||0);
-  });
-  const spHeader = ['Salesperson','Units Sold','Total Revenue (Nu.)','Total Profit (Nu.)','Avg Profit/Unit (Nu.)'];
-  const spRows   = [spHeader];
-  Object.entries(bySP).sort((a,b)=>b[1].units-a[1].units).forEach(([name, d]) => {
-    spRows.push([name, d.units, d.revenue, d.profit, d.units ? d.profit/d.units : 0]);
-  });
-  const wsSP = XLSX.utils.aoa_to_sheet(spRows);
-  wsSP['!cols'] = [{wch:20},{wch:12},{wch:22},{wch:20},{wch:22}];
-  XLSX.utils.book_append_sheet(wb, wsSP, 'Salesperson');
-
-  // ── Download ──────────────────────────────────────────────
-  const fileName = `AsangaMobility_Report_${periodLabel.replace(' ', '_')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
-  showToast(`Excel report exported: ${fileName}`);
-}
-
 </script>
 
 <script>
