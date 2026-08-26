@@ -142,6 +142,12 @@
     font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
   }
 
+  .readonly-banner {
+    background: #fff8e1; color: #8a6d00; border: 1px solid #ffe08a;
+    border-radius: 8px; padding: 10px 16px; margin-bottom: 16px;
+    font-size: 0.85rem; font-weight: 600;
+  }
+
   /* Charts / Summary blocks */
   .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 480px) { .summary-grid { grid-template-columns: 1fr; } }
@@ -1235,6 +1241,9 @@
       <h3 style="margin:0">&#128101; Users</h3>
       <button class="btn btn-primary" onclick="openAddUserModal()">+ Add User</button>
     </div>
+    <div style="font-size:0.82rem;color:#888;margin:-4px 0 12px">
+      <strong>V</strong> = can view/browse the tab. <strong>E</strong> = can also add/edit/delete within it (checking E automatically checks V). Only a super-admin can change these.
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1245,9 +1254,7 @@
             <th style="text-align:center">Price List</th>
             <th style="text-align:center">Models/Colours</th>
             <th style="text-align:center">Purchase Plan</th>
-            <th style="text-align:center">Purchases</th>
-            <th style="text-align:center">Sales</th>
-            <th style="text-align:center">Bookings</th>
+            <th style="text-align:center">Sales/Bookings</th>
             <th style="text-align:center">Stock</th>
             <th style="text-align:center">Financials</th>
             <th style="text-align:center">Reports</th>
@@ -2013,7 +2020,7 @@ async function loadAll() {
       sb.from('price_list').select('*'),
       sb.from('users').select('*'),
     ]);
-  credUsers = (usr || []).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], passwordHash: u.password_hash, created: u.created }));
+  credUsers = (usr || []).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], editTabs: u.edit_tabs || [], passwordHash: u.password_hash, created: u.created }));
 
   // First-run migration: if Supabase is empty, seed from localStorage
   if (!pur || pur.length === 0) {
@@ -2165,7 +2172,7 @@ function setupRealtime() {
   sb.channel('rt-users')
     .on('postgres_changes', {event:'*', schema:'public', table:'users'}, async () => {
       const { data } = await sb.from('users').select('*');
-      credUsers = (data||[]).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], passwordHash: u.password_hash, created: u.created }));
+      credUsers = (data||[]).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], editTabs: u.edit_tabs || [], passwordHash: u.password_hash, created: u.created }));
       renderCredUsers();
     })
     .subscribe(onStatus('users'));
@@ -5615,6 +5622,86 @@ function isSuperAdmin() {
   return currentUser && SUPER_ADMINS.includes(currentUser.username.toLowerCase());
 }
 
+// View = tab is visible / browsable. Edit = user can also add/edit/delete
+// within that tab. Edit always implies View. Super-admins have both on
+// every tab, always — this is hard-coded and cannot be revoked via the
+// Credential Management checkboxes.
+function canViewTab(name) {
+  if (!currentUser) return false;
+  if (isSuperAdmin()) return true;
+  return (currentUser.allowedTabs || []).includes(name);
+}
+
+function canEditTab(name) {
+  if (!currentUser) return false;
+  if (isSuperAdmin()) return true;
+  return (currentUser.editTabs || []).includes(name);
+}
+
+// Controls whose handlers only read/filter/sort/navigate — never write to
+// Supabase — stay usable even on a tab the current user can only view.
+// Everything else (add/edit/delete/import/status-change buttons and
+// selects) is blocked by default when a tab is view-only. This is
+// enforced generically via a capturing document-level listener rather
+// than by touching every button in the app, so it fails closed: any
+// control not explicitly listed here is treated as an edit action.
+const READONLY_SAFE_HANDLERS = new Set([
+  'showTab', 'showPPMode', 'showSalesRecordsMode', 'closeModal', 'logout', 'attemptLogin',
+  'togglePoGroup', 'togglePurchGroup',
+  'setAvailVehSort', 'setBookingSort', 'setSaleSort', 'setPlanSort', 'setPurchaseSort',
+  'setPpInnerSort', 'setPurchInnerSort', 'setOpSort', 'setRptSort', 'setStockSort',
+  'onAvailVehSearchFieldChange', 'onBookingsSearchFieldChange', 'onPpSearchFieldChange',
+  'onPurchSearchFieldChange', 'onSalesSearchFieldChange',
+  'clearAvailVehSearch', 'clearBookingsSearch', 'clearPpSearch', 'clearPurchSearch', 'clearSalesSearch',
+  'onDashModeChange', 'onFinModeChange', 'onRptCategoryChange', 'onRptModeChange',
+  'exportExcel', 'printReport', 'exportPurchasesExcel', 'exportSalesExcel',
+  'loadLoginLogs',
+]);
+
+function isReadonlySafeControl(el) {
+  if (!el) return false;
+  if (el.classList && (el.classList.contains('tab-btn') || el.classList.contains('modal-close') ||
+      el.classList.contains('sort-pill') || el.classList.contains('sortable-th') ||
+      el.classList.contains('po-group-header'))) return true;
+  for (const attr of ['onclick', 'onchange', 'oninput']) {
+    const v = el.getAttribute && el.getAttribute(attr);
+    if (!v) continue;
+    const m = v.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(/);
+    if (!m) continue;
+    // Every render*() call is a pure re-render/filter — never a write —
+    // so the prefix is trusted wholesale rather than listed one by one.
+    if (m[1].startsWith('render') || READONLY_SAFE_HANDLERS.has(m[1])) return true;
+  }
+  return false;
+}
+
+function handleReadonlyGuard(e) {
+  const tabEl = e.target.closest && e.target.closest('.tab-content.tab-readonly');
+  if (!tabEl) return;
+  const ctrl = e.target.closest('button, select, input, textarea, [onclick]');
+  if (!ctrl || isReadonlySafeControl(ctrl)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  showToast("View-only access — ask a super-admin for edit rights on this tab.", 'error');
+}
+document.addEventListener('click', handleReadonlyGuard, true);
+document.addEventListener('change', handleReadonlyGuard, true);
+
+function setTabReadonly(name, readonly) {
+  const container = document.getElementById('tab-' + name);
+  if (!container) return;
+  container.classList.toggle('tab-readonly', readonly);
+  let banner = container.querySelector(':scope > .readonly-banner');
+  if (readonly && !banner) {
+    banner = document.createElement('div');
+    banner.className = 'readonly-banner';
+    banner.innerHTML = "&#128065; View-only access — you can browse this tab but can't make changes. Ask a super-admin for edit rights.";
+    container.insertBefore(banner, container.firstChild);
+  } else if (!readonly && banner) {
+    banner.remove();
+  }
+}
+
 function attemptLogin() {
   try {
     const username = document.getElementById('login_username').value.trim();
@@ -5659,9 +5746,10 @@ function applyTabAccess(user) {
   const allBtns = document.querySelectorAll('.tab-btn');
   TAB_NAMES.forEach((name, idx) => {
     if (allBtns[idx]) allBtns[idx].style.display = (isAdmin || allowed.includes(name)) ? '' : 'none';
+    setTabReadonly(name, !canEditTab(name));
   });
   const plPanel = document.getElementById('pl_add_panel');
-  if (plPanel) plPanel.style.display = isAdmin ? '' : 'none';
+  if (plPanel) plPanel.style.display = (isAdmin || canEditTab('pricelist')) ? '' : 'none';
   const convertTh = document.getElementById('bookings_convert_th');
   if (convertTh) convertTh.style.display = '';
   const firstTab = isAdmin ? 'summary' : (TAB_NAMES.find(t => allowed.includes(t)) || 'summary');
@@ -5682,6 +5770,8 @@ function logout() {
   document.getElementById('header_session').style.display = 'none';
   document.getElementById('header_user_label').textContent = '';
   document.querySelectorAll('.tab-btn').forEach(b => b.style.display = '');
+  document.querySelectorAll('.tab-content .readonly-banner').forEach(b => b.remove());
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('tab-readonly'));
   document.getElementById('login-screen').style.display = 'flex';
 }
 
@@ -5752,6 +5842,7 @@ async function credUpsert(user) {
   const { error } = await sb.from('users').upsert({
     id: user.id, username: user.username,
     allowed_tabs: user.allowedTabs || [],
+    edit_tabs: user.editTabs || [],
     password_hash: user.passwordHash, created: user.created,
   }, { onConflict: 'id' });
   if (error) { showToast('Save failed: ' + error.message, 'error'); return false; }
@@ -5817,7 +5908,7 @@ async function saveNewUser() {
     showToast('Username already exists.', 'error'); return;
   }
 
-  const newUser = { id: genId(), username, allowedTabs: [], passwordHash: hashPassword(pw), created: new Date().toISOString().substr(0,10) };
+  const newUser = { id: genId(), username, allowedTabs: [], editTabs: [], passwordHash: hashPassword(pw), created: new Date().toISOString().substr(0,10) };
   const ok = await credUpsert(newUser);
   if (!ok) return;
   credUsers.push(newUser);
@@ -5882,15 +5973,46 @@ const MANAGEABLE_TABS = [
   { id: 'reports',      label: 'Reports'     },
 ];
 
-async function toggleUserTab(userId, tabId, checked) {
+// Only a super-admin can ever reach these — the Credential Management tab
+// itself is never grantable to a regular user (it's excluded from
+// MANAGEABLE_TABS below), so this guard is defense-in-depth against the
+// functions being invoked directly (e.g. via the browser console).
+async function toggleUserView(userId, tabId, checked) {
+  if (!isSuperAdmin()) { showToast('Only a super-admin can change tab access.', 'error'); renderCredUsers(); return; }
   const user = credUsers.find(u => u.id === userId);
   if (!user) return;
-  const tabs = [...(user.allowedTabs || [])];
-  if (checked) { if (!tabs.includes(tabId)) tabs.push(tabId); }
-  else { const i = tabs.indexOf(tabId); if (i > -1) tabs.splice(i, 1); }
-  user.allowedTabs = tabs;
-  const ok = await credUpsert(user);
-  if (!ok) { user.allowedTabs = user.allowedTabs; renderCredUsers(); }
+  const viewTabs = [...(user.allowedTabs || [])];
+  const editTabs = [...(user.editTabs || [])];
+  if (checked) {
+    if (!viewTabs.includes(tabId)) viewTabs.push(tabId);
+  } else {
+    const vi = viewTabs.indexOf(tabId); if (vi > -1) viewTabs.splice(vi, 1);
+    // Can't have edit rights on a tab you can no longer even view.
+    const ei = editTabs.indexOf(tabId); if (ei > -1) editTabs.splice(ei, 1);
+  }
+  user.allowedTabs = viewTabs;
+  user.editTabs = editTabs;
+  await credUpsert(user);
+  renderCredUsers();
+}
+
+async function toggleUserEdit(userId, tabId, checked) {
+  if (!isSuperAdmin()) { showToast('Only a super-admin can change tab access.', 'error'); renderCredUsers(); return; }
+  const user = credUsers.find(u => u.id === userId);
+  if (!user) return;
+  const viewTabs = [...(user.allowedTabs || [])];
+  const editTabs = [...(user.editTabs || [])];
+  if (checked) {
+    if (!editTabs.includes(tabId)) editTabs.push(tabId);
+    // Edit implies View.
+    if (!viewTabs.includes(tabId)) viewTabs.push(tabId);
+  } else {
+    const ei = editTabs.indexOf(tabId); if (ei > -1) editTabs.splice(ei, 1);
+  }
+  user.allowedTabs = viewTabs;
+  user.editTabs = editTabs;
+  await credUpsert(user);
+  renderCredUsers();
 }
 
 function renderCredUsers() {
@@ -5904,11 +6026,20 @@ function renderCredUsers() {
   }
   tbody.innerHTML = users.map((u, i) => {
     const isSuper = SUPER_ADMINS.includes(u.username.toLowerCase());
-    const tabs = u.allowedTabs || [];
+    const viewTabs = u.allowedTabs || [];
+    const editTabs = u.editTabs || [];
     const cells = MANAGEABLE_TABS.map(t => {
-      const checked = isSuper || tabs.includes(t.id);
-      const disabled = isSuper ? 'disabled title="Super-admin always has full access"' : '';
-      return `<td style="text-align:center"><input type="checkbox" style="width:16px;height:16px;accent-color:#e94560;cursor:${isSuper?'default':'pointer'}" ${checked?'checked':''} ${disabled} onchange="toggleUserTab('${u.id}','${t.id}',this.checked)"></td>`;
+      const viewChecked = isSuper || viewTabs.includes(t.id);
+      const editChecked = isSuper || editTabs.includes(t.id);
+      const dis = isSuper ? 'disabled title="Super-admin always has full access"' : '';
+      const cur = isSuper ? 'default' : 'pointer';
+      return `<td style="text-align:center;white-space:nowrap">
+        <label style="display:inline-flex;align-items:center;gap:2px;margin-right:8px;font-size:0.68rem;color:#888;cursor:${cur}" title="Can view this tab">
+          <input type="checkbox" style="width:14px;height:14px;accent-color:#2980b9;cursor:${cur}" ${viewChecked?'checked':''} ${dis} onchange="toggleUserView('${u.id}','${t.id}',this.checked)">V
+        </label><label style="display:inline-flex;align-items:center;gap:2px;font-size:0.68rem;color:#888;cursor:${cur}" title="Can add / edit / delete within this tab">
+          <input type="checkbox" style="width:14px;height:14px;accent-color:#e94560;cursor:${cur}" ${editChecked?'checked':''} ${dis} onchange="toggleUserEdit('${u.id}','${t.id}',this.checked)">E
+        </label>
+      </td>`;
     }).join('');
     const adminBadge = isSuper ? `<span style="font-size:0.72rem;background:#e9456022;color:#e94560;border-radius:4px;padding:2px 6px;margin-left:6px">super-admin</span>` : '';
     return `
