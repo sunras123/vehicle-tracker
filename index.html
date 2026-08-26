@@ -1652,6 +1652,67 @@
   </div>
 </div>
 
+<!-- EDIT PO DETAILS (PURCHASE PLAN UNDER PROCESS) MODAL -->
+<div class="modal-overlay" id="editPlanPoModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editPlanPoModal')">&times;</button>
+    <h3>&#9998; Edit PO Details</h3>
+    <div id="editPlanPoInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="eppo_originalpo">
+    <div class="form-grid">
+      <div class="form-group"><label>PO Number</label><input type="text" id="eppo_po" placeholder="Purchase Order number"></div>
+      <div class="form-group"><label>PO Date</label><input type="date" id="eppo_date"></div>
+      <div class="form-group"><label>Order Status</label>
+        <select id="eppo_orderstatus">
+          <option value="placed">Order Placed</option>
+          <option value="approved">Order Approved</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PI Status</label>
+        <select id="eppo_pistatus">
+          <option value="pending">Pending</option>
+          <option value="issued">Issued</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PI Number</label><input type="text" id="eppo_pinumber" placeholder="Performa Invoice number"></div>
+      <div class="form-group"><label>PI Date</label><input type="date" id="eppo_pidate"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-warning" onclick="saveEditPlanPoDetails()">&#10003; Save Changes (applies to all vehicles in this PO)</button>
+      <button class="btn" onclick="closeModal('editPlanPoModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD VEHICLE TO PO (PURCHASE PLAN UNDER PROCESS) MODAL -->
+<div class="modal-overlay" id="addPlanVehicleModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addPlanVehicleModal')">&times;</button>
+    <h3>&#10133; Add Vehicle to PO</h3>
+    <div id="addPlanVehicleInfo" style="background:#f0f2f5;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.95rem;color:#1a1a2e;"></div>
+    <input type="hidden" id="apv_po">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Vehicle Model</label>
+        <select id="apv_model" onchange="updateApvVariant()"><option value="">-- Select Model --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Variant</label>
+        <select id="apv_variant" onchange="updateApvColour()"><option value="">-- Select Model First --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Colour</label>
+        <select id="apv_colour"><option value="">-- Select Colour --</option></select>
+      </div>
+      <div class="form-group"><label>Notes</label><input type="text" id="apv_notes" placeholder="Any notes"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="saveAddPlanVehicle()">&#10003; Add Vehicle</button>
+      <button class="btn" onclick="closeModal('addPlanVehicleModal')" style="background:#f0f2f5;color:#555;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- LC OPENED: SHIPMENT DATES MODAL -->
 <div class="modal-overlay" id="lcDatesModal">
   <div class="modal">
@@ -2799,6 +2860,120 @@ async function savePoPi() {
   trackActivity('updated PO PI details');
 }
 
+// ============================================================
+// EDIT PO DETAILS — Purchase Plan Under Process only. Once a PO's LC is
+// marked Opened it auto-moves to Purchase Records (see
+// autoCreatePurchaseFromPlan), which has its own, richer Edit PO Details
+// modal (LC number/date/ETD/ETA) via openEditPoDetailsModal — this one
+// only covers the PO-level fields that exist pre-LC-Open.
+// ============================================================
+function openEditPlanPoModal(po) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) return;
+  const first = items[0];
+  document.getElementById('eppo_originalpo').value = po;
+  document.getElementById('editPlanPoInfo').textContent = `PO ${po} — ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  document.getElementById('eppo_po').value = first.po || '';
+  setDateField('eppo_date', first.date || '');
+  document.getElementById('eppo_orderstatus').value = first.lcstatus || 'placed';
+  document.getElementById('eppo_pistatus').value = first.pistatus || 'pending';
+  document.getElementById('eppo_pinumber').value = first.pinumber || '';
+  setDateField('eppo_pidate', first.pidate || '');
+  document.getElementById('editPlanPoModal').classList.add('open');
+}
+
+async function saveEditPlanPoDetails() {
+  const originalPo = document.getElementById('eppo_originalpo').value;
+  const newPo = document.getElementById('eppo_po').value.trim();
+  if (!newPo) { showToast('PO Number is required.', 'error'); return; }
+
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === originalPo);
+  if (!items.length) { showToast('PO not found.', 'error'); return; }
+
+  const date        = document.getElementById('eppo_date').value;
+  const orderstatus = document.getElementById('eppo_orderstatus').value;
+  const pistatus     = document.getElementById('eppo_pistatus').value;
+  const pinumber      = document.getElementById('eppo_pinumber').value.trim();
+  const pidate         = document.getElementById('eppo_pidate').value;
+
+  const tasks = items.map(p => {
+    p.po = newPo; p.date = date; p.lcstatus = orderstatus; p.pistatus = pistatus;
+    p.pinumber = pinumber; p.pidate = pidate;
+    return saveOne('purchase_plans', p);
+  });
+  const results = await Promise.all(tasks);
+  if (results.some(r => !r)) { showToast('⚠️ Some vehicles in this PO failed to update.', 'error'); return; }
+
+  closeModal('editPlanPoModal');
+  showToast(`PO ${newPo} updated — applied to ${items.length} vehicle${items.length>1?'s':''}.`, 'success');
+  trackActivity('edited purchase plan PO details (bulk)');
+  renderPurchasePlanTable();
+}
+
+// ============================================================
+// ADD VEHICLE TO PO — Purchase Plan Under Process only. Once a PO moves
+// to Purchase Records the LC is already open/finalized, so vehicles are
+// no longer added to it there.
+// ============================================================
+function openAddPlanVehicleModal(po) {
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) return;
+  document.getElementById('apv_po').value = po;
+  document.getElementById('addPlanVehicleInfo').textContent = `Adding to PO ${po} — currently ${items.length} vehicle${items.length !== 1 ? 's' : ''}`;
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
+  document.getElementById('apv_model').innerHTML = '<option value="">-- Select Model --</option>' +
+    uniqueModels.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  document.getElementById('apv_variant').innerHTML = '<option value="">-- Select Model First --</option>';
+  document.getElementById('apv_colour').innerHTML = '<option value="">-- Select Colour --</option>';
+  document.getElementById('apv_notes').value = '';
+  document.getElementById('addPlanVehicleModal').classList.add('open');
+}
+
+function updateApvVariant() {
+  const model = document.getElementById('apv_model').value;
+  const sel   = document.getElementById('apv_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; updateApvColour(); return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  sel.innerHTML = variants.length === 0
+    ? '<option value="">-- No variants found --</option>'
+    : variants.map(v => `<option value="${v}">${v || '(Base / No Variant)'}</option>`).join('');
+  updateApvColour();
+}
+
+function updateApvColour() {
+  const model   = document.getElementById('apv_model').value;
+  const variant = document.getElementById('apv_variant').value;
+  const sel = document.getElementById('apv_colour');
+  if (sel) sel.innerHTML = colourOptionsForModel(model, variant, sel.value);
+}
+
+async function saveAddPlanVehicle() {
+  const po      = document.getElementById('apv_po').value;
+  const model   = document.getElementById('apv_model').value;
+  const variant = document.getElementById('apv_variant').value;
+  const colour  = document.getElementById('apv_colour').value;
+  const notes   = document.getElementById('apv_notes').value.trim();
+  if (!model || !colour) { showToast('Select a Model and Colour.', 'error'); return; }
+
+  const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
+  if (!items.length) { showToast('PO not found.', 'error'); return; }
+  const first = items[0];
+
+  const entry = {
+    id: genId(), date: first.date, model, variant, colour, qty: 1,
+    po, lcstatus: first.lcstatus || 'placed', notes,
+    pistatus: first.pistatus || '', pinumber: first.pinumber || '', pidate: first.pidate || ''
+  };
+  const ok = await saveOne('purchase_plans', entry);
+  if (!ok) { showToast('Failed to add vehicle.', 'error'); return; }
+  purchasePlans.push(entry);
+  closeModal('addPlanVehicleModal');
+  showToast(`Vehicle added to PO ${po}.`, 'success');
+  trackActivity('added vehicle to purchase plan PO');
+  renderPurchasePlanTable();
+}
+
 async function updateLcStage(po, newStage) {
   const { items, isPlan } = findPoGroup(po);
 
@@ -3268,6 +3443,8 @@ function renderPurchasePlanTable() {
         <span class="po-group-count">${items.length} vehicle${items.length !== 1 ? 's' : ''}</span>
         <span style="color:#888;font-size:0.8rem">${fmtDate(poDate)}</span>
         <span class="po-group-actions" style="margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px;justify-content:flex-end" onclick="event.stopPropagation()">
+          <button class="btn btn-success btn-sm" onclick="openAddPlanVehicleModal('${po.replace(/'/g,"\\'")}')" title="Add another vehicle to this PO">&#10133; Add Vehicle</button>
+          <button class="btn btn-warning btn-sm" onclick="openEditPlanPoModal('${po.replace(/'/g,"\\'")}')">&#9998; Edit PO</button>
           <select onchange="updatePoStatus('${po.replace(/'/g,"\\'")}', this.value)"
             style="border-radius:6px;padding:4px 8px;border:1.5px solid ${poColour};color:${poColour};font-weight:600;font-size:0.82rem;background:${poColour}18;cursor:pointer;">
             <option value="placed"   ${poStatus==='placed'   ?'selected':''}>Order Placed</option>
