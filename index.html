@@ -1267,11 +1267,27 @@
     </div>
   </div>
 
-  <!-- Login / Logout Audit Log -->
+  <!-- Activity / Audit Log -->
   <div class="panel" style="margin-top:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <h3 style="margin:0">&#128203; Login / Logout Activity</h3>
+      <h3 style="margin:0">&#128203; Activity &amp; Login Log</h3>
       <button class="btn" onclick="loadLoginLogs()" style="background:#f0f2f5;color:#555;font-size:0.82rem">&#8635; Refresh</button>
+    </div>
+    <div style="font-size:0.82rem;color:#888;margin:-8px 0 12px">Every sign-in/out plus every add, edit and delete made anywhere in the app, with who did it and when. Entries older than 6 months are pruned automatically.</div>
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="logSearchField" onchange="onLogSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="username">Username</option>
+          <option value="action">Action Type</option>
+        </select>
+        <input type="text" id="logSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderLoginLogs()" placeholder="Type a keyword to search...">
+        <select id="logSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderLoginLogs()"></select>
+        <button type="button" id="logSearchClearBtn" onclick="clearLogSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+      </div>
+      <div id="logSearchCount" class="search-count"></div>
     </div>
     <div class="table-wrap">
       <table>
@@ -2447,6 +2463,7 @@ function addModelColour(modelId, colourName) {
   m.colours = m.colours.filter(c => c !== '!' + colourName);
   if (!m.colours.includes(colourName)) m.colours = [...m.colours, colourName];
   saveOne('cat_models', m);
+  trackActivity(`added colour "${colourName}" to ${m.name}${m.variant ? ' ' + m.variant : ''}`);
   renderCatalogue();
 }
 
@@ -2456,6 +2473,7 @@ function removeModelColour(modelId, colourName) {
   if (!confirm(`Remove "${colourName}" from ${m.name}${m.variant ? ' ' + m.variant : ''}?`)) return;
   m.colours = m.colours.filter(c => c !== colourName);
   saveOne('cat_models', m);
+  trackActivity(`deleted colour "${colourName}" from ${m.name}${m.variant ? ' ' + m.variant : ''}`);
   renderCatalogue();
 }
 
@@ -2465,6 +2483,7 @@ function excludeModelColour(modelId, colourName) {
   if (!confirm(`Hide "${colourName}" from ${m.name}${m.variant ? ' ' + m.variant : ''}?\n\nIt will no longer appear in colour dropdowns for this model. You can restore it later.`)) return;
   m.colours = [...m.colours.filter(c => c !== colourName), '!' + colourName];
   saveOne('cat_models', m);
+  trackActivity(`hid colour "${colourName}" from ${m.name}${m.variant ? ' ' + m.variant : ''}`);
   renderCatalogue();
 }
 
@@ -2473,6 +2492,7 @@ function restoreModelColour(modelId, colourName) {
   if (!m) return;
   m.colours = m.colours.filter(c => c !== '!' + colourName);
   saveOne('cat_models', m);
+  trackActivity(`restored colour "${colourName}" for ${m.name}${m.variant ? ' ' + m.variant : ''}`);
   renderCatalogue();
 }
 
@@ -2503,6 +2523,7 @@ function deleteCatModel(id) {
   sbDelete('cat_models', id);
   catModels = catModels.filter(x => x.id !== id);
   showToast('Model deleted.');
+  trackActivity(`deleted model "${m.name}${m.variant ? ' ' + m.variant : ''}"`);
   renderCatalogue();
   updatePurchaseDropdowns();
 }
@@ -2537,6 +2558,7 @@ function deleteCatColour(id) {
   sbDelete('cat_colours', id);
   catColours = catColours.filter(x => x.id !== id);
   showToast('Colour deleted.');
+  trackActivity(`deleted colour "${c.name}" from the colour list`);
   renderCatalogue();
   updatePurchaseDropdowns();
 }
@@ -2788,7 +2810,7 @@ async function addPurchasePlan() {
   }
   entries.forEach(entry => purchasePlans.push(entry));
   showToast(`Purchase plan saved: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''})`, 'success');
-  trackActivity('added purchase plan');
+  trackActivity(`added Purchase Plan: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''}: ${entries.map(e=>e.model).join(', ')})`);
   clearPurchasePlanForm();
   showPPMode('view');
 }
@@ -2970,7 +2992,7 @@ async function saveAddPlanVehicle() {
   purchasePlans.push(entry);
   closeModal('addPlanVehicleModal');
   showToast(`Vehicle added to PO ${po}.`, 'success');
-  trackActivity('added vehicle to purchase plan PO');
+  trackActivity(`added vehicle to Purchase Plan PO ${po}: ${model}${variant ? ' ' + variant : ''}, ${colour}`);
   renderPurchasePlanTable();
 }
 
@@ -3177,15 +3199,17 @@ function poSave(item, isPlan) {
 }
 
 function deletePurchasePlan(id) {
+  const p = purchasePlans.find(x => x.id === id);
   if (!confirm('Delete this purchase plan entry?')) return;
   sbDelete('purchase_plans', id);
-  purchasePlans = purchasePlans.filter(p => p.id !== id);
+  purchasePlans = purchasePlans.filter(x => x.id !== id);
   const planBookings = bookings.filter(b => b.planId === id);
   planBookings.forEach(b => sbDelete('bookings', b.id));
   bookings = bookings.filter(b => b.planId !== id);
   renderPurchasePlanTable();
   renderBookingsTable();
   showToast('Purchase plan entry deleted.');
+  if (p) trackActivity(`deleted vehicle from Purchase Plan: PO ${p.po || '(No PO)'} — ${p.model}${p.variant ? ' ' + p.variant : ''}, ${p.colour}`);
 }
 
 function updateEppPIVisibility() {
@@ -4103,7 +4127,7 @@ function addPurchase() {
   });
   saveOne('purchases', purchases[purchases.length - 1], purchaseToDB);
   showToast(`Vehicle added: ${model} (${colour})`);
-  trackActivity('added purchase');
+  trackActivity(`added Purchase Record: ${model}${document.getElementById('p_variant').value ? ' ' + document.getElementById('p_variant').value : ''}, ${colour}`);
 
   clearPurchaseForm();
   renderPurchasesTable();
@@ -4154,10 +4178,11 @@ function deletePurchase(id) {
   if (p && (p.status === 'booked' || p.status === 'sold')) { showToast('Cannot delete a booked or sold vehicle.', 'error'); return; }
   if (!confirm('Delete this purchase record?')) return;
   sbDelete('purchases', id);
-  purchases = purchases.filter(p => p.id !== id);
+  purchases = purchases.filter(x => x.id !== id);
   showToast('Purchase deleted.');
   renderPurchasesTable();
   updateVehicleSelects();
+  if (p) trackActivity(`deleted vehicle from Purchase Records: PO ${p.po || '(No PO)'} — ${p.model}${p.variant ? ' ' + p.variant : ''}, ${p.colour}`);
 }
 
 let stockSortCol = 'date';
@@ -4662,7 +4687,7 @@ function addSale() {
   saveOne('sales', newSale, saleToDB);
   saveOne('purchases', veh, purchaseToDB);
   showToast(`Sale recorded: ${veh.model} to ${buyer}`);
-  trackActivity('added sale');
+  trackActivity(`added sale: ${veh.model}${veh.variant ? ' ' + veh.variant : ''}, ${veh.colour} to ${buyer} (Nu. ${fmtNum(netPrice)})`);
   clearSaleForm();
   closeModal('saleFormPanel');
   renderSalesTable();
@@ -4691,6 +4716,7 @@ function deleteSale(id) {
     showToast('Sale deleted. Vehicle returned to stock.');
     renderSalesTable();
     updateVehicleSelects();
+    trackActivity(`deleted sale: ${s.buyer || 'unknown buyer'}${veh ? ' — ' + veh.model + (veh.variant ? ' ' + veh.variant : '') + ', ' + veh.colour : ''} (Nu. ${fmtNum(s.netPrice || 0)})`);
   }
 }
 
@@ -4952,7 +4978,7 @@ function addBooking() {
   saveOne('bookings', newBooking, bookingToDB);
   saveOne('purchases', veh, purchaseToDB);
   showToast(`Booking added for ${customer}`);
-  trackActivity('added booking');
+  trackActivity(`added booking: ${veh.model}${veh.variant ? ' ' + veh.variant : ''}, ${veh.colour} for ${customer} (Nu. ${fmtNum(deposit)} deposit)`);
   clearBookingForm();
   closeModal('bookingFormPanel');
   renderBookingsTable();
@@ -4985,6 +5011,8 @@ function cancelBooking(id) {
     renderModelStockGrid();
     renderSummary();
     updateVehicleSelects();
+    const src = getPlanSrc(b);
+    trackActivity(`cancelled booking: ${b.customer || 'unknown customer'}${src ? ' — ' + src.model + (src.variant ? ' ' + src.variant : '') + ', ' + src.colour : ''}`);
   }
 }
 
@@ -5787,10 +5815,12 @@ function saveInlinePriceListEdit(id) {
 }
 
 function deletePriceListEntry(id) {
+  const pl = priceLists.find(x => x.id === id);
   if (!confirm('Delete this price entry?')) return;
   sbDelete('price_list', id);
-  priceLists = priceLists.filter(pl => pl.id !== id);
+  priceLists = priceLists.filter(x => x.id !== id);
   renderPriceList();
+  if (pl) trackActivity(`deleted price list entry: ${pl.model}${pl.variant ? ' ' + pl.variant : ''}`);
 }
 
 function renderPriceList() {
@@ -5863,8 +5893,8 @@ const READONLY_SAFE_HANDLERS = new Set([
   'setAvailVehSort', 'setBookingSort', 'setSaleSort', 'setPlanSort', 'setPurchaseSort',
   'setPpInnerSort', 'setPurchInnerSort', 'setOpSort', 'setRptSort', 'setStockSort',
   'onAvailVehSearchFieldChange', 'onBookingsSearchFieldChange', 'onPpSearchFieldChange',
-  'onPurchSearchFieldChange', 'onSalesSearchFieldChange',
-  'clearAvailVehSearch', 'clearBookingsSearch', 'clearPpSearch', 'clearPurchSearch', 'clearSalesSearch',
+  'onPurchSearchFieldChange', 'onSalesSearchFieldChange', 'onLogSearchFieldChange',
+  'clearAvailVehSearch', 'clearBookingsSearch', 'clearPpSearch', 'clearPurchSearch', 'clearSalesSearch', 'clearLogSearch',
   'onDashModeChange', 'onFinModeChange', 'onRptCategoryChange', 'onRptModeChange',
   'exportExcel', 'printReport', 'exportPurchasesExcel', 'exportSalesExcel',
   'loadLoginLogs',
@@ -6029,7 +6059,23 @@ const TAB_LABELS = {
   reports: 'Reports', credentials: 'Credential Mgmt'
 };
 
-function trackActivity(action) { sessionActivities.add(action); }
+// Every add/edit/delete across the app calls this with a specific,
+// human-readable description. It still feeds the end-of-session summary
+// remark (buildSessionRemark), but — critically for tracking who changed
+// or deleted what — it ALSO writes its own timestamped row to login_logs
+// immediately, fire-and-forget. That means a granular record survives
+// even if the user never signs out cleanly (closed tab, browser crash),
+// which a logout-time-only summary would miss entirely.
+function trackActivity(action) {
+  sessionActivities.add(action);
+  if (!currentUser) return;
+  let cat = 'Activity';
+  if (/^(added|created)/i.test(action)) cat = 'Add';
+  else if (/^(deleted|removed|cancelled)/i.test(action)) cat = 'Delete';
+  else if (/^(edited|updated|moved|hid|restored)/i.test(action)) cat = 'Edit';
+  sb.from('login_logs').insert({ id: genId(), username: currentUser.username, action: cat, remark: action })
+    .then(({ error }) => { if (error) console.error('activity log error', error); });
+}
 
 function buildSessionRemark() {
   const tabStr = [...sessionTabsVisited].map(t => TAB_LABELS[t] || t).join(', ');
@@ -6057,16 +6103,87 @@ async function cleanupOldLoginLogs() {
   if (error) console.error('login_logs cleanup error', error);
 }
 
+let loginLogsData = [];
+
 async function loadLoginLogs() {
   await cleanupOldLoginLogs();
-  const { data, error } = await sb.from('login_logs').select('*').order('logged_at', { ascending: false }).limit(100);
+  const { data, error } = await sb.from('login_logs').select('*').order('logged_at', { ascending: false }).limit(300);
   if (error) { console.error('login_logs fetch error', error); return; }
+  loginLogsData = data || [];
+  renderLoginLogs();
+}
+
+const LOG_SEARCH_FIELDS = {
+  username: { label: 'Username',    get: r => r.username || '' },
+  action:   { label: 'Action Type', get: r => r.action || '' },
+};
+
+function onLogSearchFieldChange() {
+  const field = document.getElementById('logSearchField').value;
+  const kwEl = document.getElementById('logSearchKeyword');
+  const valEl = document.getElementById('logSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = LOG_SEARCH_FIELDS[field];
+    const opts = new Set();
+    loginLogsData.forEach(r => { const v = cfg.get(r); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('logSearchClearBtn').style.display = field ? '' : 'none';
+  renderLoginLogs();
+}
+
+function clearLogSearch() {
+  document.getElementById('logSearchField').value = '';
+  document.getElementById('logSearchKeyword').value = '';
+  document.getElementById('logSearchKeyword').style.display = 'none';
+  document.getElementById('logSearchValue').innerHTML = '';
+  document.getElementById('logSearchValue').style.display = 'none';
+  document.getElementById('logSearchClearBtn').style.display = 'none';
+  renderLoginLogs();
+}
+
+function logMatchesFilter(r) {
+  const field = document.getElementById('logSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('logSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    return [r.username, r.action, r.remark].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('logSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = LOG_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(r) === value : true;
+}
+
+function renderLoginLogs() {
   const tbody = document.getElementById('loginLogsBody');
   if (!tbody) return;
-  if (!data || !data.length) {
+  const data = loginLogsData.filter(logMatchesFilter);
+
+  const countEl = document.getElementById('logSearchCount');
+  if (countEl) {
+    const field = document.getElementById('logSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('logSearchKeyword')?.value
+      : !!document.getElementById('logSearchValue')?.value;
+    countEl.textContent = (field && hasValue)
+      ? `Showing ${data.length} of ${loginLogsData.length} entries`
+      : '';
+  }
+
+  if (!data.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa">No activity yet.</td></tr>'; return;
   }
-  const ACTION_COLOR = { Login: '#27ae60', Logout: '#e74c3c' };
+  const ACTION_COLOR = { Login: '#27ae60', Logout: '#e74c3c', Add: '#2980b9', Edit: '#e67e22', Delete: '#c0392b', Activity: '#8e44ad' };
   tbody.innerHTML = data.map((row, i) => {
     const dt = new Date(row.logged_at);
     const date = dt.toLocaleDateString('en-GB');
@@ -6215,11 +6332,13 @@ async function saveNewUser() {
 }
 
 async function deleteCredUser(id) {
+  const u = credUsers.find(x => x.id === id);
   if (!confirm('Delete this user?')) return;
   const ok = await credDelete(id);
   if (!ok) return;
-  credUsers = credUsers.filter(u => u.id !== id);
+  credUsers = credUsers.filter(x => x.id !== id);
   renderCredUsers();
+  if (u) trackActivity(`deleted user account: ${u.username}`);
 }
 
 function openEditUserModal(id) {
