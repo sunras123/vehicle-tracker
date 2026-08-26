@@ -846,14 +846,25 @@
 
   <div class="panel">
     <h3>&#128218; Current Stock List (in Showroom)</h3>
-    <div class="toolbar">
-      <input type="text" id="stockSearch" oninput="renderStockTable()" placeholder="&#128269; Search by model, colour...">
-      <select id="stockModelFilter" onchange="renderStockTable()">
-        <option value="">All Models</option>
-      </select>
-      <select id="stockColourFilter" onchange="renderStockTable()">
-        <option value="">All Colours</option>
-      </select>
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="stockSearchField" onchange="onStockSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="model">Model</option>
+          <option value="variant">Variant</option>
+          <option value="colour">Colour</option>
+          <option value="year">Year</option>
+          <option value="status">Status</option>
+          <option value="po">PO Number</option>
+          <option value="date">PO Date</option>
+        </select>
+        <input type="text" id="stockSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderStockTable()" placeholder="Type a keyword to search...">
+        <select id="stockSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderStockTable()"></select>
+        <button type="button" id="stockSearchClearBtn" onclick="clearStockSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+      </div>
+      <div id="stockSearchCount" class="search-count"></div>
     </div>
     <div class="table-wrap">
       <table>
@@ -880,6 +891,25 @@
   <!-- PURCHASE PLAN STOCK RECORDS (unbooked, both Order Placed and Order Approved) -->
   <div class="panel">
     <h3>&#128203; Unbooked Vehicles on Order</h3>
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa">&#128269;</span>
+        <select id="opSearchField" onchange="onOpSearchFieldChange()" style="min-width:150px">
+          <option value="">Search by...</option>
+          <option value="keyword">Keyword</option>
+          <option value="model">Model</option>
+          <option value="variant">Variant</option>
+          <option value="colour">Colour</option>
+          <option value="po">PO Number</option>
+          <option value="date">PO Date</option>
+          <option value="lcstage">Order Status</option>
+        </select>
+        <input type="text" id="opSearchKeyword" style="display:none;flex:1;min-width:200px" oninput="renderOrderPlanStock()" placeholder="Type a keyword to search...">
+        <select id="opSearchValue" style="display:none;flex:1;min-width:200px" onchange="renderOrderPlanStock()"></select>
+        <button type="button" id="opSearchClearBtn" onclick="clearOpSearch()" style="display:none;background:none;border:none;color:#888;font-size:1.1rem;cursor:pointer;line-height:1" title="Clear search">&#10005;</button>
+      </div>
+      <div id="opSearchCount" class="search-count"></div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -3509,14 +3539,6 @@ function setPpInnerSort(col) {
 }
 
 function updatePurchaseDropdowns() {
-  // Stock filters
-  const models  = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.model))].sort();
-  const colours = [...new Set(purchases.filter(p => p.status !== 'sold').map(p => p.colour))].sort();
-  const smf = document.getElementById('stockModelFilter');
-  const scf = document.getElementById('stockColourFilter');
-  if (smf) smf.innerHTML = '<option value="">All Models</option>' + models.map(m=>`<option>${m}</option>`).join('');
-  if (scf) scf.innerHTML = '<option value="">All Colours</option>' + colours.map(c=>`<option>${c}</option>`).join('');
-
   const pm = document.getElementById('p_model');
   const pc = document.getElementById('p_colour');
   if (!pm || !pc) return;
@@ -5252,17 +5274,78 @@ function renderModelStockGrid() {
   renderModelGrid('modelStockGrid', stock, '#e94560');
 }
 
-function renderStockTable() {
-  const search = (document.getElementById('stockSearch')?.value || '').toLowerCase();
-  const modelF = document.getElementById('stockModelFilter')?.value || '';
-  const colF   = document.getElementById('stockColourFilter')?.value || '';
+const STOCK_SEARCH_FIELDS = {
+  model:   { label: 'Model',    get: p => p.model || '' },
+  variant: { label: 'Variant',  get: p => p.variant || '' },
+  colour:  { label: 'Colour',   get: p => p.colour || '' },
+  year:    { label: 'Year',     get: p => p.year || '' },
+  status:  { label: 'Status',   get: p => p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : '' },
+  po:      { label: 'PO Number', get: p => p.po || '' },
+  date:    { label: 'PO Date',  get: p => fmtDate(p.date) },
+};
 
+function onStockSearchFieldChange() {
+  const field = document.getElementById('stockSearchField').value;
+  const kwEl = document.getElementById('stockSearchKeyword');
+  const valEl = document.getElementById('stockSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = STOCK_SEARCH_FIELDS[field];
+    const opts = new Set();
+    purchases.filter(p => p.status !== 'sold' && p.status !== 'in_transit').forEach(p => { const v = cfg.get(p); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('stockSearchClearBtn').style.display = field ? '' : 'none';
+  renderStockTable();
+}
+
+function clearStockSearch() {
+  document.getElementById('stockSearchField').value = '';
+  document.getElementById('stockSearchKeyword').value = '';
+  document.getElementById('stockSearchKeyword').style.display = 'none';
+  document.getElementById('stockSearchValue').innerHTML = '';
+  document.getElementById('stockSearchValue').style.display = 'none';
+  document.getElementById('stockSearchClearBtn').style.display = 'none';
+  renderStockTable();
+}
+
+function stockMatchesFilter(p) {
+  const field = document.getElementById('stockSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('stockSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    return [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('stockSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = STOCK_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(p) === value : true;
+}
+
+function renderStockTable() {
   const todayStrSort = today();
   let stock = purchases.filter(p => {
     if (p.status === 'sold' || p.status === 'in_transit') return false;
-    const match = [p.model, p.variant, p.colour].join(' ').toLowerCase().includes(search);
-    return match && (!modelF || p.model === modelF) && (!colF || p.colour === colF);
+    return stockMatchesFilter(p);
   });
+
+  const countEl = document.getElementById('stockSearchCount');
+  if (countEl) {
+    const field = document.getElementById('stockSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('stockSearchKeyword')?.value
+      : !!document.getElementById('stockSearchValue')?.value;
+    countEl.textContent = (field && hasValue) ? `Showing ${stock.length} vehicle${stock.length !== 1 ? 's' : ''}` : '';
+  }
+
   stock.sort((a, b) => {
     let av, bv;
     if (stockSortCol === 'days') {
@@ -5342,6 +5425,64 @@ function renderModelGrid(elId, plans, badgeColour) {
   }).join('');
 }
 
+const OP_SEARCH_FIELDS = {
+  model:   { label: 'Model',        get: p => p.model || '' },
+  variant: { label: 'Variant',      get: p => p.variant || '' },
+  colour:  { label: 'Colour',       get: p => p.colour || '' },
+  po:      { label: 'PO Number',    get: p => p.po || '' },
+  date:    { label: 'PO Date',      get: p => fmtDate(p.date) },
+  lcstage: { label: 'Order Status', get: p => LC_STAGE_LABEL[p.lcstage] || 'LC Pending' },
+};
+
+function onOpSearchFieldChange() {
+  const field = document.getElementById('opSearchField').value;
+  const kwEl = document.getElementById('opSearchKeyword');
+  const valEl = document.getElementById('opSearchValue');
+  kwEl.value = '';
+  kwEl.style.display = field === 'keyword' ? '' : 'none';
+  if (field && field !== 'keyword') {
+    const cfg = OP_SEARCH_FIELDS[field];
+    const unbookedPlans = purchasePlans.filter(p => !bookings.find(b => b.planId === p.id));
+    const inTransit     = purchases.filter(p => p.status === 'in_transit');
+    const rows = [...unbookedPlans, ...inTransit.map(p => ({...p, lcstage: p.lcstage || 'opened'}))];
+    const opts = new Set();
+    rows.forEach(p => { const v = cfg.get(p); if (v) opts.add(v); });
+    const sorted = Array.from(opts).sort();
+    valEl.innerHTML = `<option value="">Select ${cfg.label}...</option>` +
+      sorted.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    valEl.style.display = '';
+  } else {
+    valEl.innerHTML = '';
+    valEl.style.display = 'none';
+  }
+  document.getElementById('opSearchClearBtn').style.display = field ? '' : 'none';
+  renderOrderPlanStock();
+}
+
+function clearOpSearch() {
+  document.getElementById('opSearchField').value = '';
+  document.getElementById('opSearchKeyword').value = '';
+  document.getElementById('opSearchKeyword').style.display = 'none';
+  document.getElementById('opSearchValue').innerHTML = '';
+  document.getElementById('opSearchValue').style.display = 'none';
+  document.getElementById('opSearchClearBtn').style.display = 'none';
+  renderOrderPlanStock();
+}
+
+function opMatchesFilter(p) {
+  const field = document.getElementById('opSearchField')?.value || '';
+  if (!field) return true;
+  if (field === 'keyword') {
+    const kw = (document.getElementById('opSearchKeyword')?.value || '').toLowerCase();
+    if (!kw) return true;
+    return [p.model, p.variant, p.colour, p.po].join(' ').toLowerCase().includes(kw);
+  }
+  const value = document.getElementById('opSearchValue')?.value || '';
+  if (!value) return true;
+  const cfg = OP_SEARCH_FIELDS[field];
+  return cfg ? cfg.get(p) === value : true;
+}
+
 function renderOrderPlanStock() {
   // A PO leaves purchase_plans the moment its LC is Opened (see updateLcStage),
   // so plan items here are always pre-LC-open. In-transit purchases (LC Opened,
@@ -5353,7 +5494,16 @@ function renderOrderPlanStock() {
 
   // Once LC Closes the vehicle becomes ordinary available stock (shown in the
   // Stock tables above) and drops off this "still on order" list.
-  const allRows = [...unbookedPlans, ...inTransit.map(p => ({...p, lcstage: p.lcstage || 'opened'}))];
+  const allRows = [...unbookedPlans, ...inTransit.map(p => ({...p, lcstage: p.lcstage || 'opened'}))].filter(opMatchesFilter);
+
+  const countEl = document.getElementById('opSearchCount');
+  if (countEl) {
+    const field = document.getElementById('opSearchField')?.value || '';
+    const hasValue = field === 'keyword'
+      ? !!document.getElementById('opSearchKeyword')?.value
+      : !!document.getElementById('opSearchValue')?.value;
+    countEl.textContent = (field && hasValue) ? `Showing ${allRows.length} vehicle${allRows.length !== 1 ? 's' : ''}` : '';
+  }
 
   const tbody = document.getElementById('orderPlanStockBody');
   const empty = document.getElementById('orderPlanStockEmpty');
@@ -5894,7 +6044,9 @@ const READONLY_SAFE_HANDLERS = new Set([
   'setPpInnerSort', 'setPurchInnerSort', 'setOpSort', 'setRptSort', 'setStockSort',
   'onAvailVehSearchFieldChange', 'onBookingsSearchFieldChange', 'onPpSearchFieldChange',
   'onPurchSearchFieldChange', 'onSalesSearchFieldChange', 'onLogSearchFieldChange',
+  'onStockSearchFieldChange', 'onOpSearchFieldChange',
   'clearAvailVehSearch', 'clearBookingsSearch', 'clearPpSearch', 'clearPurchSearch', 'clearSalesSearch', 'clearLogSearch',
+  'clearStockSearch', 'clearOpSearch',
   'onDashModeChange', 'onFinModeChange', 'onRptCategoryChange', 'onRptModeChange',
   'exportExcel', 'printReport', 'exportPurchasesExcel', 'exportSalesExcel',
   'loadLoginLogs',
