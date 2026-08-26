@@ -991,7 +991,7 @@
         <div id="rptFinPayment2"></div>
       </div>
       <div class="panel">
-        <h3>&#9888; Pending Receivables</h3>
+        <h3>&#9888; Pending Dues</h3>
         <div class="table-wrap">
           <table class="fin-table">
             <thead>
@@ -5369,23 +5369,22 @@ function renderReportsHub() {
 
 function renderReportsFinancial(periodSales) {
   const totalSalesValue = periodSales.reduce((s,x) => s + (x.netPrice||0), 0);
-  const totalProfit     = periodSales.reduce((s,x) => s + (x.profit||0), 0);
-  const totalCollected  = periodSales.reduce((s,x) => s + (x.amountPaid||0), 0);
 
-  // Receivables and stock value are current, point-in-time balances — money
-  // owed and stock on hand today — not scoped to the selected period.
+  // Dues, booking advances, and stock value are current, point-in-time
+  // balances — money owed / held / stock on hand today — not scoped to
+  // the selected period.
   const allPendingSales = sales.filter(s => (s.pendingAmount||0) > 0);
-  const totalReceivables = allPendingSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
+  const totalDues = allPendingSales.reduce((s,x) => s + (x.pendingAmount||0), 0);
+  const totalBookingAdvances = bookings.reduce((s,b) => s + (b.deposit||0), 0);
   const stock = purchases.filter(p => p.status === 'available');
   const stockSaleValueTotal = stock.reduce((s,p) => s + stockSaleValue(p), 0);
 
   const fc = document.getElementById('rptFinCards2');
   if (fc) fc.innerHTML = `
     <div class="card green"><div class="card-label">Total Sales Value</div><div class="card-value" style="font-size:1.2rem">${fmt(totalSalesValue)}</div><div class="card-sub">${periodSales.length} vehicle${periodSales.length!==1?'s':''} sold, selected period</div></div>
-    <div class="card"><div class="card-label">Total Profit</div><div class="card-value" style="font-size:1.2rem;color:${totalProfit>=0?'#27ae60':'#e74c3c'}">${fmt(totalProfit)}</div><div class="card-sub">After cost of goods, selected period</div></div>
-    <div class="card" style="border-left:4px solid #e74c3c"><div class="card-label">Total Receivables</div><div class="card-value" style="font-size:1.2rem;color:${totalReceivables>0?'#e74c3c':'#27ae60'}">${fmt(totalReceivables)}</div><div class="card-sub">${allPendingSales.length} sale${allPendingSales.length!==1?'s':''} outstanding — all time</div></div>
     <div class="card blue"><div class="card-label">Stock Value (at sale price)</div><div class="card-value" style="font-size:1.2rem">${fmt(stockSaleValueTotal)}</div><div class="card-sub">${stock.length} unit${stock.length!==1?'s':''} in stock, current</div></div>
-    <div class="card" style="border-left:4px solid #27ae60"><div class="card-label">Amount Collected</div><div class="card-value" style="font-size:1.2rem;color:#27ae60">${fmt(totalCollected)}</div><div class="card-sub">Cash received from sales, selected period</div></div>
+    <div class="card" style="border-left:4px solid #e74c3c"><div class="card-label">Total Dues to be Collected</div><div class="card-value" style="font-size:1.2rem;color:${totalDues>0?'#e74c3c':'#27ae60'}">${fmt(totalDues)}</div><div class="card-sub">${allPendingSales.length} sale${allPendingSales.length!==1?'s':''} not fully paid — all time</div></div>
+    <div class="card orange"><div class="card-label">Advances Collected for Bookings</div><div class="card-value" style="font-size:1.2rem">${fmt(totalBookingAdvances)}</div><div class="card-sub">${bookings.length} active booking${bookings.length!==1?'s':''}, current</div></div>
   `;
 
   const pb = document.getElementById('rptFinPayment2');
