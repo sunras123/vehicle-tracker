@@ -6042,7 +6042,23 @@ async function writeLoginLog(username, action, remark = '') {
   await sb.from('login_logs').insert({ id: genId(), username, action, remark });
 }
 
+// Login/logout events accumulate forever with nothing else trimming them,
+// so each super-admin session prunes anything older than 6 months the
+// first time it loads the log — at most once per page load, since this
+// runs every time loadLoginLogs() does (tab open, realtime user-table
+// updates, the Refresh button).
+let loginLogsCleanupDone = false;
+async function cleanupOldLoginLogs() {
+  if (loginLogsCleanupDone || !isSuperAdmin()) return;
+  loginLogsCleanupDone = true;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 6);
+  const { error } = await sb.from('login_logs').delete().lt('logged_at', cutoff.toISOString());
+  if (error) console.error('login_logs cleanup error', error);
+}
+
 async function loadLoginLogs() {
+  await cleanupOldLoginLogs();
   const { data, error } = await sb.from('login_logs').select('*').order('logged_at', { ascending: false }).limit(100);
   if (error) { console.error('login_logs fetch error', error); return; }
   const tbody = document.getElementById('loginLogsBody');
