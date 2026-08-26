@@ -2208,6 +2208,7 @@ function setupRealtime() {
       const { data } = await sb.from('users').select('*');
       credUsers = (data||[]).map(u => ({ id: u.id, username: u.username, allowedTabs: u.allowed_tabs || [], editTabs: u.edit_tabs || [], passwordHash: u.password_hash, created: u.created }));
       renderCredUsers();
+      refreshCurrentUserAccessLive();
     })
     .subscribe(onStatus('users'));
 }
@@ -5773,7 +5774,11 @@ function attemptLogin() {
   }
 }
 
-function applyTabAccess(user) {
+// Shared by the login-time setup and the live realtime refresh below.
+// Only touches tab-button visibility / readonly state — never navigates —
+// so it's safe to call at any time without disrupting whatever tab the
+// user currently has open.
+function applyPermissionVisibility(user) {
   currentUser = user;
   const isAdmin = SUPER_ADMINS.includes(user.username.toLowerCase());
   const allowed = isAdmin ? TAB_NAMES : (user.allowedTabs || []);
@@ -5786,8 +5791,33 @@ function applyTabAccess(user) {
   if (plPanel) plPanel.style.display = (isAdmin || canEditTab('pricelist')) ? '' : 'none';
   const convertTh = document.getElementById('bookings_convert_th');
   if (convertTh) convertTh.style.display = '';
+  return { isAdmin, allowed };
+}
+
+function applyTabAccess(user) {
+  const { isAdmin, allowed } = applyPermissionVisibility(user);
   const firstTab = isAdmin ? 'summary' : (TAB_NAMES.find(t => allowed.includes(t)) || 'summary');
   showTab(firstTab);
+}
+
+// Runs whenever the `users` table changes (see the rt-users realtime
+// subscription in setupRealtime) so a permission change a super-admin
+// makes takes effect immediately for anyone already logged in — no
+// logout/login required. Only navigates away from the current tab if it
+// just became disallowed; otherwise the user isn't interrupted.
+function refreshCurrentUserAccessLive() {
+  if (!currentUser) return;
+  const fresh = credUsers.find(u => u.id === currentUser.id);
+  if (!fresh) return;
+  const { isAdmin, allowed } = applyPermissionVisibility(fresh);
+  const activeContent = document.querySelector('.tab-content.active');
+  const activeName = activeContent ? activeContent.id.replace(/^tab-/, '') : null;
+  const stillAllowed = activeName && (isAdmin || allowed.includes(activeName));
+  if (!stillAllowed) {
+    const firstTab = isAdmin ? 'summary' : (TAB_NAMES.find(t => allowed.includes(t)) || 'summary');
+    showTab(firstTab);
+    showToast('Your tab access was just updated by a super-admin.', 'success');
+  }
 }
 
 function logout() {
