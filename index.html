@@ -5717,7 +5717,7 @@ function renderPriceList() {
     const priceCell = editing
       ? `<input type="text" inputmode="decimal" id="pl_inline_price_${pl.id}" value="${fmtNum(pl.listPrice)}" oninput="fmtInput(this)" style="width:110px;font-weight:600;">`
       : `<span style="font-weight:600;color:#1a1a2e">${fmtNum(pl.listPrice)}</span>`;
-    const actionsCell = !isSuperAdmin() ? '' : editing
+    const actionsCell = !canEditTab('pricelist') ? '' : editing
       ? `<button class="btn btn-sm" style="background:#27ae60;color:white;margin-right:4px" onclick="saveInlinePriceListEdit('${pl.id}')">&#10003; Save</button><button class="btn btn-sm" style="background:#f0f2f5;color:#555;" onclick="cancelInlinePriceListEdit()">Cancel</button>`
       : `<button class="btn btn-sm" style="background:#e8f0fe;color:#1a73e8;margin-right:4px" onclick="editPriceListEntry('${pl.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deletePriceListEntry('${pl.id}')">Delete</button>`;
     return `<tr>
