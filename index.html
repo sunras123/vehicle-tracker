@@ -2028,6 +2028,7 @@ function setupRealtime() {
     .on('postgres_changes', {event:'*', schema:'public', table:'purchases'}, async () => {
       const { data } = await sb.from('purchases').select('*');
       purchases = (data||[]).map(purchaseFromDB);
+      updateVehicleSelects();
       renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock(); renderSummary(); renderReportsHub(); renderPriceList();
     })
     .subscribe(onStatus('purchases'));
