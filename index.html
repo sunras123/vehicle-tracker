@@ -1968,7 +1968,7 @@ async function loadAll() {
   purchases     = (pur||[]).map(purchaseFromDB); sales = (sal||[]).map(saleFromDB);
   bookings      = (bok||[]).map(bookingFromDB);  catModels = (mod||[]).map(normCatModel); catColours = col||[];
   purchasePlans = ppl||[]; priceLists = (prl||[]).map(priceListFromDB);
-  sweepOpenedPlansToPurchases();
+  await sweepOpenedPlansToPurchases();
   showLoader(false);
   refreshAll();
 }
@@ -2583,7 +2583,14 @@ function showSalesRecordsMode(mode) {
   if (mode === 'sales')    renderSalesTable();
 }
 
+// Guards addPurchasePlan against double-submission: the form isn't cleared
+// until after its network round-trip, so a second click while the first is
+// still in flight would re-read the same still-filled rows and create a
+// second, duplicate PO with new ids for the same vehicles.
+let addPurchasePlanInFlight = false;
+
 async function addPurchasePlan() {
+  if (addPurchasePlanInFlight) return;
   const po     = document.getElementById('pp_po').value.trim();
   const date   = document.getElementById('pp_date').value || today();
   const notes  = document.getElementById('pp_notes').value.trim();
@@ -2604,19 +2611,24 @@ async function addPurchasePlan() {
   });
   if (entries.length === 0) { showToast('Add at least one vehicle with Model and Colour.', 'error'); return; }
 
-  // Wait for every row to actually persist before treating this as saved —
-  // previously the form cleared and showed "success" immediately, so a
-  // refresh before the (unawaited) network write landed silently lost the PO.
-  const results = await Promise.all(entries.map(entry => saveOne('purchase_plans', entry)));
-  if (results.some(r => !r)) {
-    showToast('⚠️ Purchase plan was not fully saved — please try again before leaving this page.', 'error');
-    return;
+  addPurchasePlanInFlight = true;
+  try {
+    // Wait for every row to actually persist before treating this as saved —
+    // previously the form cleared and showed "success" immediately, so a
+    // refresh before the (unawaited) network write landed silently lost the PO.
+    const results = await Promise.all(entries.map(entry => saveOne('purchase_plans', entry)));
+    if (results.some(r => !r)) {
+      showToast('⚠️ Purchase plan was not fully saved — please try again before leaving this page.', 'error');
+      return;
+    }
+    entries.forEach(entry => purchasePlans.push(entry));
+    showToast(`Purchase plan saved: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''})`, 'success');
+    trackActivity(`added Purchase Plan: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''}: ${entries.map(e=>e.model).join(', ')})`);
+    clearPurchasePlanForm();
+    showPPMode('view');
+  } finally {
+    addPurchasePlanInFlight = false;
   }
-  entries.forEach(entry => purchasePlans.push(entry));
-  showToast(`Purchase plan saved: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''})`, 'success');
-  trackActivity(`added Purchase Plan: PO ${po} (${entries.length} vehicle${entries.length>1?'s':''}: ${entries.map(e=>e.model).join(', ')})`);
-  clearPurchasePlanForm();
-  showPPMode('view');
 }
 
 function clearPurchasePlanForm() {
@@ -2689,7 +2701,7 @@ async function savePoPi() {
 // ============================================================
 // EDIT PO DETAILS — Purchase Plan Under Process only. Once a PO's LC is
 // marked Opened it auto-moves to Purchase Records (see
-// autoCreatePurchaseFromPlan), which has its own, richer Edit PO Details
+// movePoToPurchasesAuto), which has its own, richer Edit PO Details
 // modal (LC number/date/ETD/ETA) via openEditPoDetailsModal — this one
 // only covers the PO-level fields that exist pre-LC-Open.
 // ============================================================
@@ -2824,6 +2836,23 @@ async function updateLcStage(po, newStage) {
     return;
   }
 
+  // Marking a plan PO's LC as Opened relocates every item straight from
+  // purchase_plans into purchases (movePoToPurchasesAuto), which deletes the
+  // plan row. Writing the new lcstage to that same plan row first (poSave,
+  // an upsert) and deleting it right after is a race: if the delete's
+  // response lands before the update's, the update's upsert finds no row to
+  // match and INSERTS a fresh one instead — resurrecting a "ghost" plan row
+  // that a later load's sweepOpenedPlansToPurchases() sweep turns into a
+  // second, duplicate purchases record. Skip the plan-row write entirely
+  // here; the in-memory lcstage on each item is all movePoToPurchasesAuto
+  // needs, since the row is about to move, not stay opened in place.
+  if (isPlan && newStage === 'opened') {
+    items.forEach(p => { p.lcstage = newStage; });
+    await movePoToPurchasesAuto(po);
+    openLcDatesModal(po);
+    return;
+  }
+
   items.forEach(p => {
     p.lcstage = newStage;
     poSave(p, isPlan);
@@ -2831,10 +2860,7 @@ async function updateLcStage(po, newStage) {
   renderPurchasePlanTable();
   renderPurchasesTable();
   renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
-  if (newStage === 'opened') {
-    if (isPlan) movePoToPurchasesAuto(po);
-    openLcDatesModal(po);
-  }
+  if (newStage === 'opened') openLcDatesModal(po);
   if (newStage === 'closed') openLcClosureModal(po);
 }
 
@@ -2918,8 +2944,8 @@ async function saveLcClosure() {
   trackActivity('updated LC closure details');
 }
 
-function autoCreatePurchaseFromPlan(plan) {
-  const entry = {
+function buildPurchaseFromPlan(plan) {
+  return {
     id: genId(), date: plan.date || today(), make: 'BYD',
     model: plan.model, variant: plan.variant || '', year: '', colour: plan.colour,
     cost: 0, exrate: plan.lcexrate || 0, shipping: 0, transport: 0, customs: 0, excise: 0,
@@ -2932,22 +2958,43 @@ function autoCreatePurchaseFromPlan(plan) {
     etd: plan.etd || '', eta: plan.eta || '',
     notes: plan.notes || '', status: plan.lcstage === 'closed' ? 'available' : 'in_transit'
   };
-  purchases.push(entry);
-  saveOne('purchases', entry, purchaseToDB);
-  return entry;
+}
+
+// Moves a batch of purchase_plans rows into purchases. Awaits every create
+// before deleting its source plan row (rather than firing both requests
+// unawaited) so a slow/failed create can never be followed by a delete that
+// loses the vehicle, and so there's no window where a plan row has already
+// been superseded but not yet removed for another sweep/edit to re-process.
+async function movePlanEntriesToPurchases(items) {
+  if (!items.length) return true;
+  const entries = items.map(buildPurchaseFromPlan);
+  const createResults = await Promise.all(entries.map(entry => saveOne('purchases', entry, purchaseToDB)));
+  if (createResults.some(r => !r)) {
+    showToast('⚠️ Could not move one or more vehicles to Purchase Records — please try again.', 'error');
+    return false;
+  }
+  entries.forEach(entry => purchases.push(entry));
+  const deleteResults = await Promise.all(items.map(p =>
+    new Promise(resolve => {
+      sb.from('purchase_plans').delete().eq('id', p.id)
+        .then(({ error }) => { if (error) console.error('[delete]', error); resolve(!error); });
+    })
+  ));
+  const ids = new Set(items.map(p => p.id));
+  purchasePlans = purchasePlans.filter(p => !ids.has(p.id));
+  if (deleteResults.some(r => !r)) {
+    showToast('⚠️ Vehicles were moved but their old Purchase Plan entries could not be removed — please check for leftover rows.', 'error');
+  }
+  return true;
 }
 
 // Moves every vehicle in a PO from Purchase Plan into Purchase Records.
 // Called automatically the moment a PO's LC is marked Opened — no manual trigger.
-function movePoToPurchasesAuto(po) {
+async function movePoToPurchasesAuto(po) {
   const items = purchasePlans.filter(p => (p.po || '(No PO)') === po);
   if (items.length === 0) return;
-  items.forEach(entry => {
-    autoCreatePurchaseFromPlan(entry);
-    sbDelete('purchase_plans', entry.id);
-  });
-  const ids = new Set(items.map(p => p.id));
-  purchasePlans = purchasePlans.filter(p => !ids.has(p.id));
+  const ok = await movePlanEntriesToPurchases(items);
+  if (!ok) return;
   renderPurchasePlanTable();
   renderPurchasesTable();
   renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
@@ -2956,19 +3003,16 @@ function movePoToPurchasesAuto(po) {
 }
 
 // One-time startup sweep: migrates any purchase_plans rows already sitting at
-// LC Opened/Closed (e.g. from before this automatic-move behaviour shipped)
-// into purchases, so the invariant "no plan row has lcstage opened/closed" holds.
-function sweepOpenedPlansToPurchases() {
-  const staleIds = new Set(purchasePlans.filter(p => p.lcstage === 'opened' || p.lcstage === 'closed').map(p => p.id));
-  if (!staleIds.size) return;
-  purchasePlans.filter(p => staleIds.has(p.id)).forEach(entry => {
-    autoCreatePurchaseFromPlan(entry);
-    sbDelete('purchase_plans', entry.id);
-  });
-  purchasePlans = purchasePlans.filter(p => !staleIds.has(p.id));
+// LC Opened/Closed (e.g. from before this automatic-move behaviour shipped, or
+// a leftover from a past version of this race) into purchases, so the
+// invariant "no plan row has lcstage opened/closed" holds.
+async function sweepOpenedPlansToPurchases() {
+  const stale = purchasePlans.filter(p => p.lcstage === 'opened' || p.lcstage === 'closed');
+  if (!stale.length) return;
+  await movePlanEntriesToPurchases(stale);
 }
 
-// Reverse of autoCreatePurchaseFromPlan — used when a purchase record's LC
+// Reverse of movePlanEntriesToPurchases — used when a purchase record's LC
 // stage is manually edited back down below Opened (e.g. to Pending), so it
 // belongs back in Purchase Plan Under Process.
 async function movePurchaseBackToPlan(p) {
