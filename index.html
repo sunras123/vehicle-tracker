@@ -1316,6 +1316,9 @@
       <div class="form-group"><label>CID Number</label><input type="text" id="es_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11"></div>
       <div class="form-group"><label>Buyer Phone</label><input type="text" id="es_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
       <div class="form-group"><label>Buyer Address</label><input type="text" id="es_address" placeholder="Address"></div>
+      <div class="form-group"><label>Model</label><select id="es_model" onchange="updateEditSaleVariantSelect()"><option value="">-- Select Model --</option></select></div>
+      <div class="form-group"><label>Variant</label><select id="es_variant" onchange="updateEditSaleColourSelect()"><option value="">-- Select Model First --</option></select></div>
+      <div class="form-group"><label>Colour</label><select id="es_colour"><option value="">-- Select Colour --</option></select></div>
       <div class="form-group"><label>List Price (Nu.)</label><input type="text" inputmode="decimal" id="es_price" placeholder="0.00" oninput="fmtInput(this);calcEditSalePending()"></div>
       <div class="form-group"><label>Discount (Nu.)</label><input type="text" inputmode="decimal" id="es_discount" placeholder="0.00" oninput="fmtInput(this);calcEditSalePending()"></div>
       <div class="form-group"><label>Sale Price (Nu.)</label><input type="text" id="es_netprice" readonly placeholder="0.00" style="background:#f8f9fa;font-weight:600;color:#1a1a2e;cursor:not-allowed;"></div>
@@ -1357,6 +1360,9 @@
       <div class="form-group"><label>CID Number</label><input type="text" id="eb_cid" placeholder="11-digit CID number" inputmode="numeric" maxlength="11"></div>
       <div class="form-group"><label>Customer Phone</label><input type="text" id="eb_phone" placeholder="8-digit phone number" inputmode="numeric" maxlength="8"></div>
       <div class="form-group"><label>Customer Address</label><input type="text" id="eb_address" placeholder="Address"></div>
+      <div class="form-group"><label>Model</label><select id="eb_model" onchange="updateEditBookingVariantSelect()"><option value="">-- Select Model --</option></select></div>
+      <div class="form-group"><label>Variant</label><select id="eb_variant" onchange="updateEditBookingColourSelect()"><option value="">-- Select Model First --</option></select></div>
+      <div class="form-group"><label>Colour</label><select id="eb_colour"><option value="">-- Select Colour --</option></select></div>
       <div class="form-group"><label>Advance Paid (Nu.)</label><input type="text" inputmode="decimal" id="eb_deposit" placeholder="0.00" oninput="fmtInput(this);calcEditBookingBalance()"></div>
       <div class="form-group"><label>Payment Method</label>
         <select id="eb_payment" onchange="toggleEditBookingPaymentFields()">
@@ -6670,6 +6676,14 @@ function openEditSale(id) {
   document.getElementById('es_salesperson').value = s.salesperson || '';
   document.getElementById('es_notes').value = s.notes || '';
 
+  const veh = getPurchase(s.vehicleId);
+  const ms = document.getElementById('es_model');
+  const uniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
+  ms.innerHTML = '<option value="">-- Select Model --</option>' +
+    uniqueModels.map(m => `<option value="${m.name}"${veh && m.name===veh.model?' selected':''}>${m.name}</option>`).join('');
+  updateEditSaleVariantSelect(veh ? veh.variant || '' : '');
+  document.getElementById('es_colour').innerHTML = colourOptionsForModel(veh ? veh.model : '', veh ? veh.variant : '', veh ? veh.colour : '');
+
   const prEl = document.getElementById('es_price');
   const diEl = document.getElementById('es_discount');
   const paEl = document.getElementById('es_amountpaid');
@@ -6679,6 +6693,26 @@ function openEditSale(id) {
   calcEditSalePending();
   toggleEditSaleLoanFields();
   openModal('editSaleModal');
+}
+
+function updateEditSaleVariantSelect(currentVariant) {
+  const model = document.getElementById('es_model').value;
+  const sel   = document.getElementById('es_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; updateEditSaleColourSelect(); return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; updateEditSaleColourSelect(); return; }
+  const cur = currentVariant !== undefined ? currentVariant : sel.value;
+  sel.innerHTML = variants.map(v => `<option value="${v}" ${v===cur?'selected':''}>${v || '(Base / No Variant)'}</option>`).join('');
+  updateEditSaleColourSelect();
+}
+
+function updateEditSaleColourSelect(currentColour) {
+  const model   = document.getElementById('es_model').value;
+  const variant = document.getElementById('es_variant').value;
+  const cs = document.getElementById('es_colour');
+  if (!cs) return;
+  cs.innerHTML = colourOptionsForModel(model, variant, currentColour !== undefined ? currentColour : cs.value);
 }
 
 async function saveEditSale() {
@@ -6691,6 +6725,9 @@ async function saveEditSale() {
   if (!/^\d{11}$/.test(cid_es)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
   const phone_es = document.getElementById('es_phone').value.trim();
   if (!/^\d{8}$/.test(phone_es)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
+  const esModel  = document.getElementById('es_model').value;
+  const esColour = document.getElementById('es_colour').value;
+  if (getPurchase(s.vehicleId) && (!esModel || !esColour)) { showToast('Model and Colour are required.', 'error'); return; }
   const price      = parseFloat((document.getElementById('es_price').value||'').replace(/,/g,'')) || 0;
   const discount   = parseFloat((document.getElementById('es_discount').value||'').replace(/,/g,'')) || 0;
   const amountPaid = parseFloat((document.getElementById('es_amountpaid').value||'').replace(/,/g,'')) || 0;
@@ -6718,6 +6755,13 @@ async function saveEditSale() {
   s.salesperson   = document.getElementById('es_salesperson').value.trim();
   s.notes         = document.getElementById('es_notes').value.trim();
   s.profit        = netPrice - (veh ? veh.totalCost : 0);
+  if (veh) {
+    veh.model   = esModel;
+    veh.variant = document.getElementById('es_variant').value;
+    veh.colour  = esColour;
+    const vehOk = await saveOne('purchases', veh, purchaseToDB);
+    if (!vehOk) return;
+  }
   const ok = await saveOne('sales', s, saleToDB);
   if (!ok) return;
   closeModal('editSaleModal');
@@ -6725,6 +6769,9 @@ async function saveEditSale() {
   trackActivity('edited sale');
   renderSalesTable();
   renderReportsHub();
+  renderPurchasesTable();
+  renderStockCards(); renderStockTable(); renderOrderPlanStock();
+  updateVehicleSelects();
 }
 
 // ============================================================
@@ -6742,6 +6789,14 @@ function openEditBooking(id) {
   document.getElementById('eb_address').value = b.address || '';
   setDateField('eb_delivery', b.delivery || '');
   document.getElementById('eb_notes').value = b.notes || '';
+
+  const bveh = getPurchase(b.vehicleId);
+  const bms = document.getElementById('eb_model');
+  const bUniqueModels = [...new Map(catModels.map(m => [m.name, m])).values()];
+  bms.innerHTML = '<option value="">-- Select Model --</option>' +
+    bUniqueModels.map(m => `<option value="${m.name}"${bveh && m.name===bveh.model?' selected':''}>${m.name}</option>`).join('');
+  updateEditBookingVariantSelect(bveh ? bveh.variant || '' : '');
+  document.getElementById('eb_colour').innerHTML = colourOptionsForModel(bveh ? bveh.model : '', bveh ? bveh.variant : '', bveh ? bveh.colour : '');
   document.getElementById('eb_payment').value = b.payment || 'Cash';
   document.getElementById('eb_journal_number').value = b.journalNumber || '';
   document.getElementById('eb_cheque_number').value = b.chequeNumber || '';
@@ -6762,6 +6817,26 @@ function openEditBooking(id) {
   openModal('editBookingModal');
 }
 
+function updateEditBookingVariantSelect(currentVariant) {
+  const model = document.getElementById('eb_model').value;
+  const sel   = document.getElementById('eb_variant');
+  if (!sel) return;
+  if (!model) { sel.innerHTML = '<option value="">-- Select Model First --</option>'; updateEditBookingColourSelect(); return; }
+  const variants = catModels.filter(m => m.name === model).map(m => m.variant || '');
+  if (variants.length === 0) { sel.innerHTML = '<option value="">-- No variants found --</option>'; updateEditBookingColourSelect(); return; }
+  const cur = currentVariant !== undefined ? currentVariant : sel.value;
+  sel.innerHTML = variants.map(v => `<option value="${v}" ${v===cur?'selected':''}>${v || '(Base / No Variant)'}</option>`).join('');
+  updateEditBookingColourSelect();
+}
+
+function updateEditBookingColourSelect(currentColour) {
+  const model   = document.getElementById('eb_model').value;
+  const variant = document.getElementById('eb_variant').value;
+  const cs = document.getElementById('eb_colour');
+  if (!cs) return;
+  cs.innerHTML = colourOptionsForModel(model, variant, currentColour !== undefined ? currentColour : cs.value);
+}
+
 async function saveEditBooking() {
   const id = document.getElementById('eb_id').value;
   const b  = bookings.find(x => x.id === id);
@@ -6772,6 +6847,9 @@ async function saveEditBooking() {
   if (!/^\d{11}$/.test(cid_eb)) { showToast('CID must be exactly 11 digits (numbers only).', 'error'); return; }
   const phone_eb = document.getElementById('eb_phone').value.trim();
   if (!/^\d{8}$/.test(phone_eb)) { showToast('Phone must be exactly 8 digits (numbers only).', 'error'); return; }
+  const ebModel  = document.getElementById('eb_model').value;
+  const ebColour = document.getElementById('eb_colour').value;
+  if (getPurchase(b.vehicleId) && (!ebModel || !ebColour)) { showToast('Model and Colour are required.', 'error'); return; }
   const pn = id => parseFloat((document.getElementById(id).value||'').replace(/,/g,'')) || 0;
   const deposit     = pn('eb_deposit');
   const agreedPrice = pn('eb_agreedprice');
@@ -6796,12 +6874,23 @@ async function saveEditBooking() {
   b.chequeDate    = ebPayment === 'Cheque' ? document.getElementById('eb_cheque_date').value : '';
   b.caNumber      = ebPayment === 'Loan'   ? document.getElementById('eb_ca_number').value.trim() : '';
   b.caDate        = ebPayment === 'Loan'   ? document.getElementById('eb_ca_date').value : '';
+  const bveh = getPurchase(b.vehicleId);
+  if (bveh) {
+    bveh.model   = ebModel;
+    bveh.variant = document.getElementById('eb_variant').value;
+    bveh.colour  = ebColour;
+    const vehOk = await saveOne('purchases', bveh, purchaseToDB);
+    if (!vehOk) return;
+  }
   const ok = await saveOne('bookings', b, bookingToDB);
   if (!ok) return;
   closeModal('editBookingModal');
   showToast('Booking record updated.');
   trackActivity('edited booking');
   renderBookingsTable();
+  renderPurchasesTable();
+  renderStockCards(); renderStockTable(); renderOrderPlanStock();
+  updateVehicleSelects();
 }
 
 function openBookPlanModal(planId) {
