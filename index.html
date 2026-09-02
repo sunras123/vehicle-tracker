@@ -467,13 +467,19 @@
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addCatColour()">&#10133; Add Colour</button>
         </div>
-        <div class="form-group" style="margin-top:16px;max-width:220px">
-          <label>Sort Colours By</label>
-          <select id="cat_colour_sort" onchange="setColourSort(this.value)">
-            <option value="name-asc">Name (A &rarr; Z)</option>
-            <option value="name-desc">Name (Z &rarr; A)</option>
-            <option value="added">Recently Added</option>
-          </select>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group">
+            <label>Search Colours</label>
+            <input type="text" id="cat_colour_search" placeholder="e.g. grey" oninput="setColourSearch(this.value)">
+          </div>
+          <div class="form-group">
+            <label>Sort Colours By</label>
+            <select id="cat_colour_sort" onchange="setColourSort(this.value)">
+              <option value="name-asc">Name (A &rarr; Z)</option>
+              <option value="name-desc">Name (Z &rarr; A)</option>
+              <option value="added">Recently Added</option>
+            </select>
+          </div>
         </div>
         <div class="cat-list" id="catColourList" style="margin-top:12px"></div>
       </div>
@@ -2127,6 +2133,7 @@ let credUsers     = [];
 let catColours    = [];
 let purchasePlans = [];
 let colourSortMode = localStorage.getItem('vt_colour_sort') || 'name-asc';
+let colourSearchQuery = '';
 let priceLists    = [];
 let currentUser     = null;
 let pendingPlanClose = null;
@@ -2384,6 +2391,11 @@ function setColourSort(mode) {
   renderCatalogue();
 }
 
+function setColourSearch(query) {
+  colourSearchQuery = query;
+  renderCatalogue();
+}
+
 function renderCatalogue() {
   const ml = document.getElementById('catModelList');
   if (catModels.length === 0) {
@@ -2440,10 +2452,14 @@ function renderCatalogue() {
   const sortSel = document.getElementById('cat_colour_sort');
   if (sortSel) sortSel.value = colourSortMode;
   if (cl) {
+    const q = colourSearchQuery.trim().toLowerCase();
+    const filteredColours = q ? catColours.filter(c => c.name.toLowerCase().includes(q)) : catColours;
     if (catColours.length === 0) {
       cl.innerHTML = '<div class="empty-state" style="padding:16px 0 0"><div>No colours added yet.</div></div>';
+    } else if (filteredColours.length === 0) {
+      cl.innerHTML = `<div class="empty-state" style="padding:16px 0 0"><div>No colours match "${colourSearchQuery}".</div></div>`;
     } else {
-      const sortedColours = [...catColours];
+      const sortedColours = [...filteredColours];
       if (colourSortMode === 'name-asc') sortedColours.sort((a,b) => a.name.localeCompare(b.name));
       else if (colourSortMode === 'name-desc') sortedColours.sort((a,b) => b.name.localeCompare(a.name));
       // 'added' keeps catColours' natural (insertion) order
