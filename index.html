@@ -824,9 +824,13 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
+        <thead id="pricelistThead">
           <tr>
-            <th>#</th><th>Model</th><th>Variant</th><th>List Price (USD)</th><th>Actions</th>
+            <th>#</th>
+            <th class="sortable-th" onclick="setPriceListSort('model')" data-col="model">Model</th>
+            <th class="sortable-th" onclick="setPriceListSort('variant')" data-col="variant">Variant</th>
+            <th class="sortable-th" onclick="setPriceListSort('listPrice')" data-col="listPrice">List Price (USD)</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="pricelistTableBody"></tbody>
@@ -4184,6 +4188,19 @@ function setBookingSort(col) {
   renderBookingsTable();
 }
 
+let priceListSortCol = 'model';
+let priceListSortDir = 'asc';
+
+function setPriceListSort(col) {
+  if (priceListSortCol === col) {
+    priceListSortDir = priceListSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    priceListSortCol = col;
+    priceListSortDir = col === 'listPrice' ? 'desc' : 'asc';
+  }
+  renderPriceList();
+}
+
 function setSaleSort(col) {
   if (salesSortCol === col) {
     salesSortDir = salesSortDir === 'asc' ? 'desc' : 'asc';
@@ -5837,7 +5854,20 @@ function renderPriceList() {
 
   const data = priceLists.filter(pl =>
     [pl.model, pl.variant].join(' ').toLowerCase().includes(search)
-  ).sort((a, b) => a.model.localeCompare(b.model) || a.variant.localeCompare(b.variant));
+  ).sort((a, b) => {
+    if (priceListSortCol === 'listPrice') {
+      const av = parseFloat(a.listPrice) || 0, bv = parseFloat(b.listPrice) || 0;
+      return priceListSortDir === 'asc' ? av - bv : bv - av;
+    }
+    const av = String(a[priceListSortCol] || '').toLowerCase();
+    const bv = String(b[priceListSortCol] || '').toLowerCase();
+    return priceListSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  document.querySelectorAll('#pricelistThead .sortable-th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === priceListSortCol) th.classList.add('sort-' + priceListSortDir);
+  });
 
   const tbody = document.getElementById('pricelistTableBody');
   const empty = document.getElementById('pricelistEmpty');
