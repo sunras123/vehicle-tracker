@@ -239,6 +239,7 @@
   .cat-item-info { display: flex; align-items: center; gap: 10px; }
   .cat-item-name { font-weight: 600; font-size: 0.9rem; }
   .cat-item-sub { font-size: 0.75rem; color: #888; }
+  .cat-item-sl { font-weight: 600; font-size: 0.75rem; color: #999; min-width: 20px; text-align: right; }
   .colour-preview { width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid rgba(0,0,0,0.15); flex-shrink: 0; }
 
   /* Purchase Plan mode switch (Add / View boxes) */
@@ -444,7 +445,21 @@
       </div>
       <div class="panel">
         <h3>&#128218; Model List</h3>
-        <div class="cat-list" id="catModelList">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Search Models</label>
+            <input type="text" id="cat_model_search" placeholder="e.g. Atto" oninput="setModelSearch(this.value)">
+          </div>
+          <div class="form-group">
+            <label>Sort Models By</label>
+            <select id="cat_model_sort" onchange="setModelSort(this.value)">
+              <option value="name-asc">Name (A &rarr; Z)</option>
+              <option value="name-desc">Name (Z &rarr; A)</option>
+              <option value="added">Recently Added</option>
+            </select>
+          </div>
+        </div>
+        <div class="cat-list" id="catModelList" style="margin-top:12px">
           <div class="empty-state" style="padding:20px"><div class="empty-icon">&#128663;</div><div>No models added yet.</div></div>
         </div>
       </div>
@@ -2134,6 +2149,8 @@ let catColours    = [];
 let purchasePlans = [];
 let colourSortMode = localStorage.getItem('vt_colour_sort') || 'name-asc';
 let colourSearchQuery = '';
+let modelSortMode = localStorage.getItem('vt_model_sort') || 'name-asc';
+let modelSearchQuery = '';
 let priceLists    = [];
 let currentUser     = null;
 let pendingPlanClose = null;
@@ -2396,13 +2413,35 @@ function setColourSearch(query) {
   renderCatalogue();
 }
 
+function setModelSort(mode) {
+  modelSortMode = mode;
+  localStorage.setItem('vt_model_sort', mode);
+  renderCatalogue();
+}
+
+function setModelSearch(query) {
+  modelSearchQuery = query;
+  renderCatalogue();
+}
+
 function renderCatalogue() {
   const ml = document.getElementById('catModelList');
+  const modelSortSel = document.getElementById('cat_model_sort');
+  if (modelSortSel) modelSortSel.value = modelSortMode;
+  const mq = modelSearchQuery.trim().toLowerCase();
+  const filteredModels = mq
+    ? catModels.filter(m => (m.name||'').toLowerCase().includes(mq) || (m.variant||'').toLowerCase().includes(mq))
+    : catModels;
   if (catModels.length === 0) {
     ml.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-icon">&#128663;</div><div>No models added yet.</div></div>';
-    return;
-  }
-  ml.innerHTML = catModels.map(m => {
+  } else if (filteredModels.length === 0) {
+    ml.innerHTML = `<div class="empty-state" style="padding:20px"><div class="empty-icon">&#128663;</div><div>No models match "${modelSearchQuery}".</div></div>`;
+  } else {
+  const sortedModels = [...filteredModels];
+  if (modelSortMode === 'name-asc') sortedModels.sort((a,b) => a.name.localeCompare(b.name) || (a.variant||'').localeCompare(b.variant||''));
+  else if (modelSortMode === 'name-desc') sortedModels.sort((a,b) => b.name.localeCompare(a.name) || (b.variant||'').localeCompare(a.variant||''));
+  // 'added' keeps catModels' natural (insertion) order
+  ml.innerHTML = sortedModels.map((m, mIdx) => {
     const mName = (m.name||'').trim().toLowerCase();
     const mVar  = (m.variant||'').trim().toLowerCase();
     const purColours = [...new Set(
@@ -2433,6 +2472,7 @@ function renderCatalogue() {
       <div class="cat-item" style="flex-direction:column;align-items:flex-start;gap:6px">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
           <div class="cat-item-info">
+            <span class="cat-item-sl">${mIdx+1}</span>
             <span style="font-size:1.2rem">&#128663;</span>
             <div>
               <div class="cat-item-name">${m.name}</div>
@@ -2446,6 +2486,7 @@ function renderCatalogue() {
       </div>
     `;
   }).join('');
+  }
 
   // Colour list with delete buttons
   const cl = document.getElementById('catColourList');
