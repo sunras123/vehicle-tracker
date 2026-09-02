@@ -166,6 +166,7 @@
 
   /* Financial table special */
   .fin-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .fin-table th:not(:first-child) { text-align: right; }
   .fin-total { font-weight: 700; background: #f8f9fa; }
 
   /* Edit Modals */
@@ -701,7 +702,7 @@
       <table>
         <thead id="bookingsThead">
           <tr>
-            <th id="bookings_convert_th">Convert to Sale</th><th>#</th>
+            <th id="bookings_convert_th" style="text-align:center">Convert to Sale</th><th>#</th>
             <th class="sortable-th" onclick="setBookingSort('date')" data-col="date">Booking Date</th>
             <th class="sortable-th" onclick="setBookingSort('model')" data-col="model">Vehicle</th>
             <th class="sortable-th" onclick="setBookingSort('colour')" data-col="colour">Colour</th>
