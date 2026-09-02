@@ -220,8 +220,9 @@
   }
   .model-card h4 { font-size: 0.9rem; color: #1a1a2e; margin-bottom: 10px; }
   .color-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .color-chips.chips-nowrap { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .color-chip {
-    display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
     font-size: 0.75rem; background: #f8f9fa;
     padding: 3px 8px; border-radius: 12px; color: #555;
   }
@@ -466,7 +467,15 @@
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addCatColour()">&#10133; Add Colour</button>
         </div>
-        <div class="cat-list" id="catColourList" style="margin-top:16px"></div>
+        <div class="form-group" style="margin-top:16px;max-width:220px">
+          <label>Sort Colours By</label>
+          <select id="cat_colour_sort" onchange="setColourSort(this.value)">
+            <option value="name-asc">Name (A &rarr; Z)</option>
+            <option value="name-desc">Name (Z &rarr; A)</option>
+            <option value="added">Recently Added</option>
+          </select>
+        </div>
+        <div class="cat-list" id="catColourList" style="margin-top:12px"></div>
       </div>
     </div>
 
@@ -2117,6 +2126,7 @@ let catModels     = [];
 let credUsers     = [];
 let catColours    = [];
 let purchasePlans = [];
+let colourSortMode = localStorage.getItem('vt_colour_sort') || 'name-asc';
 let priceLists    = [];
 let currentUser     = null;
 let pendingPlanClose = null;
@@ -2368,6 +2378,12 @@ function deleteCatColour(id) {
   updatePurchaseDropdowns();
 }
 
+function setColourSort(mode) {
+  colourSortMode = mode;
+  localStorage.setItem('vt_colour_sort', mode);
+  renderCatalogue();
+}
+
 function renderCatalogue() {
   const ml = document.getElementById('catModelList');
   if (catModels.length === 0) {
@@ -2397,7 +2413,7 @@ function renderCatalogue() {
       return `<span class="color-chip"><span style="display:inline-block;width:10px;height:10px;min-width:10px;border-radius:50%;background:${hex};border:1px solid rgba(0,0,0,0.15)"></span>${col}<span onclick="removeModelColour('${m.id}','${col}')" style="margin-left:4px;cursor:pointer;color:#aaa;font-size:0.75rem" title="Remove">&times;</span></span>`;
     }).join('');
     const addOptions = catColours.filter(c => !allShown.has(c.name) && !excludedColours.has(c.name)).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">Add colour</option>${addOptions}</select>`;
+    const addDropdown = `<select style="font-size:0.75rem;padding:2px 4px;border-radius:10px;border:1px dashed #bbb;background:#fafafa;color:#888;cursor:pointer;flex-shrink:0" onchange="addModelColour('${m.id}',this.value);this.value=''"><option value="">Add colour</option>${addOptions}</select>`;
     const hiddenSection = hiddenPurColours.length > 0
       ? `<div style="margin:2px 0 0 34px;font-size:0.72rem;color:#bbb">Hidden: ${hiddenPurColours.map(col => `<span onclick="restoreModelColour('${m.id}','${col}')" style="cursor:pointer;text-decoration:underline dotted;margin-right:6px" title="Restore">${col}</span>`).join('')}</div>`
       : '';
@@ -2413,7 +2429,7 @@ function renderCatalogue() {
           </div>
           <button class="btn btn-danger btn-sm" onclick="deleteCatModel('${m.id}')">Remove</button>
         </div>
-        <div class="color-chips" style="margin:0 0 0 34px">${purChips}${manChips}${addDropdown}</div>
+        <div class="color-chips chips-nowrap" style="margin:0 0 0 34px">${purChips}${manChips}${addDropdown}</div>
         ${hiddenSection}
       </div>
     `;
@@ -2421,11 +2437,17 @@ function renderCatalogue() {
 
   // Colour list with delete buttons
   const cl = document.getElementById('catColourList');
+  const sortSel = document.getElementById('cat_colour_sort');
+  if (sortSel) sortSel.value = colourSortMode;
   if (cl) {
     if (catColours.length === 0) {
       cl.innerHTML = '<div class="empty-state" style="padding:16px 0 0"><div>No colours added yet.</div></div>';
     } else {
-      cl.innerHTML = catColours.map(c => `
+      const sortedColours = [...catColours];
+      if (colourSortMode === 'name-asc') sortedColours.sort((a,b) => a.name.localeCompare(b.name));
+      else if (colourSortMode === 'name-desc') sortedColours.sort((a,b) => b.name.localeCompare(a.name));
+      // 'added' keeps catColours' natural (insertion) order
+      cl.innerHTML = sortedColours.map(c => `
         <div class="cat-item">
           <div class="cat-item-info">
             <div class="colour-preview" style="background:${c.hex}"></div>
