@@ -4429,7 +4429,7 @@ function renderPurchasesTable() {
         <td><strong>${p.model}</strong></td>
         <td>${p.variant || '-'}</td>
         <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
-        <td><span class="badge badge-${p.status}">${p.status}</span></td>
+        <td><span class="badge badge-${p.status}">${p.status === 'in_transit' ? 'LC Opened' : p.status}</span></td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-warning btn-sm" onclick="openEditVehicleDetails('${p.id}')">&#9998; Edit</button>
           ${p.status === 'available' ? `<button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>` : ''}
