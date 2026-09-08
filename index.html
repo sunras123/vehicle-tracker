@@ -4877,7 +4877,7 @@ function calcEditBookingBalance() {
   const adv = parseFloat((document.getElementById('eb_deposit').value||'').replace(/,/g,'')) || 0;
   document.getElementById('eb_balance').value = fmtNum(sp - adv);
 }
-function addBooking() {
+async function addBooking() {
   const date      = document.getElementById('b_date').value;
   const vehicleId = document.getElementById('b_vehicle').value;
   const customer  = document.getElementById('b_customer').value.trim();
@@ -4895,6 +4895,7 @@ function addBooking() {
   const discount    = parseNum('b_discount');
   const salePrice   = agreedPrice - discount;
 
+  const originalStatus = veh.status;
   veh.status = 'booked';
   const payment = document.getElementById('b_payment').value;
   const newBooking = {
@@ -4912,9 +4913,18 @@ function addBooking() {
     delivery: document.getElementById('b_delivery').value,
     notes: document.getElementById('b_notes').value.trim()
   };
+
+  // Save the booking first: if it fails, the vehicle must stay available
+  // rather than getting stuck showing "booked" with no booking record behind it.
+  const bookingOk = await saveOne('bookings', newBooking, bookingToDB);
+  if (!bookingOk) { veh.status = originalStatus; return; }
+  const vehOk = await saveOne('purchases', veh, purchaseToDB);
+  if (!vehOk) {
+    veh.status = originalStatus;
+    sbDelete('bookings', newBooking.id);
+    return;
+  }
   bookings.push(newBooking);
-  saveOne('bookings', newBooking, bookingToDB);
-  saveOne('purchases', veh, purchaseToDB);
   showToast(`Booking added for ${customer}`);
   trackActivity(`added booking: ${veh.model}${veh.variant ? ' ' + veh.variant : ''}, ${veh.colour} for ${customer} (Nu. ${fmtNum(deposit)} deposit)`);
   clearBookingForm();
