@@ -4592,7 +4592,14 @@ function togglePlanBookingPaymentFields() {
   document.getElementById('bp_ca_date_group').style.display     = v === 'Loan'           ? '' : 'none';
 }
 
-function addSale() {
+let addSaleInFlight = false;
+async function addSale() {
+  if (addSaleInFlight) return;
+  addSaleInFlight = true;
+  try { await addSaleInner(); } finally { addSaleInFlight = false; }
+}
+
+async function addSaleInner() {
   const date      = document.getElementById('s_date').value;
   const vehicleId = document.getElementById('s_vehicle').value;
   const buyer     = document.getElementById('s_buyer').value.trim();
@@ -4606,6 +4613,13 @@ function addSale() {
   const veh = getPurchase(vehicleId);
   if (!veh) { showToast('Vehicle not found.', 'error'); return; }
   if (!isVehicleSellable(veh)) { showToast('Vehicle not available for sale — LC must be Closed first.', 'error'); return; }
+  // Guard against selling the same vehicle twice — e.g. from a page that was
+  // left open since before someone else (or another tab) recorded its sale.
+  // Check the live database, not just this page's copy.
+  if (await vehicleAlreadySold(vehicleId)) {
+    showToast('This vehicle has already been sold. Please refresh the page and pick another vehicle.', 'error');
+    return;
+  }
 
   const discount    = parseNum('s_discount');
   const netPrice    = price - discount;
@@ -4656,15 +4670,44 @@ function clearSaleForm() {
   toggleSaleLoanFields();
 }
 
-function deleteSale(id) {
-  if (!confirm('Delete this sale? The vehicle will be returned to Available status.')) return;
+// True if the vehicle is sold here, or has a sale row in the live database.
+async function vehicleAlreadySold(vehicleId) {
+  const veh = getPurchase(vehicleId);
+  if (veh && veh.status === 'sold') return true;
+  if (sales.some(s => s.vehicleId === vehicleId)) return true;
+  const { data, error } = await sb.from('sales').select('id').eq('vehicle_id', vehicleId).limit(1);
+  if (error) { console.warn('[sale guard] live check failed', error); return false; }
+  return data.length > 0;
+}
+
+// Like vehicleAlreadySold, but ignores the vehicle's own status and the given
+// sale — i.e. "is there another sale for this vehicle besides this one?"
+async function vehicleAlreadySoldElsewhere(vehicleId, saleId) {
+  if (sales.some(s => s.vehicleId === vehicleId && s.id !== saleId)) return true;
+  const { data, error } = await sb.from('sales').select('id').eq('vehicle_id', vehicleId).neq('id', saleId).limit(1);
+  if (error) { console.warn('[sale guard] live check failed', error); return false; }
+  return data.length > 0;
+}
+
+// Status a vehicle returns to when it leaves a booking/sale: depends on its
+// LC — Closed is sellable stock, Opened is still in transit.
+function stockStatusForLc(veh) {
+  return veh.lcstage === 'opened' ? 'in_transit' : 'available';
+}
+
+async function deleteSale(id) {
+  if (!confirm('Delete this sale? The vehicle will be returned to stock.')) return;
   const s = sales.find(x => x.id === id);
   if (s) {
     const veh = getPurchase(s.vehicleId);
-    if (veh) { veh.status = 'available'; saveOne('purchases', veh, purchaseToDB); }
+    // Only return the vehicle to stock if no OTHER sale still exists for it —
+    // deleting a duplicate sale must not un-sell a vehicle that is really sold.
+    const stillSold = veh ? await vehicleAlreadySoldElsewhere(s.vehicleId, id) : false;
+    if (veh && !stillSold) { veh.status = stockStatusForLc(veh); saveOne('purchases', veh, purchaseToDB); }
     sbDelete('sales', id);
     sales = sales.filter(x => x.id !== id);
-    showToast('Sale deleted. Vehicle returned to stock.');
+    showToast(stillSold ? 'Sale deleted. Vehicle stays Sold — it has another sale recorded.' : 'Sale deleted. Vehicle returned to stock.');
+    renderPurchasesTable(); renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
     renderSalesTable();
     updateVehicleSelects();
     trackActivity(`deleted sale: ${s.buyer || 'unknown buyer'}${veh ? ' — ' + veh.model + (veh.variant ? ' ' + veh.variant : '') + ', ' + veh.colour : ''} (Nu. ${fmtNum(s.netPrice || 0)})`);
@@ -4961,7 +5004,7 @@ function cancelBooking(id) {
   const b = bookings.find(x => x.id === id);
   if (b) {
     const veh = getPurchase(b.vehicleId);
-    if (veh && veh.status === 'booked') { veh.status = 'available'; saveOne('purchases', veh, purchaseToDB); }
+    if (veh && veh.status === 'booked') { veh.status = stockStatusForLc(veh); saveOne('purchases', veh, purchaseToDB); }
     sbDelete('bookings', id);
     bookings = bookings.filter(x => x.id !== id);
     showToast('Booking cancelled.');
