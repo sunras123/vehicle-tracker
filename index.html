@@ -1275,7 +1275,7 @@
   </div>
 </div>
 
-<!-- EDIT VEHICLE DETAILS MODAL (single vehicle within a PO — model/variant/colour/notes only) -->
+<!-- EDIT VEHICLE DETAILS MODAL (single vehicle within a PO — model/variant/colour/LC status/notes) -->
 <div class="modal-overlay" id="editVehicleDetailsModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('editVehicleDetailsModal')">&times;</button>
@@ -1285,6 +1285,13 @@
       <div class="form-group"><label>Model</label><select id="evd_model" onchange="updateEvdVariantSelect()"><option value="">-- Select Model --</option></select></div>
       <div class="form-group"><label>Variant</label><select id="evd_variant"><option value="">-- Select Model First --</option></select></div>
       <div class="form-group"><label>Colour</label><select id="evd_colour"><option value="">-- Select Colour --</option></select></div>
+      <div class="form-group"><label>LC Status (this vehicle only)</label>
+        <select id="evd_lcstage">
+          <option value="pending">LC Pending</option>
+          <option value="opened">LC Opened</option>
+          <option value="closed">LC Closed</option>
+        </select>
+      </div>
       <div class="form-group form-row-full"><label>Notes</label><input type="text" id="evd_notes" placeholder="Any notes"></div>
     </div>
     <div class="form-actions" style="margin-top:20px">
@@ -2563,6 +2570,12 @@ const PP_STATUS_LABEL = { placed: 'Order Placed', approved: 'Order Approved' };
 const PP_STATUS_COLOUR = { placed: '#e67e22', approved: '#27ae60' };
 const LC_STAGE_LABEL = { pending: 'LC Pending', opened: 'LC Opened', closed: 'LC Closed' };
 const LC_STAGE_COLOUR = { pending: '#e67e22', opened: '#2980b9', closed: '#27ae60' };
+function lcBadge(stage) {
+  const label = { pending: 'Pending', opened: 'Opened', closed: 'Closed' }[stage];
+  if (!label) return '<span style="color:#aaa">-</span>';
+  const c = LC_STAGE_COLOUR[stage];
+  return `<span style="background:${c}18;color:${c};border:1px solid ${c}55;border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:600;white-space:nowrap">${label}</span>`;
+}
 
 // A purchase-record vehicle can be booked once its LC has been Opened or
 // Closed. While LC is still Pending (or unset — e.g. a manually-added record
@@ -4430,6 +4443,7 @@ function renderPurchasesTable() {
         <td>${p.variant || '-'}</td>
         <td><span class="color-dot" style="background:${hex}"></span>${p.colour}</td>
         <td><span class="badge badge-${p.status}">${p.status === 'in_transit' ? 'LC Opened' : p.status}</span></td>
+        <td>${lcBadge(p.lcstage)}</td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-warning btn-sm" onclick="openEditVehicleDetails('${p.id}')">&#9998; Edit</button>
           ${p.status === 'available' ? `<button class="btn btn-danger btn-sm" onclick="deletePurchase('${p.id}')">Delete</button>` : ''}
@@ -4455,7 +4469,7 @@ function renderPurchasesTable() {
         <div class="inner-wrap">
           <table>
             <thead><tr>
-              <th>PO No.</th><th>PI No.</th><th>#</th>${pTh('date','Date')}${pTh('model','Model')}${pTh('variant','Variant')}${pTh('colour','Colour')}${pTh('status','Status')}<th>Action</th>
+              <th>PO No.</th><th>PI No.</th><th>#</th>${pTh('date','Date')}${pTh('model','Model')}${pTh('variant','Variant')}${pTh('colour','Colour')}${pTh('status','Status')}${pTh('lcstage','LC')}<th>Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -6698,6 +6712,8 @@ function openEditVehicleDetails(id) {
   const cs = document.getElementById('evd_colour');
   cs.innerHTML = colourOptionsForModel(p.model, p.variant, p.colour);
 
+  document.getElementById('evd_lcstage').value = p.lcstage || 'pending';
+
   openModal('editVehicleDetailsModal');
 }
 
@@ -6708,16 +6724,61 @@ async function saveEditVehicleDetails() {
   const model  = document.getElementById('evd_model').value;
   const colour = document.getElementById('evd_colour').value;
   if (!model || !colour) { showToast('Model and Colour are required.', 'error'); return; }
+
+  // Per-vehicle LC status — lets one vehicle in a PO differ from the rest
+  // (e.g. part of a PO's LC closed). Booking needs LC Opened/Closed and
+  // selling needs LC Closed, so don't let a booked/sold vehicle drop below that.
+  const oldLcstage = p.lcstage || '';
+  const newLcstage = document.getElementById('evd_lcstage').value;
+  const lcChanged  = newLcstage !== (oldLcstage || 'pending');
+  const LC_LABEL = { pending: 'LC Pending', opened: 'LC Opened', closed: 'LC Closed' };
+  if (lcChanged) {
+    if (p.status === 'sold' && newLcstage !== 'closed') {
+      showToast('This vehicle is sold — its LC must stay Closed.', 'error'); return;
+    }
+    if (p.status === 'booked' && newLcstage === 'pending') {
+      showToast('This vehicle is booked — its LC cannot go back to Pending.', 'error'); return;
+    }
+    const moveBack = newLcstage === 'pending' && (p.status === 'available' || p.status === 'in_transit');
+    const msg = `Are you sure you want to change the LC status of this ${p.model} ${p.colour} (PO ${p.po || '-'}) from ${LC_LABEL[oldLcstage] || 'Not Set'} to ${LC_LABEL[newLcstage]}?`
+      + (moveBack ? '\n\nThis vehicle will move back to Purchase Plan Under Process.' : '')
+      + '\n\nOnly this vehicle changes — the rest of the PO is not affected.';
+    if (!confirm(msg)) return;
+  }
+
   p.model   = model;
   p.variant = document.getElementById('evd_variant').value;
   p.colour  = colour;
   p.notes   = document.getElementById('evd_notes').value.trim();
 
+  if (lcChanged) {
+    p.lcstage = newLcstage;
+    if (p.status === 'available' || p.status === 'in_transit') {
+      if (newLcstage === 'opened') {
+        p.status = 'in_transit';
+      } else if (newLcstage === 'closed') {
+        p.status = 'available';
+      } else {
+        const moved = await movePurchaseBackToPlan(p);
+        if (!moved) { showToast('⚠️ Could not move back to Purchase Plan.', 'error'); return; }
+        closeModal('editVehicleDetailsModal');
+        showToast('LC set to Pending — vehicle moved back to Purchase Plan Under Process.', 'success');
+        trackActivity(`changed vehicle LC status: ${p.model} ${p.colour}, PO ${p.po || '-'} — ${LC_LABEL[oldLcstage] || 'Not Set'} → ${LC_LABEL[newLcstage]} (moved back to purchase plan)`);
+        renderPurchasePlanTable(); renderPurchasesTable();
+        renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
+        updateVehicleSelects();
+        return;
+      }
+    }
+  }
+
   const ok = await saveOne('purchases', p, purchaseToDB);
   if (!ok) return;
   closeModal('editVehicleDetailsModal');
   showToast('Vehicle details updated.');
-  trackActivity('edited vehicle details');
+  trackActivity(lcChanged
+    ? `changed vehicle LC status: ${p.model} ${p.colour}, PO ${p.po || '-'} — ${LC_LABEL[oldLcstage] || 'Not Set'} → ${LC_LABEL[newLcstage]}`
+    : 'edited vehicle details');
   renderPurchasesTable();
   renderStockCards(); renderStockTable(); renderModelStockGrid(); renderOrderPlanStock();
   updateVehicleSelects();
@@ -6740,7 +6801,18 @@ function openEditPoDetailsModal(po) {
   document.getElementById('epo_pistatus').value = first.pistatus || 'pending';
   document.getElementById('epo_pinumber').value = first.pi || '';
   setDateField('epo_pidate', first.pidate || '');
-  document.getElementById('epo_lcstage').value = first.lcstage || '';
+  // Vehicles in one PO can have different LC statuses (set per vehicle via
+  // Edit Vehicle Details). When they do, default to "Mixed" so saving the
+  // form doesn't flatten them all to the first vehicle's status.
+  const lcSel = document.getElementById('epo_lcstage');
+  lcSel.querySelector('option[value="__mixed__"]')?.remove();
+  const mixedLc = new Set(items.map(p => p.lcstage || '')).size > 1;
+  if (mixedLc) {
+    lcSel.insertAdjacentHTML('afterbegin', '<option value="__mixed__">Mixed — keep each vehicle\'s own</option>');
+    lcSel.value = '__mixed__';
+  } else {
+    lcSel.value = first.lcstage || '';
+  }
   document.getElementById('epo_lcnumber').value = first.lcnumber || '';
   setDateField('epo_lcdate', first.lcdate || '');
   setDateField('epo_lcclosuredate', first.lcclosuredate || '');
@@ -6748,8 +6820,14 @@ function openEditPoDetailsModal(po) {
   exEl.value = first.lcexrate || ''; fmtInput(exEl);
   setDateField('epo_etd', first.etd || '');
   setDateField('epo_eta', first.eta || '');
+  // Remember what the form opened with, so save only writes fields the user
+  // actually changed and leaves each vehicle's other values untouched.
+  EPO_FIELDS.forEach(f => { const el = document.getElementById(f); el.dataset.initial = el.value; });
   openModal('editPoDetailsModal');
 }
+const EPO_FIELDS = ['epo_date','epo_orderstatus','epo_pistatus','epo_pinumber','epo_pidate','epo_lcstage',
+  'epo_lcnumber','epo_lcdate','epo_lcclosuredate','epo_lcexrate','epo_etd','epo_eta'];
+const epoChanged = f => { const el = document.getElementById(f); return el.value !== el.dataset.initial; };
 
 async function saveEditPoDetails() {
   const originalPo = document.getElementById('epo_originalpo').value;
@@ -6779,15 +6857,26 @@ async function saveEditPoDetails() {
   // every vehicle in the PO: never override a booked/sold vehicle's status,
   // and dropping a still-open vehicle's LC back below Opened moves just that
   // vehicle back to Purchase Plan Under Process.
+  // Only fields the user changed are written, so per-vehicle values (e.g. a
+  // few vehicles already LC Closed) survive an unrelated edit like a PI number.
+  const lcChanged = epoChanged('epo_lcstage') && lcstage !== '__mixed__';
   const tasks = items.map(p => {
     const oldLcstage = p.lcstage || '';
-    p.po = newPo; p.date = date; p.orderstatus = orderstatus; p.pistatus = pistatus;
-    p.pi = pinumber; p.pidate = pidate;
-    p.lcstage = lcstage; p.lcnumber = lcnumber; p.lcdate = lcdate;
-    p.lcclosuredate = lcclosuredate; p.lcexrate = lcexrate;
-    p.etd = etd; p.eta = eta;
+    p.po = newPo;
+    if (epoChanged('epo_date'))          p.date = date;
+    if (epoChanged('epo_orderstatus'))   p.orderstatus = orderstatus;
+    if (epoChanged('epo_pistatus'))      p.pistatus = pistatus;
+    if (epoChanged('epo_pinumber'))      p.pi = pinumber;
+    if (epoChanged('epo_pidate'))        p.pidate = pidate;
+    if (lcChanged)                       p.lcstage = lcstage;
+    if (epoChanged('epo_lcnumber'))      p.lcnumber = lcnumber;
+    if (epoChanged('epo_lcdate'))        p.lcdate = lcdate;
+    if (epoChanged('epo_lcclosuredate')) p.lcclosuredate = lcclosuredate;
+    if (epoChanged('epo_lcexrate'))      p.lcexrate = lcexrate;
+    if (epoChanged('epo_etd'))           p.etd = etd;
+    if (epoChanged('epo_eta'))           p.eta = eta;
 
-    if (p.status === 'available' || p.status === 'in_transit') {
+    if (lcChanged && (p.status === 'available' || p.status === 'in_transit')) {
       if (lcstage === 'opened') { p.status = 'in_transit'; }
       else if (lcstage === 'closed') { p.status = 'available'; }
       else if (oldLcstage === 'opened' || oldLcstage === 'closed') {
